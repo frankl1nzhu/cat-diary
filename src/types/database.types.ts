@@ -119,50 +119,59 @@ export interface Database {
                 Row: Cat
                 Insert: Omit<Cat, 'id' | 'created_at' | 'updated_at'>
                 Update: Partial<Omit<Cat, 'id'>>
+                Relationships: []
             }
             diary_entries: {
                 Row: DiaryEntry
                 Insert: Omit<DiaryEntry, 'id' | 'created_at'>
                 Update: Partial<Omit<DiaryEntry, 'id'>>
+                Relationships: []
             }
             mood_logs: {
                 Row: MoodLog
                 Insert: Omit<MoodLog, 'id' | 'created_at'>
                 Update: Partial<Omit<MoodLog, 'id'>>
+                Relationships: []
             }
             poop_logs: {
                 Row: PoopLog
                 Insert: Omit<PoopLog, 'id' | 'created_at'>
                 Update: Partial<Omit<PoopLog, 'id'>>
+                Relationships: []
             }
             weight_records: {
                 Row: WeightRecord
                 Insert: Omit<WeightRecord, 'id'>
                 Update: Partial<Omit<WeightRecord, 'id'>>
+                Relationships: []
             }
             health_records: {
                 Row: HealthRecord
                 Insert: Omit<HealthRecord, 'id' | 'created_at'>
                 Update: Partial<Omit<HealthRecord, 'id'>>
+                Relationships: []
             }
             feed_status: {
                 Row: FeedStatus
                 Insert: Omit<FeedStatus, 'id' | 'updated_at'>
                 Update: Partial<Omit<FeedStatus, 'id'>>
+                Relationships: []
             }
             inventory: {
                 Row: InventoryItem
                 Insert: Omit<InventoryItem, 'id' | 'updated_at'>
                 Update: Partial<Omit<InventoryItem, 'id'>>
+                Relationships: []
             }
             countdowns: {
                 Row: Countdown
                 Insert: Omit<Countdown, 'id' | 'created_at'>
                 Update: Partial<Omit<Countdown, 'id'>>
+                Relationships: []
             }
         }
-        Views: Record<string, never>
-        Functions: Record<string, never>
+        Views: {}
+        Functions: {}
         Enums: {
             mood_type: MoodType
             bristol_type: BristolType
