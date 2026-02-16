@@ -1,0 +1,371 @@
+.dashboard {
+    padding-bottom: var(--space-8);
+}
+
+/* ── Cat Profile Card ── */
+.cat-profile-card {
+    margin: var(--space-4);
+    border-radius: var(--radius-xl) !important;
+}
+
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.avatar-placeholder {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-emoji {
+    font-size: 2rem;
+}
+
+.profile-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.cat-name {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.cat-breed {
+    opacity: 0.8;
+    margin-top: var(--space-1);
+}
+
+.countdown-row {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+}
+
+.countdown-item {
+    flex: 1;
+    text-align: center;
+    padding: var(--space-2) var(--space-1);
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--radius-md);
+}
+
+.countdown-number {
+    display: block;
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.countdown-label {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+}
+
+.text-danger {
+    color: var(--color-danger) !important;
+}
+
+/* ── Inventory Alert ── */
+.inventory-alert {
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 217, 61, 0.12);
+    border: 1px solid rgba(255, 217, 61, 0.3);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: var(--space-3);
+    color: var(--color-warning);
+}
+
+.mx-4 {
+    margin-left: var(--space-4);
+    margin-right: var(--space-4);
+}
+
+/* ── Bento Grid Items ── */
+.bento-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 110px;
+}
+
+.bento-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.bento-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.poop-card {
+    background: linear-gradient(135deg,
+            rgba(139, 69, 19, 0.15),
+            rgba(210, 105, 30, 0.1)) !important;
+}
+
+.poop-icon {
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.feed-time {
+    margin-top: var(--space-1);
+}
+
+/* ── Mood Picker ── */
+.mood-picker {
+    display: flex;
+    gap: var(--space-4);
+    justify-content: center;
+}
+
+.mood-btn {
+    font-size: 2rem;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-spring);
+    background: rgba(255, 255, 255, 0.05);
+    position: relative;
+}
+
+.mood-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.2);
+}
+
+.mood-btn:active {
+    transform: scale(0.9);
+}
+
+.mood-btn-active {
+    background: rgba(248, 165, 194, 0.2) !important;
+    box-shadow: 0 0 0 2px var(--color-primary);
+    transform: scale(1.15);
+}
+
+.current-mood {
+    font-size: var(--font-size-lg);
+}
+
+.mb-2 {
+    margin-bottom: var(--space-2);
+}
+
+/* ── Section Headers ── */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+}
+
+/* ── Diary Snippet ── */
+.diary-snippet {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.diary-img {
+    width: 100%;
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+}
+
+.diary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+}
+
+.tag {
+    display: inline-flex;
+    padding: 2px var(--space-2);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    color: var(--color-primary);
+}
+
+/* ── Empty State ── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-4) 0;
+}
+
+.empty-icon {
+    font-size: 2.5rem;
+    opacity: 0.6;
+}
+
+/* ── Poop Modal ── */
+.poop-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.form-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.form-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+}
+
+.bristol-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.bristol-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    text-align: left;
+    transition: all var(--transition-fast);
+}
+
+.bristol-btn:hover {
+    background: var(--color-bg-card);
+}
+
+.bristol-btn-active {
+    border-color: var(--color-primary);
+    background: rgba(248, 165, 194, 0.1);
+}
+
+.bristol-btn-warn.bristol-btn-active {
+    border-color: var(--color-danger);
+}
+
+.bristol-num {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+}
+
+.bristol-btn-active .bristol-num {
+    background: var(--color-primary);
+    color: #1a1625;
+}
+
+.bristol-label {
+    font-size: var(--font-size-sm);
+}
+
+.color-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.color-btn {
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    font-size: var(--font-size-sm);
+    text-align: left;
+    transition: all var(--transition-fast);
+}
+
+.color-btn:hover {
+    background: var(--color-bg-card);
+}
+
+.color-btn-active {
+    border-color: var(--color-primary);
+    background: rgba(248, 165, 194, 0.1);
+}
+
+/* ── Feed Modal ── */
+.feed-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.meal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+}
+
+.meal-btn {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.meal-btn:hover {
+    background: var(--color-bg-card);
+}
+
+.meal-btn-active {
+    border-color: var(--color-primary);
+    background: rgba(248, 165, 194, 0.15);
+}
+
+.feed-history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.feed-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+}

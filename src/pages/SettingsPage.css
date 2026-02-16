@@ -1,0 +1,121 @@
+.settings-page {
+    padding-bottom: var(--space-8);
+}
+
+.page-header {
+    margin-bottom: var(--space-2);
+}
+
+.page-header h1 {
+    margin-bottom: var(--space-1);
+}
+
+.mb-3 {
+    margin-bottom: var(--space-3);
+}
+
+.mt-2 {
+    margin-top: var(--space-2);
+}
+
+/* Form */
+.form-group {
+    margin-bottom: var(--space-4);
+}
+
+.form-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-1);
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    transition: border-color var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(248, 165, 194, 0.15);
+}
+
+.form-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.form-row {
+    display: flex;
+    gap: var(--space-3);
+}
+
+/* Avatar Upload */
+.avatar-upload {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.avatar-upload:hover {
+    border-color: var(--color-primary);
+}
+
+.avatar-upload-icon {
+    font-size: 1.5rem;
+}
+
+.file-input-hidden {
+    display: none;
+}
+
+/* Status Message */
+.status-message {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    margin-bottom: var(--space-3);
+}
+
+.mx-4 {
+    margin-left: var(--space-4);
+    margin-right: var(--space-4);
+}
+
+.status-success {
+    background: rgba(107, 203, 119, 0.15);
+    border: 1px solid rgba(107, 203, 119, 0.3);
+    color: var(--color-success);
+}
+
+.status-error {
+    background: rgba(255, 107, 107, 0.15);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    color: var(--color-danger);
+}
+
+/* Avatar Preview */
+.avatar-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+}
+
+/* Install Steps */
+.install-steps p+p {
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--color-border);
+}

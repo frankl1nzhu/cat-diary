@@ -1,0 +1,149 @@
+.stats-page {
+    padding-bottom: var(--space-8);
+}
+
+.mb-4 {
+    margin-bottom: var(--space-4);
+}
+
+/* ── Chart ── */
+.chart-container {
+    margin-top: var(--space-2);
+}
+
+.empty-state-sm {
+    padding: var(--space-4) 0;
+    text-align: center;
+}
+
+/* ── Section Row ── */
+.section-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+}
+
+/* ── Health List ── */
+.health-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.health-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    border-left: 3px solid transparent;
+}
+
+.health-past-due {
+    border-left-color: var(--color-danger);
+}
+
+.health-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.health-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.text-danger {
+    color: var(--color-danger) !important;
+}
+
+/* ── Inventory List ── */
+.inventory-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.inventory-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.inventory-item:hover {
+    background: var(--color-bg-card);
+}
+
+/* ── Health Form ── */
+.health-form,
+.inv-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.health-type-grid {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.health-type-btn {
+    flex: 1;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+}
+
+.health-type-btn:hover {
+    background: var(--color-bg-card);
+}
+
+.health-type-active {
+    border-color: var(--color-primary);
+    background: rgba(248, 165, 194, 0.1);
+}
+
+.form-row {
+    display: flex;
+    gap: var(--space-3);
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+/* ── Inventory Status ── */
+.inv-status-grid {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.inv-status-btn {
+    flex: 1;
+    padding: var(--space-2);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+}
+
+.inv-status-btn:hover {
+    background: var(--color-bg-card);
+}
+
+.inv-status-active {
+    background: rgba(248, 165, 194, 0.1);
+}

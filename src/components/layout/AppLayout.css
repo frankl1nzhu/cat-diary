@@ -1,0 +1,12 @@
+.app-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    position: relative;
+}
+
+.app-main {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
