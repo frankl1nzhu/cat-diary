@@ -21,7 +21,7 @@ type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
 
 export function StatsPage() {
     const { user } = useSession()
-    const { catId } = useCat()
+    const { catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
 
@@ -60,7 +60,10 @@ export function StatsPage() {
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
-        if (!catId) { setLoading(false); return }
+        if (!catId) {
+            if (!catLoading) setLoading(false)
+            return
+        }
 
         const [w, h, inv, poopData] = await Promise.all([
             supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
@@ -74,7 +77,7 @@ export function StatsPage() {
         if (inv.data) setInventory(inv.data)
         if (poopData.data) setPoops(poopData.data)
         setLoading(false)
-    }, [catId])
+    }, [catId, catLoading])
 
     useEffect(() => { loadData() }, [loadData])
 
@@ -449,7 +452,7 @@ export function StatsPage() {
         vomit: { icon: '🤮', label: '呕吐' },
     }
 
-    if (loading) {
+    if (loading || catLoading) {
         return (
             <div className="stats-page fade-in">
                 <div className="empty-state">

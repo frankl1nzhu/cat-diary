@@ -26,3 +26,6 @@ dist-ssr
 # Test artifacts
 playwright-report/
 test-results/
+
+# Supabase local temp files
+supabase/.temp/

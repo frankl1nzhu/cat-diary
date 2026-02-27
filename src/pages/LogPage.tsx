@@ -26,7 +26,7 @@ const TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇']
 
 export function LogPage() {
     const { user } = useSession()
-    const { catId } = useCat()
+    const { catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -83,7 +83,10 @@ export function LogPage() {
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async (nextLimit?: number) => {
-        if (!catId) { setLoading(false); return }
+        if (!catId) {
+            if (!catLoading) setLoading(false)
+            return
+        }
 
         const effectiveLimit = nextLimit ?? loadLimit
 
@@ -106,7 +109,7 @@ export function LogPage() {
             || (weights.data?.length || 0) >= effectiveLimit
         )
         setLoading(false)
-    }, [catId, loadLimit])
+    }, [catId, catLoading, loadLimit])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
@@ -677,7 +680,7 @@ export function LogPage() {
             </div>
 
             <div className="timeline px-4">
-                {loading ? (
+                {loading || catLoading ? (
                     <div className="empty-state">
                         <span className="empty-icon">⏳</span>
                         <p className="text-secondary text-sm">加载中...</p>

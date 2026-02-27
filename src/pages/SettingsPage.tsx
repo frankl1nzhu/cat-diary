@@ -18,7 +18,7 @@ import './SettingsPage.css'
 
 export function SettingsPage() {
     const { user } = useSession()
-    const { cat, catId } = useCat()
+    const { cat, catId, loading: catLoading } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -83,6 +83,7 @@ export function SettingsPage() {
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
         if (createMode) return
+        if (catLoading) return
         if (!cat) return
         setName(cat.name)
         setBreed(cat.breed || '')
@@ -91,7 +92,7 @@ export function SettingsPage() {
         setAvatarUrl(cat.avatar_url)
         setSelectedFamilyId(cat.family_id || '')
         setProfileLocked(true)
-    }, [cat, createMode])
+    }, [cat, catLoading, createMode])
 
     useEffect(() => {
         const mode = searchParams.get('mode')
@@ -464,6 +465,14 @@ export function SettingsPage() {
 
     return (
         <div className="settings-page fade-in">
+            {catLoading && !createMode ? (
+                <div className="p-4">
+                    <Card variant="default" padding="md">
+                        <p className="text-secondary text-sm">加载中...</p>
+                    </Card>
+                </div>
+            ) : (
+                <>
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">⚙️ 设置</h1>
                 <p className="text-secondary text-sm">管理猫咪档案和账号</p>
@@ -760,6 +769,8 @@ export function SettingsPage() {
                     )}
                 </div>
             </Modal>
+                </>
+            )}
         </div>
     )
 }

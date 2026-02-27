@@ -27,7 +27,7 @@ type RewardParticle = {
 
 export function DashboardPage() {
     const { user } = useSession()
-    const { cat, catId, cats, setCatId } = useCat()
+    const { cat, catId, cats, setCatId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
@@ -107,7 +107,9 @@ export function DashboardPage() {
     // ─── Load all data (parallel) ─────────────────
     const loadData = useCallback(async () => {
         if (!catId) {
-            setLoading(false)
+            if (!catLoading) {
+                setLoading(false)
+            }
             return
         }
 
@@ -220,7 +222,7 @@ export function DashboardPage() {
             setMonthMoodMap(map)
         }
         setLoading(false)
-    }, [catId, monthEnd, monthStart, today])
+    }, [catId, catLoading, monthEnd, monthStart, today])
 
     useEffect(() => {
         loadData()
@@ -492,7 +494,7 @@ export function DashboardPage() {
         void handleMoodPick(options[nextIndex])
     }
 
-    if (!loading && cats.length === 0) {
+    if (!loading && !catLoading && cats.length === 0) {
         return (
             <div className="dashboard fade-in onboarding-page">
                 <Card variant="accent" padding="lg" className="onboarding-card">
