@@ -53,6 +53,7 @@ export function DashboardPage() {
     const [onboardingName, setOnboardingName] = useState('')
     const [onboardingBreed, setOnboardingBreed] = useState('')
     const [onboardingBirthday, setOnboardingBirthday] = useState('')
+    const [onboardingAdoptedAt, setOnboardingAdoptedAt] = useState('')
     const [onboardingSaving, setOnboardingSaving] = useState(false)
 
     // Poop modal
@@ -466,7 +467,7 @@ export function DashboardPage() {
                     name: onboardingName.trim(),
                     breed: onboardingBreed.trim() || null,
                     birthday: onboardingBirthday || null,
-                    adopted_at: null,
+                    adopted_at: onboardingAdoptedAt || null,
                     avatar_url: null,
                     created_by: user.id,
                 })
@@ -491,37 +492,44 @@ export function DashboardPage() {
         void handleMoodPick(options[nextIndex])
     }
 
-    const moveBristolSelection = (direction: 1 | -1) => {
-        const options: BristolType[] = [1, 2, 3, 4, 5, 6, 7]
-        const currentIndex = options.findIndex((item) => item === selectedBristol)
-        const nextIndex = (currentIndex + direction + options.length) % options.length
-        setSelectedBristol(options[nextIndex])
-    }
-
     if (!loading && cats.length === 0) {
         return (
             <div className="dashboard fade-in onboarding-page">
                 <Card variant="accent" padding="lg" className="onboarding-card">
                     <h1 className="text-2xl font-bold">欢迎来到喵记！</h1>
-                    <p className="text-sm text-secondary">先来建立猫咪档案吧</p>
+                    <p className="text-sm text-secondary">先来建立猫咪档案吧（可在设置页继续补充）</p>
                     <div className="onboarding-form">
+                        <label className="form-label" htmlFor="onboarding-name">猫咪名字 *</label>
                         <input
+                            id="onboarding-name"
                             className="form-input"
-                            placeholder="猫咪名字 *"
+                            placeholder="例如：团团"
                             value={onboardingName}
                             onChange={(event) => setOnboardingName(event.target.value)}
                         />
+                        <label className="form-label" htmlFor="onboarding-breed">品种 / 花色（可选）</label>
                         <input
+                            id="onboarding-breed"
                             className="form-input"
-                            placeholder="品种（可选）"
+                            placeholder="例如：英短蓝猫"
                             value={onboardingBreed}
                             onChange={(event) => setOnboardingBreed(event.target.value)}
                         />
+                        <label className="form-label" htmlFor="onboarding-birthday">生日（可选）</label>
                         <input
+                            id="onboarding-birthday"
                             className="form-input"
                             type="date"
                             value={onboardingBirthday}
                             onChange={(event) => setOnboardingBirthday(event.target.value)}
+                        />
+                        <label className="form-label" htmlFor="onboarding-adopted">领养日（可选）</label>
+                        <input
+                            id="onboarding-adopted"
+                            className="form-input"
+                            type="date"
+                            value={onboardingAdoptedAt}
+                            onChange={(event) => setOnboardingAdoptedAt(event.target.value)}
                         />
                         <Button variant="primary" fullWidth onClick={handleOnboardingSave} disabled={onboardingSaving || !online}>
                             {onboardingSaving ? '创建中...' : '完成并进入首页'}
@@ -741,39 +749,23 @@ export function DashboardPage() {
                 <div className="poop-form">
                     <div className="form-section">
                         <label className="form-label">布里斯托分类</label>
-                        <div
-                            className="bristol-grid"
-                            role="radiogroup"
+                        <select
+                            className="form-input"
                             aria-label="布里斯托类型选择"
-                            onKeyDown={(event) => {
-                                if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                                    event.preventDefault()
-                                    moveBristolSelection(1)
-                                }
-                                if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                                    event.preventDefault()
-                                    moveBristolSelection(-1)
-                                }
-                            }}
+                            value={selectedBristol}
+                            onChange={(event) => setSelectedBristol(Number(event.target.value) as BristolType)}
                         >
                             {([1, 2, 3, 4, 5, 6, 7] as BristolType[]).map((type) => (
-                                <button
-                                    key={type}
-                                    className={`bristol-btn ${selectedBristol === type ? 'bristol-btn-active' : ''} ${type >= 6 ? 'bristol-btn-warn' : ''}`}
-                                    onClick={() => setSelectedBristol(type)}
-                                    role="radio"
-                                    aria-checked={selectedBristol === type}
-                                >
-                                    <span className="bristol-num">{type}</span>
-                                    <span className="bristol-label">{bristolLabels[type]}</span>
-                                </button>
+                                <option key={type} value={type}>
+                                    类型 {type} · {bristolLabels[type]}
+                                </option>
                             ))}
-                        </div>
+                        </select>
                     </div>
 
                     <div className="form-section">
                         <label className="form-label">颜色</label>
-                        <div className="color-grid" role="radiogroup" aria-label="便便颜色选择">
+                        <div className="color-grid compact" role="radiogroup" aria-label="便便颜色选择">
                             {(Object.entries(colorLabels) as [PoopColor, string][]).map(([color, label]) => (
                                 <button
                                     key={color}

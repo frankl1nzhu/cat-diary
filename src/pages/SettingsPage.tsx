@@ -44,6 +44,8 @@ export function SettingsPage() {
     const [familyName, setFamilyName] = useState('')
     const [joinCode, setJoinCode] = useState('')
     const [familySaving, setFamilySaving] = useState(false)
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
+    const [notificationHint, setNotificationHint] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
@@ -121,6 +123,14 @@ export function SettingsPage() {
             setSelectedFamilyId(currentFamily.id)
         }
     }, [currentFamily, selectedFamilyId])
+
+    useEffect(() => {
+        if (typeof Notification === 'undefined') return
+        setNotificationPermission(Notification.permission)
+        if (Notification.permission === 'granted') {
+            setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+        }
+    }, [])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,12 +246,16 @@ export function SettingsPage() {
                 return
             }
 
+            setNotificationPermission('granted')
+
             if (result.subscribed) {
                 if (user && result.subscription) {
                     await savePushSubscription(user.id, result.subscription)
                 }
+                setNotificationHint('Web Push 已启用。')
                 pushToast('success', '通知已开启（含 Web Push 订阅）')
             } else {
+                setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
                 pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
             }
         } catch (err) {
@@ -462,7 +476,7 @@ export function SettingsPage() {
                         <h2 className="text-lg font-semibold mb-3">😺 猫咪档案</h2>
                         {profileLocked && !createMode ? (
                             <div className="profile-saved-view">
-                                <p className="text-sm text-secondary">档案已保存。</p>
+                                <p className="text-sm text-secondary">已保存档案</p>
                                 <div className="saved-row">
                                     <span className="text-secondary">头像</span>
                                     {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" /> : <span>—</span>}
@@ -669,8 +683,15 @@ export function SettingsPage() {
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold mb-3">🔔 智能提醒</h2>
                     <p className="text-secondary text-sm">开启系统通知后，可接收库存告急和临近驱虫提醒。</p>
+                    {notificationPermission === 'granted' && (
+                        <p className="text-secondary text-sm" style={{ marginTop: '6px' }}>
+                            {notificationHint || '等待配置 VAPID 公钥后启用 Web Push。'}
+                        </p>
+                    )}
                     <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <Button variant="secondary" onClick={handleEnableNotifications}>开启通知权限</Button>
+                        <Button variant="secondary" onClick={handleEnableNotifications}>
+                            {notificationPermission === 'granted' ? '已开启通知权限' : '开启通知权限'}
+                        </Button>
                         <Button variant="ghost" onClick={handleTestPush}>发送测试推送</Button>
                     </div>
                 </Card>
