@@ -155,12 +155,12 @@ export function computeDaysRemaining(item: InventoryItem): number | null {
     return item.total_quantity / item.daily_consumption
 }
 
-/** Derive status from days remaining: <3 = urgent, <7 = low, else plenty. */
+/** Derive status from days remaining: <7 = urgent, <14 = low, else plenty. */
 export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
     const days = computeDaysRemaining(item)
     if (days == null) return item.status // fallback to stored status
-    if (days < 3) return 'urgent'
-    if (days < 7) return 'low'
+    if (days < 7) return 'urgent'
+    if (days < 14) return 'low'
     return 'plenty'
 }
 
