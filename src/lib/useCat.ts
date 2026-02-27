@@ -12,7 +12,7 @@ import type { Cat } from '../types/database.types'
 export function useCat() {
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
-    const [cat, setCat] = useState<Cat | null>(null)
+    const [cats, setCats] = useState<Cat[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -23,21 +23,34 @@ export function useCat() {
                 .from('cats')
                 .select('*')
                 .order('created_at', { ascending: true })
-                .limit(1)
-                .single()
 
             if (cancelled) return
 
-            if (data) {
-                setCat(data)
-                setCurrentCatId(data.id)
+            const list = data || []
+            setCats(list)
+
+            if (list.length > 0) {
+                const hasSelected = currentCatId && list.some((item) => item.id === currentCatId)
+                if (!hasSelected) {
+                    setCurrentCatId(list[0].id)
+                }
+            } else {
+                setCurrentCatId(null)
             }
             setLoading(false)
         }
 
         load()
         return () => { cancelled = true }
-    }, [setCurrentCatId])
+    }, [currentCatId, setCurrentCatId])
 
-    return { cat, catId: currentCatId, loading }
+    const cat = cats.find((item) => item.id === currentCatId) || null
+
+    return {
+        cat,
+        cats,
+        catId: currentCatId,
+        setCatId: setCurrentCatId,
+        loading,
+    }
 }

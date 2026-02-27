@@ -1,0 +1,22 @@
+.swipe-row {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+}
+
+.swipe-delete {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 88px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: var(--font-size-sm);
+}
+
+.swipe-content {
+    position: relative;
+    transition: transform var(--transition-fast);
+    will-change: transform;
+}

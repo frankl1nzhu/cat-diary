@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -9,6 +10,7 @@ import { useRealtimeSubscription } from '../lib/realtime'
 import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { lightHaptic } from '../lib/haptics'
 import { differenceInDays, format, addMonths } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
@@ -17,6 +19,7 @@ export function DashboardPage() {
     const { user } = useSession()
     const { cat, catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
 
@@ -36,6 +39,7 @@ export function DashboardPage() {
 
     const [feedLoading, setFeedLoading] = useState(false)
     const [moodSaving, setMoodSaving] = useState(false)
+    const [rewardEmoji, setRewardEmoji] = useState<'💖' | '🐾' | null>(null)
 
     const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
@@ -92,6 +96,29 @@ export function DashboardPage() {
         loadData()
     }, [loadData])
 
+    useEffect(() => {
+        const quick = searchParams.get('quick')
+        if (!quick) return
+
+        if (quick === 'feed') {
+            const hour = new Date().getHours()
+            if (hour >= 5 && hour <= 10) setSelectedMeal('breakfast')
+            else if (hour >= 11 && hour <= 14) setSelectedMeal('lunch')
+            else if (hour >= 18 && hour <= 21) setSelectedMeal('dinner')
+            else setSelectedMeal('snack')
+            setFeedModalOpen(true)
+        }
+        if (quick === 'poop') {
+            setPoopModalOpen(true)
+        }
+
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('quick')
+            return next
+        }, { replace: true })
+    }, [searchParams, setSearchParams])
+
     // ─── Realtime subscriptions ───────────────────
     useRealtimeSubscription('feed_status', () => {
         loadData()
@@ -143,6 +170,9 @@ export function DashboardPage() {
             })
             setFeedModalOpen(false)
             await loadData()
+            lightHaptic()
+            setRewardEmoji('🐾')
+            window.setTimeout(() => setRewardEmoji(null), 1000)
             pushToast('success', '喂食记录成功 🐾')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
@@ -177,6 +207,7 @@ export function DashboardPage() {
                     { onConflict: 'cat_id,date' }
                 )
             setTodayMood(mood)
+            lightHaptic()
             pushToast('success', '心情已记录')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
@@ -200,6 +231,11 @@ export function DashboardPage() {
             setPoopModalOpen(false)
             setSelectedBristol(4)
             setSelectedColor('brown')
+            lightHaptic()
+            if (selectedBristol === 4) {
+                setRewardEmoji('💖')
+                window.setTimeout(() => setRewardEmoji(null), 1000)
+            }
             pushToast('success', '铲屎记录成功 💩')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
@@ -232,8 +268,44 @@ export function DashboardPage() {
     // ─── Inventory alerts ─────────────────────────
     const lowInventory = inventory.filter((i) => i.status !== 'plenty')
 
+    useEffect(() => {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
+
+        const todayKey = new Date().toISOString().split('T')[0]
+
+        if (lowInventory.some((item) => item.status === 'urgent')) {
+            const key = `notify_inventory_${todayKey}`
+            if (!localStorage.getItem(key)) {
+                new Notification('喵记库存提醒', {
+                    body: '有物资已到紧急状态，记得补货。',
+                })
+                localStorage.setItem(key, '1')
+            }
+        }
+
+        if (daysToDeworming !== null && daysToDeworming <= 1) {
+            const key = `notify_deworming_${todayKey}`
+            if (!localStorage.getItem(key)) {
+                new Notification('喵记驱虫提醒', {
+                    body: daysToDeworming <= 0 ? '今天建议进行驱虫。' : '明天建议进行驱虫。',
+                })
+                localStorage.setItem(key, '1')
+            }
+        }
+    }, [daysToDeworming, lowInventory])
+
+    const openFeedModal = () => {
+        const hour = new Date().getHours()
+        if (hour >= 5 && hour <= 10) setSelectedMeal('breakfast')
+        else if (hour >= 11 && hour <= 14) setSelectedMeal('lunch')
+        else if (hour >= 18 && hour <= 21) setSelectedMeal('dinner')
+        else setSelectedMeal('snack')
+        setFeedModalOpen(true)
+    }
+
     return (
         <div className="dashboard fade-in">
+            {rewardEmoji && <div className="reward-burst">{rewardEmoji}</div>}
             {/* ── Cat Profile Card ── */}
             <Card variant="accent" padding="lg" className="cat-profile-card">
                 <div className="profile-header">
@@ -281,7 +353,7 @@ export function DashboardPage() {
             {/* ── Quick Actions Bento Grid ── */}
             <div className="bento-grid">
                 {/* Feed Status */}
-                <Card variant="glass" className="bento-item" onClick={() => setFeedModalOpen(true)}>
+                <Card variant="glass" className="bento-item" onClick={openFeedModal}>
                     <div className="bento-icon">🍽️</div>
                     <div className="bento-label">记录喂食</div>
                     {todayFeeds.length > 0 ? (

@@ -1,14 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { FAB } from '../components/ui/FAB'
 import { Modal } from '../components/ui/Modal'
+import { SwipeableRow } from '../components/ui/SwipeableRow'
+import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { getErrorMessage } from '../lib/errorMessage'
+import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
 import type { DiaryEntry, PoopLog, WeightRecord, MoodLog } from '../types/database.types'
 import './LogPage.css'
@@ -25,6 +28,7 @@ export function LogPage() {
     const { user } = useSession()
     const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const [timeline, setTimeline] = useState<TimelineItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -35,15 +39,16 @@ export function LogPage() {
     const [diaryTags, setDiaryTags] = useState<string[]>([])
     const [diaryImage, setDiaryImage] = useState<File | null>(null)
     const [diaryImagePreview, setDiaryImagePreview] = useState<string | null>(null)
+    const [editingDiaryId, setEditingDiaryId] = useState<string | null>(null)
     const [diarySaving, setDiarySaving] = useState(false)
 
     // New weight modal
     const [weightOpen, setWeightOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
+    const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
 
-    // FAB menu
-    const [fabMenuOpen, setFabMenuOpen] = useState(false)
+    const [imageLightbox, setImageLightbox] = useState<string | null>(null)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,6 +76,24 @@ export function LogPage() {
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
+    useEffect(() => {
+        const quick = searchParams.get('quick')
+        if (!quick) return
+
+        if (quick === 'diary') {
+            setDiaryOpen(true)
+        }
+        if (quick === 'weight') {
+            setWeightOpen(true)
+        }
+
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('quick')
+            return next
+        }, { replace: true })
+    }, [searchParams, setSearchParams])
+
     useRealtimeSubscription('diary_entries', () => loadTimeline(),
         catId ? `cat_id=eq.${catId}` : undefined)
 
@@ -94,7 +117,7 @@ export function LogPage() {
         setDiarySaving(true)
 
         try {
-            let imageUrl: string | null = null
+            let imageUrl: string | null = diaryImagePreview
 
             if (diaryImage) {
                 const ext = diaryImage.name.split('.').pop()
@@ -107,18 +130,30 @@ export function LogPage() {
                 imageUrl = urlData.publicUrl
             }
 
-            await supabase.from('diary_entries').insert({
-                cat_id: catId,
-                text: diaryText.trim() || null,
-                image_url: imageUrl,
-                tags: diaryTags,
-                created_by: user.id,
-            })
+            if (editingDiaryId) {
+                await supabase
+                    .from('diary_entries')
+                    .update({
+                        text: diaryText.trim() || null,
+                        image_url: imageUrl,
+                        tags: diaryTags,
+                    })
+                    .eq('id', editingDiaryId)
+            } else {
+                await supabase.from('diary_entries').insert({
+                    cat_id: catId,
+                    text: diaryText.trim() || null,
+                    image_url: imageUrl,
+                    tags: diaryTags,
+                    created_by: user.id,
+                })
+            }
 
             setDiaryOpen(false)
             resetDiaryForm()
             await loadTimeline()
-            pushToast('success', '日记发布成功 📝')
+            lightHaptic()
+            pushToast('success', editingDiaryId ? '日记已更新 📝' : '日记发布成功 📝')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))
         } finally {
@@ -131,6 +166,7 @@ export function LogPage() {
         setDiaryTags([])
         setDiaryImage(null)
         setDiaryImagePreview(null)
+        setEditingDiaryId(null)
     }
 
     // ─── Add weight ───────────────────────────────
@@ -141,20 +177,66 @@ export function LogPage() {
         setWeightSaving(true)
 
         try {
-            await supabase.from('weight_records').insert({
-                cat_id: catId,
-                weight_kg: kg,
-                recorded_at: new Date().toISOString(),
-                created_by: user.id,
-            })
+            if (editingWeightId) {
+                await supabase
+                    .from('weight_records')
+                    .update({ weight_kg: kg })
+                    .eq('id', editingWeightId)
+            } else {
+                await supabase.from('weight_records').insert({
+                    cat_id: catId,
+                    weight_kg: kg,
+                    recorded_at: new Date().toISOString(),
+                    created_by: user.id,
+                })
+            }
             setWeightOpen(false)
             setWeightValue('')
+            setEditingWeightId(null)
             await loadTimeline()
-            pushToast('success', '体重记录成功 ⚖️')
+            lightHaptic()
+            pushToast('success', editingWeightId ? '体重已更新 ⚖️' : '体重记录成功 ⚖️')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '体重记录失败，请稍后重试'))
         } finally {
             setWeightSaving(false)
+        }
+    }
+
+    const openEditDiary = (entry: DiaryEntry) => {
+        setEditingDiaryId(entry.id)
+        setDiaryText(entry.text || '')
+        setDiaryTags(entry.tags)
+        setDiaryImage(null)
+        setDiaryImagePreview(entry.image_url)
+        setDiaryOpen(true)
+    }
+
+    const openEditWeight = (entry: WeightRecord) => {
+        setEditingWeightId(entry.id)
+        setWeightValue(String(entry.weight_kg))
+        setWeightOpen(true)
+    }
+
+    const deleteTimelineItem = async (item: TimelineItem) => {
+        try {
+            if (item.type === 'diary') {
+                await supabase.from('diary_entries').delete().eq('id', item.data.id)
+            }
+            if (item.type === 'poop') {
+                await supabase.from('poop_logs').delete().eq('id', item.data.id)
+            }
+            if (item.type === 'weight') {
+                await supabase.from('weight_records').delete().eq('id', item.data.id)
+            }
+            if (item.type === 'mood') {
+                await supabase.from('mood_logs').delete().eq('id', item.data.id)
+            }
+            lightHaptic()
+            pushToast('success', '记录已删除')
+            await loadTimeline()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
         }
     }
 
@@ -173,57 +255,73 @@ export function LogPage() {
         switch (item.type) {
             case 'diary':
                 return (
-                    <Card key={`d-${item.data.id}`} variant="default" padding="md" className="timeline-card">
-                        <div className="timeline-badge diary-badge">📝</div>
-                        <div className="timeline-content">
-                            {item.data.image_url && (
-                                <img src={item.data.image_url} alt="" className="timeline-img" />
-                            )}
-                            <p className="text-sm">{item.data.text || ''}</p>
-                            {item.data.tags.length > 0 && (
-                                <div className="timeline-tags">
-                                    {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
+                    <SwipeableRow key={`d-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                        <Card variant="default" padding="md" className="timeline-card">
+                            <div className="timeline-badge diary-badge">📝</div>
+                            <div className="timeline-content">
+                                <div className="timeline-actions">
+                                    <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
                                 </div>
-                            )}
-                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
-                        </div>
-                    </Card>
+                                {item.data.image_url && (
+                                    <button className="timeline-img-btn" onClick={() => setImageLightbox(item.data.image_url)}>
+                                        <img src={item.data.image_url} alt="" className="timeline-img" />
+                                    </button>
+                                )}
+                                <p className="text-sm">{item.data.text || ''}</p>
+                                {item.data.tags.length > 0 && (
+                                    <div className="timeline-tags">
+                                        {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
+                                    </div>
+                                )}
+                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+                            </div>
+                        </Card>
+                    </SwipeableRow>
                 )
             case 'poop': {
                 const isAbnormal = Number(item.data.bristol_type) >= 6 || ['red', 'black', 'white'].includes(item.data.color)
                 return (
-                    <Card key={`p-${item.data.id}`} variant="default" padding="md" className={`timeline-card ${isAbnormal ? 'timeline-warn' : ''}`}>
-                        <div className="timeline-badge poop-badge">💩</div>
-                        <div className="timeline-content">
-                            <p className="text-sm">
-                                布里斯托 {item.data.bristol_type} 型 · {bristolLabels[String(item.data.bristol_type)]}
-                                {' '}{colorEmojis[item.data.color]}
-                                {isAbnormal && <span className="warn-tag">⚠️ 异常</span>}
-                            </p>
-                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
-                        </div>
-                    </Card>
+                    <SwipeableRow key={`p-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                        <Card variant="default" padding="md" className={`timeline-card ${isAbnormal ? 'timeline-warn' : ''}`}>
+                            <div className="timeline-badge poop-badge">💩</div>
+                            <div className="timeline-content">
+                                <p className="text-sm">
+                                    布里斯托 {item.data.bristol_type} 型 · {bristolLabels[String(item.data.bristol_type)]}
+                                    {' '}{colorEmojis[item.data.color]}
+                                    {isAbnormal && <span className="warn-tag">⚠️ 异常</span>}
+                                </p>
+                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+                            </div>
+                        </Card>
+                    </SwipeableRow>
                 )
             }
             case 'weight':
                 return (
-                    <Card key={`w-${item.data.id}`} variant="default" padding="md" className="timeline-card">
-                        <div className="timeline-badge weight-badge">⚖️</div>
-                        <div className="timeline-content">
-                            <p className="text-sm font-semibold">{item.data.weight_kg} kg</p>
-                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
-                        </div>
-                    </Card>
+                    <SwipeableRow key={`w-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                        <Card variant="default" padding="md" className="timeline-card">
+                            <div className="timeline-badge weight-badge">⚖️</div>
+                            <div className="timeline-content">
+                                <div className="timeline-actions">
+                                    <button className="timeline-action-btn" onClick={() => openEditWeight(item.data)}>编辑</button>
+                                </div>
+                                <p className="text-sm font-semibold">{item.data.weight_kg} kg</p>
+                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+                            </div>
+                        </Card>
+                    </SwipeableRow>
                 )
             case 'mood':
                 return (
-                    <Card key={`m-${item.data.id}`} variant="default" padding="md" className="timeline-card">
-                        <div className="timeline-badge mood-badge">{item.data.mood}</div>
-                        <div className="timeline-content">
-                            <p className="text-sm">今日心情 {item.data.mood}</p>
-                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd')}</span>
-                        </div>
-                    </Card>
+                    <SwipeableRow key={`m-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                        <Card variant="default" padding="md" className="timeline-card">
+                            <div className="timeline-badge mood-badge">{item.data.mood}</div>
+                            <div className="timeline-content">
+                                <p className="text-sm">今日心情 {item.data.mood}</p>
+                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd')}</span>
+                            </div>
+                        </Card>
+                    </SwipeableRow>
                 )
         }
     }
@@ -243,7 +341,7 @@ export function LogPage() {
                     </div>
                 ) : timeline.length === 0 ? (
                     <div className="empty-state">
-                        <span className="empty-icon">📸</span>
+                        <EmptyCatIllustration mood="play" />
                         <p className="text-secondary text-sm">还没有记录，点右下角 + 开始吧！</p>
                     </div>
                 ) : (
@@ -251,23 +349,8 @@ export function LogPage() {
                 )}
             </div>
 
-            {/* FAB Menu */}
-            <div className="fab-container">
-                {fabMenuOpen && (
-                    <div className="fab-menu fade-in">
-                        <button className="fab-option" onClick={() => { setDiaryOpen(true); setFabMenuOpen(false) }}>
-                            📝 写日记
-                        </button>
-                        <button className="fab-option" onClick={() => { setWeightOpen(true); setFabMenuOpen(false) }}>
-                            ⚖️ 记体重
-                        </button>
-                    </div>
-                )}
-                <FAB icon="＋" onClick={() => setFabMenuOpen(!fabMenuOpen)} />
-            </div>
-
             {/* Diary Modal */}
-            <Modal isOpen={diaryOpen} onClose={() => { setDiaryOpen(false); resetDiaryForm() }} title="📝 写日记">
+            <Modal isOpen={diaryOpen} onClose={() => { setDiaryOpen(false); resetDiaryForm() }} title={editingDiaryId ? '📝 编辑日记' : '📝 写日记'}>
                 <div className="diary-form">
                     <div className="form-group">
                         <textarea
@@ -316,13 +399,13 @@ export function LogPage() {
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleDiarySave} disabled={diarySaving}>
-                        {diarySaving ? '发布中...' : '发布 🐾'}
+                        {diarySaving ? '保存中...' : editingDiaryId ? '保存修改' : '发布 🐾'}
                     </Button>
                 </div>
             </Modal>
 
             {/* Weight Modal */}
-            <Modal isOpen={weightOpen} onClose={() => setWeightOpen(false)} title="⚖️ 记录体重">
+            <Modal isOpen={weightOpen} onClose={() => { setWeightOpen(false); setEditingWeightId(null); setWeightValue('') }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 记录体重'}>
                 <div className="weight-form">
                     <div className="form-group">
                         <label className="form-label">体重 (kg)</label>
@@ -338,9 +421,13 @@ export function LogPage() {
                         />
                     </div>
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving}>
-                        {weightSaving ? '记录中...' : '保存体重'}
+                        {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
                     </Button>
                 </div>
+            </Modal>
+
+            <Modal isOpen={Boolean(imageLightbox)} onClose={() => setImageLightbox(null)} title="📷 图片预览">
+                {imageLightbox && <img src={imageLightbox} alt="日记图片预览" className="lightbox-image" />}
             </Modal>
         </div>
     )

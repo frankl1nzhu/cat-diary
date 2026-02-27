@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
@@ -7,6 +8,7 @@ import { useCat } from '../lib/useCat'
 import { useAppStore } from '../stores/useAppStore'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -14,6 +16,7 @@ export function SettingsPage() {
     const { cat, catId } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const [name, setName] = useState('')
     const [breed, setBreed] = useState('')
@@ -22,6 +25,7 @@ export function SettingsPage() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
+    const [themePreset, setThemePreset] = useState<ThemePreset>(getStoredTheme())
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     // Populate form when cat is loaded via shared hook
@@ -33,6 +37,24 @@ export function SettingsPage() {
         setAdoptedAt(cat.adopted_at || '')
         setAvatarUrl(cat.avatar_url)
     }, [cat])
+
+    useEffect(() => {
+        const mode = searchParams.get('mode')
+        if (mode !== 'new') return
+
+        setCurrentCatId(null)
+        setName('')
+        setBreed('')
+        setBirthday('')
+        setAdoptedAt('')
+        setAvatarUrl(null)
+
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('mode')
+            return next
+        }, { replace: true })
+    }, [searchParams, setCurrentCatId, setSearchParams])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,6 +139,27 @@ export function SettingsPage() {
         } catch (err) {
             pushToast('error', getErrorMessage(err, '退出登录失败，请稍后重试'))
         }
+    }
+
+    const handleEnableNotifications = async () => {
+        if (typeof Notification === 'undefined') {
+            pushToast('error', '当前浏览器不支持系统通知')
+            return
+        }
+
+        const permission = await Notification.requestPermission()
+        if (permission === 'granted') {
+            pushToast('success', '通知权限已开启')
+            new Notification('喵记提醒已开启', { body: '库存告急与驱虫提醒将优先发送系统通知。' })
+            return
+        }
+        pushToast('error', '通知权限未开启')
+    }
+
+    const onThemeChange = (preset: ThemePreset) => {
+        setThemePreset(preset)
+        applyThemePreset(preset)
+        pushToast('success', '主题已切换')
     }
 
     return (
@@ -237,6 +280,38 @@ export function SettingsPage() {
                         <p className="text-sm text-secondary mt-2">
                             <strong>Android Chrome：</strong>点击右上角菜单 → 选择"安装应用"
                         </p>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="p-4">
+                <Card variant="default" padding="md">
+                    <h2 className="text-lg font-semibold mb-3">🔔 智能提醒</h2>
+                    <p className="text-secondary text-sm">开启系统通知后，可接收库存告急和临近驱虫提醒。</p>
+                    <div style={{ marginTop: '12px' }}>
+                        <Button variant="secondary" onClick={handleEnableNotifications}>开启通知权限</Button>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="p-4">
+                <Card variant="default" padding="md">
+                    <h2 className="text-lg font-semibold mb-3">🎨 主题色</h2>
+                    <div className="theme-grid">
+                        {([
+                            { value: 'pink' as const, label: '粉色（默认）' },
+                            { value: 'orange' as const, label: '橘猫主题' },
+                            { value: 'blue' as const, label: '蓝猫主题' },
+                            { value: 'midnight' as const, label: '暗夜紫主题' },
+                        ]).map((item) => (
+                            <button
+                                key={item.value}
+                                className={`theme-option ${themePreset === item.value ? 'theme-option-active' : ''}`}
+                                onClick={() => onThemeChange(item.value)}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
                     </div>
                 </Card>
             </div>

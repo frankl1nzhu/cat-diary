@@ -3,11 +3,14 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { Modal } from '../components/ui/Modal'
+import { SwipeableRow } from '../components/ui/SwipeableRow'
+import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus } from '../types/database.types'
@@ -29,6 +32,7 @@ export function StatsPage() {
     const [healthName, setHealthName] = useState('')
     const [healthDate, setHealthDate] = useState(format(new Date(), 'yyyy-MM-dd'))
     const [healthNextDue, setHealthNextDue] = useState('')
+    const [editingHealthId, setEditingHealthId] = useState<string | null>(null)
     const [healthSaving, setHealthSaving] = useState(false)
 
     const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
@@ -66,18 +70,31 @@ export function StatsPage() {
         if (!catId || !user || !healthName.trim()) return
         setHealthSaving(true)
         try {
-            await supabase.from('health_records').insert({
-                cat_id: catId,
-                type: healthType,
-                name: healthName.trim(),
-                date: healthDate,
-                next_due: healthNextDue || null,
-                created_by: user.id,
-            })
+            if (editingHealthId) {
+                await supabase
+                    .from('health_records')
+                    .update({
+                        type: healthType,
+                        name: healthName.trim(),
+                        date: healthDate,
+                        next_due: healthNextDue || null,
+                    })
+                    .eq('id', editingHealthId)
+            } else {
+                await supabase.from('health_records').insert({
+                    cat_id: catId,
+                    type: healthType,
+                    name: healthName.trim(),
+                    date: healthDate,
+                    next_due: healthNextDue || null,
+                    created_by: user.id,
+                })
+            }
             setHealthModalOpen(false)
             resetHealthForm()
             await loadData()
-            pushToast('success', '健康记录已保存')
+            lightHaptic()
+            pushToast('success', editingHealthId ? '健康记录已更新' : '健康记录已保存')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '健康记录保存失败，请稍后重试'))
         } finally {
@@ -90,6 +107,7 @@ export function StatsPage() {
         setHealthDate(format(new Date(), 'yyyy-MM-dd'))
         setHealthNextDue('')
         setHealthType('vaccine')
+        setEditingHealthId(null)
     }
 
     // ─── Save/update inventory ────────────────────
@@ -112,6 +130,7 @@ export function StatsPage() {
             setInventoryModalOpen(false)
             resetInvForm()
             await loadData()
+            lightHaptic()
             pushToast('success', '库存已更新')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '库存保存失败，请稍后重试'))
@@ -131,6 +150,62 @@ export function StatsPage() {
         setInvItemName(item.item_name)
         setInvStatus(item.status)
         setInventoryModalOpen(true)
+    }
+
+    const openEditHealth = (item: HealthRecord) => {
+        setEditingHealthId(item.id)
+        setHealthType(item.type)
+        setHealthName(item.name)
+        setHealthDate(item.date)
+        setHealthNextDue(item.next_due || '')
+        setHealthModalOpen(true)
+    }
+
+    const deleteHealthRecord = async (id: string) => {
+        try {
+            await supabase.from('health_records').delete().eq('id', id)
+            lightHaptic()
+            pushToast('success', '健康记录已删除')
+            await loadData()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+        }
+    }
+
+    const deleteInventoryItem = async (id: string) => {
+        try {
+            await supabase.from('inventory').delete().eq('id', id)
+            lightHaptic()
+            pushToast('success', '物资已删除')
+            await loadData()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+        }
+    }
+
+    const exportVetReport = () => {
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+        const recentWeights = weights.filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
+        const recentHealth = healthRecords.filter((h) => new Date(h.date).getTime() >= cutoff)
+
+        const html = `
+        <html><head><meta charset="utf-8" /><title>Vet Report</title>
+        <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
+        </head><body>
+        <h1>🐱 就医报告</h1><div>最近30天</div>
+        <h2>体重变化</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString()}：${w.weight_kg} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>
+        <h2>健康记录</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString()}：${h.name}（${h.type}）</li>`).join('') || '<li>暂无记录</li>'}</ul>
+        </body></html>`
+
+        const reportWindow = window.open('', '_blank')
+        if (!reportWindow) {
+            pushToast('error', '导出窗口被拦截，请允许弹窗后重试')
+            return
+        }
+        reportWindow.document.write(html)
+        reportWindow.document.close()
+        reportWindow.focus()
+        reportWindow.print()
     }
 
     // ─── Health type labels ───────────────────────
@@ -162,6 +237,9 @@ export function StatsPage() {
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold mb-3">⚖️ 体重趋势</h2>
+                    <div className="mb-4">
+                        <Button variant="secondary" size="sm" onClick={exportVetReport}>导出最近30天就医报告</Button>
+                    </div>
                     {chartData.length >= 2 ? (
                         <div className="chart-container">
                             <ResponsiveContainer width="100%" height={220}>
@@ -201,6 +279,7 @@ export function StatsPage() {
                         </div>
                     ) : (
                         <div className="empty-state-sm">
+                            <div className="empty-illu-wrap"><EmptyCatIllustration mood="play" /></div>
                             <p className="text-secondary text-sm">
                                 {chartData.length === 1
                                     ? `当前体重：${chartData[0].weight} kg，再记一次就能看趋势图了`
@@ -227,18 +306,20 @@ export function StatsPage() {
                                 const config = healthTypeLabels[r.type]
                                 const isPastDue = r.next_due && new Date(r.next_due) < new Date()
                                 return (
-                                    <div key={r.id} className={`health-item ${isPastDue ? 'health-past-due' : ''}`}>
-                                        <span className="health-icon">{config.icon}</span>
-                                        <div className="health-info">
-                                            <span className="text-sm font-semibold">{r.name}</span>
-                                            <span className="text-muted text-xs">{config.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
-                                            {r.next_due && (
-                                                <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
-                                                    下次：{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? '⚠️ 已过期' : ''}
-                                                </span>
-                                            )}
+                                    <SwipeableRow key={r.id} onDelete={() => deleteHealthRecord(r.id)}>
+                                        <div className={`health-item ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
+                                            <span className="health-icon">{config.icon}</span>
+                                            <div className="health-info">
+                                                <span className="text-sm font-semibold">{r.name}</span>
+                                                <span className="text-muted text-xs">{config.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
+                                                {r.next_due && (
+                                                    <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
+                                                        下次：{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? '⚠️ 已过期' : ''}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
+                                    </SwipeableRow>
                                 )
                             })}
                         </div>
@@ -263,18 +344,20 @@ export function StatsPage() {
                     {inventory.length > 0 ? (
                         <div className="inventory-list">
                             {inventory.map((item) => (
-                                <div
-                                    key={item.id}
-                                    className="inventory-item"
-                                    onClick={() => openEditInventory(item)}
-                                >
-                                    <span className="text-sm">{item.item_name}</span>
-                                    <StatusBadge status={item.status} size="sm" />
-                                </div>
+                                <SwipeableRow key={item.id} onDelete={() => deleteInventoryItem(item.id)}>
+                                    <div
+                                        className="inventory-item"
+                                        onClick={() => openEditInventory(item)}
+                                    >
+                                        <span className="text-sm">{item.item_name}</span>
+                                        <StatusBadge status={item.status} size="sm" />
+                                    </div>
+                                </SwipeableRow>
                             ))}
                         </div>
                     ) : (
                         <div className="empty-state-sm">
+                            <div className="empty-illu-wrap"><EmptyCatIllustration mood="hungry" /></div>
                             <p className="text-secondary text-sm">添加猫粮、猫砂等物资，管理库存状态</p>
                         </div>
                     )}
@@ -282,7 +365,7 @@ export function StatsPage() {
             </div>
 
             {/* ── Health Modal ── */}
-            <Modal isOpen={healthModalOpen} onClose={() => { setHealthModalOpen(false); resetHealthForm() }} title="💉 添加健康记录">
+            <Modal isOpen={healthModalOpen} onClose={() => { setHealthModalOpen(false); resetHealthForm() }} title={editingHealthId ? '💉 编辑健康记录' : '💉 添加健康记录'}>
                 <div className="health-form">
                     <div className="form-group">
                         <label className="form-label">类型</label>
@@ -334,7 +417,7 @@ export function StatsPage() {
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving}>
-                        {healthSaving ? '保存中...' : '保存记录'}
+                        {healthSaving ? '保存中...' : editingHealthId ? '更新记录' : '保存记录'}
                     </Button>
                 </div>
             </Modal>

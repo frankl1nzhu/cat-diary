@@ -206,6 +206,31 @@
     gap: var(--space-1);
 }
 
+.reward-burst {
+    position: fixed;
+    right: var(--space-6);
+    bottom: calc(var(--nav-height) + var(--safe-bottom) + 96px);
+    font-size: 2rem;
+    z-index: 260;
+    animation: reward-float 900ms ease-out forwards;
+}
+
+@keyframes reward-float {
+    0% {
+        opacity: 0;
+        transform: translateY(12px) scale(0.7);
+    }
+
+    20% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-28px) scale(1.2);
+    }
+}
+
 .tag {
     display: inline-flex;
     padding: 2px var(--space-2);
