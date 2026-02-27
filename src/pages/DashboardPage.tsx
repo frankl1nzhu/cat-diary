@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -15,6 +15,14 @@ import { sendReminderPush } from '../lib/pushServer'
 import { differenceInDays, format, addMonths } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
+
+type RewardParticle = {
+    id: number
+    icon: '💖' | '🐾'
+    dx: number
+    dy: number
+    delayMs: number
+}
 
 export function DashboardPage() {
     const { user } = useSession()
@@ -41,8 +49,33 @@ export function DashboardPage() {
     const [feedLoading, setFeedLoading] = useState(false)
     const [moodSaving, setMoodSaving] = useState(false)
     const [rewardEmoji, setRewardEmoji] = useState<'💖' | '🐾' | null>(null)
+    const [rewardParticles, setRewardParticles] = useState<RewardParticle[]>([])
+
+    const particleIdRef = useRef(1)
 
     const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+
+    const triggerRewardBurst = (icon: '💖' | '🐾') => {
+        setRewardEmoji(icon)
+        window.setTimeout(() => setRewardEmoji(null), 1000)
+
+        const particles: RewardParticle[] = Array.from({ length: 8 }).map(() => {
+            const id = particleIdRef.current++
+            return {
+                id,
+                icon,
+                dx: Math.round((Math.random() - 0.5) * 120),
+                dy: -Math.round(36 + Math.random() * 90),
+                delayMs: Math.round(Math.random() * 140),
+            }
+        })
+
+        setRewardParticles((prev) => [...prev, ...particles])
+        window.setTimeout(() => {
+            const idSet = new Set(particles.map((p) => p.id))
+            setRewardParticles((prev) => prev.filter((p) => !idSet.has(p.id)))
+        }, 1200)
+    }
 
     // ─── Load all data (parallel) ─────────────────
     const loadData = useCallback(async () => {
@@ -172,8 +205,7 @@ export function DashboardPage() {
             setFeedModalOpen(false)
             await loadData()
             lightHaptic()
-            setRewardEmoji('🐾')
-            window.setTimeout(() => setRewardEmoji(null), 1000)
+            triggerRewardBurst('🐾')
             pushToast('success', '喂食记录成功 🐾')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
@@ -234,8 +266,7 @@ export function DashboardPage() {
             setSelectedColor('brown')
             lightHaptic()
             if (selectedBristol === 4) {
-                setRewardEmoji('💖')
-                window.setTimeout(() => setRewardEmoji(null), 1000)
+                triggerRewardBurst('💖')
             }
             pushToast('success', '铲屎记录成功 💩')
         } catch (err) {
@@ -325,6 +356,23 @@ export function DashboardPage() {
     return (
         <div className="dashboard fade-in">
             {rewardEmoji && <div className="reward-burst">{rewardEmoji}</div>}
+            {rewardParticles.length > 0 && (
+                <div className="reward-particles" aria-hidden="true">
+                    {rewardParticles.map((particle) => (
+                        <span
+                            key={particle.id}
+                            className="reward-particle"
+                            style={{
+                                '--particle-dx': `${particle.dx}px`,
+                                '--particle-dy': `${particle.dy}px`,
+                                '--particle-delay': `${particle.delayMs}ms`,
+                            } as React.CSSProperties}
+                        >
+                            {particle.icon}
+                        </span>
+                    ))}
+                </div>
+            )}
             {/* ── Cat Profile Card ── */}
             <Card variant="accent" padding="lg" className="cat-profile-card">
                 <div className="profile-header">

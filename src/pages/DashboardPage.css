@@ -215,6 +215,42 @@
     animation: reward-float 900ms ease-out forwards;
 }
 
+.reward-particles {
+    position: fixed;
+    right: var(--space-6);
+    bottom: calc(var(--nav-height) + var(--safe-bottom) + 92px);
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 250;
+}
+
+.reward-particle {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    font-size: 1.15rem;
+    opacity: 0;
+    animation: reward-particle-fly 980ms ease-out forwards;
+    animation-delay: var(--particle-delay);
+}
+
+@keyframes reward-particle-fly {
+    0% {
+        opacity: 0;
+        transform: translate(0, 0) scale(0.6);
+    }
+
+    20% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(var(--particle-dx), var(--particle-dy)) scale(1.15);
+    }
+}
+
 @keyframes reward-float {
     0% {
         opacity: 0;

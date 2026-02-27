@@ -61,9 +61,13 @@ export function LogPage() {
 
     const [imageLightbox, setImageLightbox] = useState<string | null>(null)
     const [lightboxScale, setLightboxScale] = useState(1)
+    const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
+    const [lightboxDragging, setLightboxDragging] = useState(false)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pinchStartDistanceRef = useRef<number | null>(null)
+    const lastTapAtRef = useRef(0)
+    const dragStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null)
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async () => {
@@ -121,16 +125,24 @@ export function LogPage() {
     const openLightbox = (url: string) => {
         setImageLightbox(url)
         setLightboxScale(1)
+        setLightboxOffset({ x: 0, y: 0 })
     }
 
     const closeLightbox = () => {
         setImageLightbox(null)
         setLightboxScale(1)
+        setLightboxOffset({ x: 0, y: 0 })
+        setLightboxDragging(false)
         pinchStartDistanceRef.current = null
+        dragStartRef.current = null
     }
 
     const updateLightboxScale = (nextScale: number) => {
-        setLightboxScale(Math.min(3, Math.max(1, nextScale)))
+        const clamped = Math.min(3, Math.max(1, nextScale))
+        setLightboxScale(clamped)
+        if (clamped === 1) {
+            setLightboxOffset({ x: 0, y: 0 })
+        }
     }
 
     const getPinchDistance = (touches: React.TouchList) => {
@@ -140,6 +152,15 @@ export function LogPage() {
     }
 
     const onLightboxTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length === 1) {
+            const now = Date.now()
+            if (now - lastTapAtRef.current < 260) {
+                const targetScale = lightboxScale > 1 ? 1 : 2
+                updateLightboxScale(targetScale)
+            }
+            lastTapAtRef.current = now
+        }
+
         if (event.touches.length === 2) {
             pinchStartDistanceRef.current = getPinchDistance(event.touches)
         }
@@ -155,6 +176,37 @@ export function LogPage() {
 
     const onLightboxTouchEnd = () => {
         pinchStartDistanceRef.current = null
+    }
+
+    const onLightboxPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (lightboxScale <= 1) return
+        dragStartRef.current = {
+            x: event.clientX,
+            y: event.clientY,
+            originX: lightboxOffset.x,
+            originY: lightboxOffset.y,
+        }
+        setLightboxDragging(true)
+    }
+
+    const onLightboxPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+        if (!dragStartRef.current || lightboxScale <= 1) return
+        const deltaX = event.clientX - dragStartRef.current.x
+        const deltaY = event.clientY - dragStartRef.current.y
+        setLightboxOffset({
+            x: dragStartRef.current.originX + deltaX,
+            y: dragStartRef.current.originY + deltaY,
+        })
+    }
+
+    const onLightboxPointerUp = () => {
+        dragStartRef.current = null
+        setLightboxDragging(false)
+    }
+
+    const onLightboxDoubleClick = () => {
+        const targetScale = lightboxScale > 1 ? 1 : 2
+        updateLightboxScale(targetScale)
     }
 
     const toggleTag = (tag: string) => {
@@ -613,12 +665,20 @@ export function LogPage() {
                         onTouchStart={onLightboxTouchStart}
                         onTouchMove={onLightboxTouchMove}
                         onTouchEnd={onLightboxTouchEnd}
+                        onPointerDown={onLightboxPointerDown}
+                        onPointerMove={onLightboxPointerMove}
+                        onPointerUp={onLightboxPointerUp}
+                        onPointerCancel={onLightboxPointerUp}
+                        onDoubleClick={onLightboxDoubleClick}
                     >
                         <img
                             src={imageLightbox}
                             alt="日记图片预览"
                             className="lightbox-image"
-                            style={{ transform: `scale(${lightboxScale})` }}
+                            style={{
+                                transform: `translate(${lightboxOffset.x}px, ${lightboxOffset.y}px) scale(${lightboxScale})`,
+                                cursor: lightboxScale > 1 ? (lightboxDragging ? 'grabbing' : 'grab') : 'zoom-in',
+                            }}
                         />
                     </div>
                 </div>

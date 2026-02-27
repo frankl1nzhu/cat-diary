@@ -253,6 +253,7 @@
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    touch-action: none;
 }
 
 .lightbox-image {
@@ -264,4 +265,6 @@
     transition: transform 180ms ease-out;
     transform-origin: center center;
     will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
 }
