@@ -68,7 +68,7 @@ export function LoginPage() {
         setLoading(true)
         try {
             await signUp(email, password, username.trim(), phone.trim())
-            pushToast('success', '注册成功！')
+            pushToast('success', '注册成功！请查收验证邮件')
         } catch (err) {
             const message = getErrorMessage(err, '注册失败，请稍后重试')
             setError(message)
