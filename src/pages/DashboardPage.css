@@ -7,6 +7,8 @@
 /* ── Cat Profile Card ── */
 .cat-profile-card {
     margin: var(--space-4);
+    width: calc(100% - var(--space-8));
+    max-width: calc(100% - var(--space-8));
     border-radius: var(--radius-xl) !important;
 }
 
