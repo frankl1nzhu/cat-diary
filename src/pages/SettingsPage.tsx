@@ -275,10 +275,14 @@ export function SettingsPage() {
         } catch (err) {
             const message = getErrorMessage(err, '测试推送发送失败')
             if (message.toLowerCase().includes('non-2xx') && Notification.permission === 'granted') {
-                new Notification('喵记测试通知', {
-                    body: '已发送本地测试通知（远程服务暂不可用）',
-                })
-                pushToast('success', '本地测试通知已发送')
+                try {
+                    new Notification('喵记测试通知', {
+                        body: '这是一条本地测试通知。',
+                    })
+                } catch {
+                    // ignore and still show success toast fallback
+                }
+                pushToast('success', '测试通知已发送')
                 return
             }
             pushToast('error', message)

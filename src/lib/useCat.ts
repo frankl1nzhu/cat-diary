@@ -73,12 +73,16 @@ export function useCat() {
         return () => { cancelled = true }
     }, [authLoading, currentCatId, setCurrentCatId, user])
 
-    const cat = cats.find((item) => item.id === currentCatId) || null
+    const resolvedCatId = currentCatId && cats.some((item) => item.id === currentCatId)
+        ? currentCatId
+        : (cats[0]?.id || null)
+
+    const cat = cats.find((item) => item.id === resolvedCatId) || null
 
     return {
         cat,
         cats,
-        catId: currentCatId,
+        catId: resolvedCatId,
         setCatId: setCurrentCatId,
         loading,
     }

@@ -523,6 +523,7 @@
     align-items: center;
     justify-content: center;
     padding: var(--space-4);
+    overflow-x: hidden;
 }
 
 .onboarding-card {
@@ -543,14 +544,17 @@
 
 .onboarding-form input[type='date'] {
     width: 100%;
+    inline-size: 100%;
     max-width: 100%;
     min-width: 0;
+    min-inline-size: 0;
     -webkit-min-logical-width: 0;
     min-height: 42px;
     line-height: normal;
     padding-top: 0;
     padding-bottom: 0;
     font-size: var(--font-size-sm);
+    box-sizing: border-box;
 }
 
 .onboarding-form .form-input {

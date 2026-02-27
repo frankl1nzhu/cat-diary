@@ -542,7 +542,7 @@ export function DashboardPage() {
         )
     }
 
-    if (loading) {
+    if (loading || catLoading) {
         return (
             <div className="dashboard fade-in">
                 <div className="cat-profile-card">
