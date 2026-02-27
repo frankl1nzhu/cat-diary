@@ -63,6 +63,12 @@ export async function resetPassword(email: string) {
     if (error) throw error
 }
 
+/** Update the current user's password */
+export async function updatePassword(newPassword: string) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (error) throw error
+}
+
 /** Sign out */
 export async function signOut() {
     const { error } = await supabase.auth.signOut()
@@ -74,6 +80,7 @@ export function useSession() {
     const [session, setSession] = useState<Session | null>(null)
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
+    const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
 
     useEffect(() => {
         // Get initial session
@@ -86,14 +93,17 @@ export function useSession() {
         // Listen for auth changes
         const {
             data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session)
             setUser(session?.user ?? null)
             setLoading(false)
+            if (event === 'PASSWORD_RECOVERY') {
+                setIsPasswordRecovery(true)
+            }
         })
 
         return () => subscription.unsubscribe()
     }, [])
 
-    return { session, user, loading }
+    return { session, user, loading, isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false) }
 }
