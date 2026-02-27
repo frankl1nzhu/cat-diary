@@ -165,10 +165,14 @@ export function SettingsPage() {
     }
 
     const handleEnableNotifications = async () => {
+        if (typeof Notification === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            pushToast('error', '当前浏览器不支持系统通知')
+            return
+        }
         try {
             const result = await enablePushNotifications()
             if (!result.ok) {
-                pushToast('error', result.reason === 'unsupported' ? '当前浏览器不支持系统通知（请使用受支持浏览器）' : '通知权限未开启')
+                pushToast('error', result.reason === 'unsupported' ? '当前浏览器不支持系统通知' : '通知权限未开启')
                 return
             }
 

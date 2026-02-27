@@ -20,6 +20,7 @@ export function BottomNav() {
     const actions = [
         { label: '📝 写日记', path: '/log?quick=diary' },
         { label: '💩 记便便', path: '/?quick=poop' },
+        { label: '🤮 记呕吐', path: '/stats?quick=vomit' },
         { label: '🍽️ 记喂食', path: '/?quick=feed' },
         { label: '⚖️ 记体重', path: '/log?quick=weight' },
     ]

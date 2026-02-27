@@ -36,28 +36,24 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .timeline-date-row .form-input {
-    flex: 1 1 120px;
+    flex: 1 1 0;
     min-width: 0;
+    padding: var(--space-2);
+    font-size: var(--font-size-xs);
 }
 
 .timeline-date-reset {
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-bg-input);
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     white-space: nowrap;
-}
-
-@media (max-width: 380px) {
-    .timeline-date-reset {
-        width: 100%;
-    }
 }
 
 /* ── Timeline ── */

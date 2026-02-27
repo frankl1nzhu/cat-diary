@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -21,6 +22,7 @@ export function StatsPage() {
     const { user } = useSession()
     const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
+    const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
@@ -313,6 +315,40 @@ export function StatsPage() {
         }
     }
 
+    const addVomitRecord = useCallback(async () => {
+        if (!catId || !user) return
+        setVomitSaving(true)
+        try {
+            const today = format(new Date(), 'yyyy-MM-dd')
+            await supabase.from('health_records').insert({
+                cat_id: catId,
+                type: 'medical',
+                name: '呕吐',
+                date: today,
+                next_due: null,
+                created_by: user.id,
+            })
+            await loadData()
+            lightHaptic()
+            pushToast('success', '已记录呕吐 🤮')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '呕吐记录失败，请稍后重试'))
+        } finally {
+            setVomitSaving(false)
+        }
+    }, [catId, loadData, pushToast, user])
+
+    useEffect(() => {
+        const quick = searchParams.get('quick')
+        if (quick !== 'vomit') return
+        void addVomitRecord()
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('quick')
+            return next
+        }, { replace: true })
+    }, [addVomitRecord, searchParams, setSearchParams])
+
     const exportVetReport = () => {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         const recentWeights = weights.filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
@@ -348,29 +384,6 @@ export function StatsPage() {
         reportWindow.document.close()
         reportWindow.focus()
         reportWindow.print()
-    }
-
-    const addVomitRecord = async () => {
-        if (!catId || !user) return
-        setVomitSaving(true)
-        try {
-            const today = format(new Date(), 'yyyy-MM-dd')
-            await supabase.from('health_records').insert({
-                cat_id: catId,
-                type: 'medical',
-                name: '呕吐',
-                date: today,
-                next_due: null,
-                created_by: user.id,
-            })
-            await loadData()
-            lightHaptic()
-            pushToast('success', '已记录呕吐 🤮')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '呕吐记录失败，请稍后重试'))
-        } finally {
-            setVomitSaving(false)
-        }
     }
 
     // ─── Health type labels ───────────────────────

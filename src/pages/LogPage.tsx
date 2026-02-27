@@ -726,7 +726,7 @@ export function LogPage() {
                             min={dateStart || undefined}
                             aria-label="结束日期"
                         />
-                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>全部日期</button>
+                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>全部</button>
                     </div>
                 </Card>
             </div>
