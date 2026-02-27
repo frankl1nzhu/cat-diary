@@ -165,14 +165,18 @@ export function SettingsPage() {
     }
 
     const handleEnableNotifications = async () => {
-        if (typeof Notification === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-            pushToast('error', '当前浏览器不支持系统通知')
-            return
-        }
         try {
             const result = await enablePushNotifications()
             if (!result.ok) {
-                pushToast('error', result.reason === 'unsupported' ? '当前浏览器不支持系统通知' : '通知权限未开启')
+                if (result.reason === 'ios-add-to-home-screen') {
+                    pushToast('error', 'iPhone Safari 需先“添加到主屏幕”后才能开启通知（iOS 16.4+）')
+                    return
+                }
+                if (result.reason === 'unsupported' || result.reason === 'unsupported-push') {
+                    pushToast('error', '当前浏览器不支持 Web Push 通知')
+                    return
+                }
+                pushToast('error', '通知权限未开启')
                 return
             }
 

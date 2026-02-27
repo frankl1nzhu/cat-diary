@@ -1,5 +1,22 @@
 const PUSH_SUB_KEY = 'cat_diary_push_subscription'
 
+function isIosSafariBrowser() {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent
+    const isiOS = /iPhone|iPad|iPod/i.test(ua)
+    const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)
+    return isiOS && isSafari
+}
+
+function isStandaloneDisplayMode() {
+    if (typeof window === 'undefined') return false
+    const iosStandalone = typeof (navigator as Navigator & { standalone?: boolean }).standalone === 'boolean'
+        ? Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+        : false
+    const mediaStandalone = typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches
+    return iosStandalone || mediaStandalone
+}
+
 function base64UrlToUint8Array(base64String: string) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
@@ -16,13 +33,16 @@ export async function enablePushNotifications() {
         return { ok: false as const, reason: 'unsupported' as const }
     }
 
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        if (isIosSafariBrowser() && !isStandaloneDisplayMode()) {
+            return { ok: false as const, reason: 'ios-add-to-home-screen' as const }
+        }
+        return { ok: false as const, reason: 'unsupported-push' as const }
+    }
+
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') {
         return { ok: false as const, reason: 'denied' as const }
-    }
-
-    if (!('serviceWorker' in navigator)) {
-        return { ok: true as const, subscribed: false as const, reason: 'no-service-worker' as const }
     }
 
     const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
