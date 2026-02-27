@@ -5,7 +5,7 @@ import { FAB } from '../components/ui/FAB'
 import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
-import { useAppStore } from '../stores/useAppStore'
+import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { getErrorMessage } from '../lib/errorMessage'
@@ -23,8 +23,7 @@ const TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇']
 
 export function LogPage() {
     const { user } = useSession()
-    const currentCatId = useAppStore((s) => s.currentCatId)
-    const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
 
     const [timeline, setTimeline] = useState<TimelineItem[]>([])
@@ -50,19 +49,6 @@ export function LogPage() {
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async () => {
-        let catId = currentCatId
-        if (!catId) {
-            const { data: catData } = await supabase
-                .from('cats')
-                .select('id')
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single()
-            if (catData) {
-                catId = catData.id
-                setCurrentCatId(catId)
-            }
-        }
         if (!catId) { setLoading(false); return }
 
         const [diaries, poops, weights, moods] = await Promise.all([
@@ -81,12 +67,12 @@ export function LogPage() {
         items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         setTimeline(items)
         setLoading(false)
-    }, [currentCatId, setCurrentCatId])
+    }, [catId])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
     useRealtimeSubscription('diary_entries', () => loadTimeline(),
-        currentCatId ? `cat_id=eq.${currentCatId}` : undefined)
+        catId ? `cat_id=eq.${catId}` : undefined)
 
     // ─── Add diary ────────────────────────────────
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,7 +89,7 @@ export function LogPage() {
     }
 
     const handleDiarySave = async () => {
-        if (!currentCatId || !user) return
+        if (!catId || !user) return
         if (!diaryText.trim() && !diaryImage) return
         setDiarySaving(true)
 
@@ -122,7 +108,7 @@ export function LogPage() {
             }
 
             await supabase.from('diary_entries').insert({
-                cat_id: currentCatId,
+                cat_id: catId,
                 text: diaryText.trim() || null,
                 image_url: imageUrl,
                 tags: diaryTags,
@@ -132,6 +118,7 @@ export function LogPage() {
             setDiaryOpen(false)
             resetDiaryForm()
             await loadTimeline()
+            pushToast('success', '日记发布成功 📝')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))
         } finally {
@@ -148,14 +135,14 @@ export function LogPage() {
 
     // ─── Add weight ───────────────────────────────
     const handleWeightSave = async () => {
-        if (!currentCatId || !user) return
+        if (!catId || !user) return
         const kg = parseFloat(weightValue)
         if (isNaN(kg) || kg <= 0) return
         setWeightSaving(true)
 
         try {
             await supabase.from('weight_records').insert({
-                cat_id: currentCatId,
+                cat_id: catId,
                 weight_kg: kg,
                 recorded_at: new Date().toISOString(),
                 created_by: user.id,
@@ -163,6 +150,7 @@ export function LogPage() {
             setWeightOpen(false)
             setWeightValue('')
             await loadTimeline()
+            pushToast('success', '体重记录成功 ⚖️')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '体重记录失败，请稍后重试'))
         } finally {

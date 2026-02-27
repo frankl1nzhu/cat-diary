@@ -3,6 +3,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { signOut, useSession } from '../lib/auth'
+import { useCat } from '../lib/useCat'
 import { useAppStore } from '../stores/useAppStore'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
@@ -10,7 +11,7 @@ import './SettingsPage.css'
 
 export function SettingsPage() {
     const { user } = useSession()
-    const currentCatId = useAppStore((s) => s.currentCatId)
+    const { cat, catId } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
 
@@ -21,30 +22,17 @@ export function SettingsPage() {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Load existing cat profile
+    // Populate form when cat is loaded via shared hook
     useEffect(() => {
-        async function loadCat() {
-            const { data, error } = await supabase
-                .from('cats')
-                .select('*')
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single()
-
-            if (data && !error) {
-                setCurrentCatId(data.id)
-                setName(data.name)
-                setBreed(data.breed || '')
-                setBirthday(data.birthday || '')
-                setAdoptedAt(data.adopted_at || '')
-                setAvatarUrl(data.avatar_url)
-            }
-        }
-        loadCat()
-    }, [setCurrentCatId])
+        if (!cat) return
+        setName(cat.name)
+        setBreed(cat.breed || '')
+        setBirthday(cat.birthday || '')
+        setAdoptedAt(cat.adopted_at || '')
+        setAvatarUrl(cat.avatar_url)
+    }, [cat])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,7 +40,6 @@ export function SettingsPage() {
         if (!file) return
 
         setUploading(true)
-        setMessage(null)
 
         try {
             const fileExt = file.name.split('.').pop()
@@ -70,10 +57,9 @@ export function SettingsPage() {
                 .getPublicUrl(filePath)
 
             setAvatarUrl(urlData.publicUrl)
-            setMessage({ type: 'success', text: '头像上传成功！' })
+            pushToast('success', '头像上传成功！')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '头像上传失败，请稍后重试'))
-            setMessage({ type: 'error', text: '上传失败，请重试' })
         } finally {
             setUploading(false)
         }
@@ -83,12 +69,11 @@ export function SettingsPage() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!name.trim()) {
-            setMessage({ type: 'error', text: '请输入猫咪名字' })
+            pushToast('error', '请输入猫咪名字')
             return
         }
 
         setSaving(true)
-        setMessage(null)
 
         try {
             const catData = {
@@ -100,12 +85,12 @@ export function SettingsPage() {
                 created_by: user?.id || '',
             }
 
-            if (currentCatId) {
+            if (catId) {
                 // Update existing
                 const { error } = await supabase
                     .from('cats')
                     .update(catData)
-                    .eq('id', currentCatId)
+                    .eq('id', catId)
                 if (error) throw error
             } else {
                 // Insert new
@@ -118,10 +103,9 @@ export function SettingsPage() {
                 if (data) setCurrentCatId(data.id)
             }
 
-            setMessage({ type: 'success', text: '档案保存成功！🎉' })
+            pushToast('success', '档案保存成功！🎉')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '档案保存失败，请稍后重试'))
-            setMessage({ type: 'error', text: '保存失败，请重试' })
         } finally {
             setSaving(false)
         }
@@ -141,13 +125,6 @@ export function SettingsPage() {
                 <h1 className="text-2xl font-bold">⚙️ 设置</h1>
                 <p className="text-secondary text-sm">管理猫咪档案和账号</p>
             </div>
-
-            {/* Status Message */}
-            {message && (
-                <div className={`status-message status-${message.type} mx-4`}>
-                    {message.type === 'success' ? '✅' : '⚠️'} {message.text}
-                </div>
-            )}
 
             {/* Cat Profile Editor */}
             <form onSubmit={handleSave}>

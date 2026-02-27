@@ -24,13 +24,11 @@ export function LoginPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        console.log('🐾 Login attempt:', { email, password: '***' })
         setError(null)
         setLoading(true)
 
         try {
-            const data = await signIn(email, password)
-            console.log('✅ Login success:', data)
+            await signIn(email, password)
         } catch (err) {
             const message = getErrorMessage(err, '登录失败，请检查邮箱和密码')
             setError(message)

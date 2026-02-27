@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
-import { useAppStore } from '../stores/useAppStore'
+import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { format } from 'date-fns'
@@ -15,8 +15,7 @@ import './StatsPage.css'
 
 export function StatsPage() {
     const { user } = useSession()
-    const currentCatId = useAppStore((s) => s.currentCatId)
-    const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
@@ -40,19 +39,6 @@ export function StatsPage() {
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
-        let catId = currentCatId
-        if (!catId) {
-            const { data: catData } = await supabase
-                .from('cats')
-                .select('id')
-                .order('created_at', { ascending: true })
-                .limit(1)
-                .single()
-            if (catData) {
-                catId = catData.id
-                setCurrentCatId(catId)
-            }
-        }
         if (!catId) { setLoading(false); return }
 
         const [w, h, inv] = await Promise.all([
@@ -65,23 +51,23 @@ export function StatsPage() {
         if (h.data) setHealthRecords(h.data)
         if (inv.data) setInventory(inv.data)
         setLoading(false)
-    }, [currentCatId, setCurrentCatId])
+    }, [catId])
 
     useEffect(() => { loadData() }, [loadData])
 
-    // ─── Weight chart data ────────────────────────
-    const chartData = weights.map((w) => ({
+    // ─── Weight chart data (memoized) ───────────────
+    const chartData = useMemo(() => weights.map((w) => ({
         date: format(new Date(w.recorded_at), 'MM/dd'),
         weight: w.weight_kg,
-    }))
+    })), [weights])
 
     // ─── Save health record ───────────────────────
     const handleHealthSave = async () => {
-        if (!currentCatId || !user || !healthName.trim()) return
+        if (!catId || !user || !healthName.trim()) return
         setHealthSaving(true)
         try {
             await supabase.from('health_records').insert({
-                cat_id: currentCatId,
+                cat_id: catId,
                 type: healthType,
                 name: healthName.trim(),
                 date: healthDate,
@@ -91,6 +77,7 @@ export function StatsPage() {
             setHealthModalOpen(false)
             resetHealthForm()
             await loadData()
+            pushToast('success', '健康记录已保存')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '健康记录保存失败，请稍后重试'))
         } finally {
@@ -107,7 +94,7 @@ export function StatsPage() {
 
     // ─── Save/update inventory ────────────────────
     const handleInventorySave = async () => {
-        if (!currentCatId || !user || !invItemName.trim()) return
+        if (!catId || !user || !invItemName.trim()) return
         setInvSaving(true)
         try {
             if (editingInvId) {
@@ -116,7 +103,7 @@ export function StatsPage() {
                     .eq('id', editingInvId)
             } else {
                 await supabase.from('inventory').insert({
-                    cat_id: currentCatId,
+                    cat_id: catId,
                     item_name: invItemName.trim(),
                     status: invStatus,
                     updated_by: user.id,
@@ -125,6 +112,7 @@ export function StatsPage() {
             setInventoryModalOpen(false)
             resetInvForm()
             await loadData()
+            pushToast('success', '库存已更新')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '库存保存失败，请稍后重试'))
         } finally {

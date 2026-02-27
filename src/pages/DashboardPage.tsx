@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -6,20 +6,18 @@ import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useRealtimeSubscription } from '../lib/realtime'
-import { useAppStore } from '../stores/useAppStore'
+import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { differenceInDays, format, addMonths } from 'date-fns'
-import type { Cat, MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
+import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
 
 export function DashboardPage() {
     const { user } = useSession()
-    const currentCatId = useAppStore((s) => s.currentCatId)
-    const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const { cat, catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
 
-    const [cat, setCat] = useState<Cat | null>(null)
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
 
     // Feed modal
@@ -39,79 +37,56 @@ export function DashboardPage() {
     const [feedLoading, setFeedLoading] = useState(false)
     const [moodSaving, setMoodSaving] = useState(false)
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
-    // ─── Load all data ────────────────────────────
+    // ─── Load all data (parallel) ─────────────────
     const loadData = useCallback(async () => {
-        // Load cat
-        const { data: catData } = await supabase
-            .from('cats')
-            .select('*')
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .single()
+        if (!catId) return
 
-        if (catData) {
-            setCat(catData)
-            setCurrentCatId(catData.id)
-
-            // Load today's feed records
-            const { data: feedData } = await supabase
+        const [feedRes, moodRes, diaryRes, invRes, healthRes] = await Promise.all([
+            supabase
                 .from('feed_status')
                 .select('*')
-                .eq('cat_id', catData.id)
+                .eq('cat_id', catId)
                 .gte('updated_at', `${today}T00:00:00`)
-                .order('fed_at', { ascending: false })
-
-            if (feedData) setTodayFeeds(feedData)
-
-            // Load today's mood
-            const { data: moodData } = await supabase
+                .order('fed_at', { ascending: false }),
+            supabase
                 .from('mood_logs')
                 .select('*')
-                .eq('cat_id', catData.id)
+                .eq('cat_id', catId)
                 .eq('date', today)
                 .limit(1)
-                .single()
-
-            if (moodData) setTodayMood(moodData.mood)
-
-            // Load latest diary
-            const { data: diaryData } = await supabase
+                .single(),
+            supabase
                 .from('diary_entries')
                 .select('*')
-                .eq('cat_id', catData.id)
+                .eq('cat_id', catId)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single()
-
-            if (diaryData) setLatestDiary(diaryData)
-
-            // Load inventory
-            const { data: invData } = await supabase
+                .single(),
+            supabase
                 .from('inventory')
                 .select('*')
-                .eq('cat_id', catData.id)
-
-            if (invData) setInventory(invData)
-
-            // Load next deworming
-            const { data: healthData } = await supabase
+                .eq('cat_id', catId),
+            supabase
                 .from('health_records')
                 .select('*')
-                .eq('cat_id', catData.id)
+                .eq('cat_id', catId)
                 .eq('type', 'deworming')
                 .order('date', { ascending: false })
                 .limit(1)
-                .single()
+                .single(),
+        ])
 
-            if (healthData) {
-                // Auto-calculate next due (3 months after last)
-                const nextDue = healthData.next_due || format(addMonths(new Date(healthData.date), 3), 'yyyy-MM-dd')
-                setNextDeworming(nextDue)
-            }
+        if (feedRes.data) setTodayFeeds(feedRes.data)
+        if (moodRes.data) setTodayMood(moodRes.data.mood)
+        if (diaryRes.data) setLatestDiary(diaryRes.data)
+        if (invRes.data) setInventory(invRes.data)
+        if (healthRes.data) {
+            const nextDue = healthRes.data.next_due || format(addMonths(new Date(healthRes.data.date), 3), 'yyyy-MM-dd')
+            setNextDeworming(nextDue)
         }
-    }, [today, setCurrentCatId])
+    }, [catId, today])
 
     useEffect(() => {
         loadData()
@@ -120,25 +95,23 @@ export function DashboardPage() {
     // ─── Realtime subscriptions ───────────────────
     useRealtimeSubscription('feed_status', () => {
         loadData()
-    }, currentCatId ? `cat_id=eq.${currentCatId}` : undefined)
+    }, catId ? `cat_id=eq.${catId}` : undefined)
 
     useRealtimeSubscription('mood_logs', () => {
         loadData()
-    }, currentCatId ? `cat_id=eq.${currentCatId}` : undefined)
+    }, catId ? `cat_id=eq.${catId}` : undefined)
 
-    // ─── Countdown calculations ───────────────────
-    const calcCountdowns = () => {
+    // ─── Countdown calculations (memoized) ────────
+    const { daysHome, daysToBirthday, daysToDeworming } = useMemo(() => {
         if (!cat) return { daysHome: null, daysToBirthday: null, daysToDeworming: null }
 
         const now = new Date()
 
-        // Days at home
         let daysHome: number | null = null
         if (cat.adopted_at) {
             daysHome = differenceInDays(now, new Date(cat.adopted_at))
         }
 
-        // Days to next birthday
         let daysToBirthday: number | null = null
         if (cat.birthday) {
             const bday = new Date(cat.birthday)
@@ -147,16 +120,13 @@ export function DashboardPage() {
             daysToBirthday = differenceInDays(nextBday, now)
         }
 
-        // Days to next deworming
         let daysToDeworming: number | null = null
         if (nextDeworming) {
             daysToDeworming = differenceInDays(new Date(nextDeworming), now)
         }
 
         return { daysHome, daysToBirthday, daysToDeworming }
-    }
-
-    const { daysHome, daysToBirthday, daysToDeworming } = calcCountdowns()
+    }, [cat, nextDeworming])
 
     // ─── Feed record ─────────────────────────────
     const handleFeedRecord = async () => {
@@ -173,6 +143,7 @@ export function DashboardPage() {
             })
             setFeedModalOpen(false)
             await loadData()
+            pushToast('success', '喂食记录成功 🐾')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
         } finally {
@@ -206,6 +177,7 @@ export function DashboardPage() {
                     { onConflict: 'cat_id,date' }
                 )
             setTodayMood(mood)
+            pushToast('success', '心情已记录')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
         } finally {
@@ -228,6 +200,7 @@ export function DashboardPage() {
             setPoopModalOpen(false)
             setSelectedBristol(4)
             setSelectedColor('brown')
+            pushToast('success', '铲屎记录成功 💩')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
         } finally {
