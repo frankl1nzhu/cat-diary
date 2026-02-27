@@ -137,3 +137,22 @@
     background: var(--color-primary);
     color: #fff;
 }
+
+/* ── Forgot Password Link ── */
+.forgot-link {
+    display: block;
+    width: 100%;
+    margin-top: var(--space-3);
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.forgot-link:hover {
+    color: var(--color-primary);
+}
