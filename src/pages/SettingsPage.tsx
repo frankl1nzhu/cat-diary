@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { signOut, useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
@@ -11,6 +12,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -28,7 +30,9 @@ export function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [themePreset, setThemePreset] = useState<ThemePreset>(getStoredTheme())
+    const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const online = useOnlineStatus()
 
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
@@ -62,6 +66,11 @@ export function SettingsPage() {
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+        if (file.size > 5 * 1024 * 1024) {
+            pushToast('error', '图片大小不能超过 5MB')
+            e.target.value = ''
+            return
+        }
 
         setUploading(true)
 
@@ -264,7 +273,7 @@ export function SettingsPage() {
                                 />
                             </div>
                         </div>
-                        <Button type="submit" variant="primary" fullWidth disabled={saving}>
+                        <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
                             {saving ? '保存中...' : '保存档案'}
                         </Button>
                     </Card>
@@ -336,10 +345,19 @@ export function SettingsPage() {
 
             {/* Sign Out */}
             <div className="p-4">
-                <Button variant="ghost" fullWidth onClick={handleSignOut}>
+                <Button variant="ghost" fullWidth onClick={() => setSignOutConfirmOpen(true)}>
                     退出登录
                 </Button>
             </div>
+
+            <Modal isOpen={signOutConfirmOpen} onClose={() => setSignOutConfirmOpen(false)} title="确认退出登录？">
+                <div className="settings-confirm">
+                    <p className="text-sm text-secondary">确认要退出当前账号吗？</p>
+                    <Button variant="primary" fullWidth onClick={handleSignOut}>
+                        确认退出
+                    </Button>
+                </div>
+            </Modal>
         </div>
     )
 }

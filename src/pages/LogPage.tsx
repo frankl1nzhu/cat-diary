@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -10,6 +10,7 @@ import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
@@ -28,10 +29,16 @@ export function LogPage() {
     const { user } = useSession()
     const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
+    const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
 
     const [timeline, setTimeline] = useState<TimelineItem[]>([])
     const [loading, setLoading] = useState(true)
+    const [loadLimit, setLoadLimit] = useState(50)
+    const [hasMore, setHasMore] = useState(false)
+    const [loadingMore, setLoadingMore] = useState(false)
+    const [refreshing, setRefreshing] = useState(false)
+    const [pullDistance, setPullDistance] = useState(0)
 
     // New diary modal
     const [diaryOpen, setDiaryOpen] = useState(false)
@@ -45,6 +52,7 @@ export function LogPage() {
     // New weight modal
     const [weightOpen, setWeightOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
+    const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
 
@@ -64,20 +72,32 @@ export function LogPage() {
     const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
     const [lightboxDragging, setLightboxDragging] = useState(false)
 
+    const [pendingDeleteItem, setPendingDeleteItem] = useState<TimelineItem | null>(null)
+    const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
+    const [keyword, setKeyword] = useState('')
+    const [filterTypes, setFilterTypes] = useState<Array<TimelineItem['type']>>(['diary', 'poop', 'weight', 'mood'])
+    const [dateStart, setDateStart] = useState('')
+    const [dateEnd, setDateEnd] = useState('')
+
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const pullStartYRef = useRef<number | null>(null)
     const pinchStartDistanceRef = useRef<number | null>(null)
     const lastTapAtRef = useRef(0)
     const dragStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null)
+    const lightboxRef = useRef<HTMLDivElement>(null)
 
     // ─── Load timeline ────────────────────────────
-    const loadTimeline = useCallback(async () => {
+    const loadTimeline = useCallback(async (nextLimit?: number) => {
         if (!catId) { setLoading(false); return }
 
+        const effectiveLimit = nextLimit ?? loadLimit
+
         const [diaries, poops, weights, moods] = await Promise.all([
-            supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(50),
-            supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(50),
-            supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(50),
-            supabase.from('mood_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(50),
+            supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
+            supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
+            supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
+            supabase.from('mood_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
         ])
 
         const items: TimelineItem[] = []
@@ -88,10 +108,20 @@ export function LogPage() {
 
         items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         setTimeline(items)
+        setHasMore(
+            (diaries.data?.length || 0) >= effectiveLimit
+            || (poops.data?.length || 0) >= effectiveLimit
+            || (weights.data?.length || 0) >= effectiveLimit
+            || (moods.data?.length || 0) >= effectiveLimit
+        )
         setLoading(false)
-    }, [catId])
+    }, [catId, loadLimit])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
+
+    useEffect(() => {
+        setLoadLimit(50)
+    }, [catId])
 
     useEffect(() => {
         const quick = searchParams.get('quick')
@@ -113,11 +143,22 @@ export function LogPage() {
 
     useRealtimeSubscription('diary_entries', () => loadTimeline(),
         catId ? `cat_id=eq.${catId}` : undefined)
+    useRealtimeSubscription('poop_logs', () => loadTimeline(),
+        catId ? `cat_id=eq.${catId}` : undefined)
+    useRealtimeSubscription('weight_records', () => loadTimeline(),
+        catId ? `cat_id=eq.${catId}` : undefined)
+    useRealtimeSubscription('mood_logs', () => loadTimeline(),
+        catId ? `cat_id=eq.${catId}` : undefined)
 
     // ─── Add diary ────────────────────────────────
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+        if (file.size > 5 * 1024 * 1024) {
+            pushToast('error', '图片大小不能超过 5MB')
+            e.target.value = ''
+            return
+        }
         setDiaryImage(file)
         setDiaryImagePreview(URL.createObjectURL(file))
     }
@@ -277,7 +318,11 @@ export function LogPage() {
     const handleWeightSave = async () => {
         if (!catId || !user) return
         const kg = parseFloat(weightValue)
-        if (isNaN(kg) || kg <= 0) return
+        if (isNaN(kg) || kg < 0.1 || kg > 30) {
+            setWeightError('体重需在 0.1 到 30kg 之间')
+            return
+        }
+        setWeightError('')
         setWeightSaving(true)
 
         try {
@@ -378,6 +423,7 @@ export function LogPage() {
     }
 
     const deleteTimelineItem = async (item: TimelineItem) => {
+        setDeleteSubmitting(true)
         try {
             if (item.type === 'diary') {
                 await supabase.from('diary_entries').delete().eq('id', item.data.id)
@@ -396,8 +442,122 @@ export function LogPage() {
             await loadTimeline()
         } catch (err) {
             pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+        } finally {
+            setDeleteSubmitting(false)
+            setPendingDeleteItem(null)
         }
     }
+
+    const filteredTimeline = useMemo(() => {
+        const startTs = dateStart ? new Date(`${dateStart}T00:00:00`).getTime() : null
+        const endTs = dateEnd ? new Date(`${dateEnd}T23:59:59.999`).getTime() : null
+        const normalizedKeyword = keyword.trim().toLowerCase()
+
+        return timeline.filter((item) => {
+            if (!filterTypes.includes(item.type)) return false
+            const ts = new Date(item.time).getTime()
+            if (startTs !== null && ts < startTs) return false
+            if (endTs !== null && ts > endTs) return false
+
+            if (!normalizedKeyword) return true
+
+            if (item.type === 'diary') {
+                const text = `${item.data.text || ''} ${(item.data.tags || []).join(' ')}`.toLowerCase()
+                return text.includes(normalizedKeyword)
+            }
+            if (item.type === 'poop') {
+                return `便便 ${item.data.bristol_type} ${item.data.color}`.toLowerCase().includes(normalizedKeyword)
+            }
+            if (item.type === 'weight') {
+                return `体重 ${item.data.weight_kg}`.toLowerCase().includes(normalizedKeyword)
+            }
+            return `心情 ${item.data.mood}`.toLowerCase().includes(normalizedKeyword)
+        })
+    }, [dateEnd, dateStart, filterTypes, keyword, timeline])
+
+    const toggleTypeFilter = (type: TimelineItem['type']) => {
+        setFilterTypes((prev) => {
+            if (prev.includes(type)) {
+                if (prev.length === 1) return prev
+                return prev.filter((item) => item !== type)
+            }
+            return [...prev, type]
+        })
+    }
+
+    const moveMoodSelection = (direction: 1 | -1) => {
+        const options: Array<'😸' | '😾' | '😴'> = ['😸', '😾', '😴']
+        const currentIndex = options.findIndex((item) => item === moodValue)
+        const nextIndex = (currentIndex + direction + options.length) % options.length
+        setMoodValue(options[nextIndex])
+    }
+
+    const handleLoadMore = async () => {
+        if (loadingMore) return
+        const nextLimit = loadLimit + 50
+        setLoadingMore(true)
+        setLoadLimit(nextLimit)
+        await loadTimeline(nextLimit)
+        setLoadingMore(false)
+    }
+
+    const handleRefresh = async () => {
+        setRefreshing(true)
+        await loadTimeline()
+        setRefreshing(false)
+    }
+
+    const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (window.scrollY > 0) return
+        pullStartYRef.current = event.touches[0].clientY
+    }
+
+    const onTouchMovePage = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (pullStartYRef.current === null) return
+        const delta = event.touches[0].clientY - pullStartYRef.current
+        if (delta > 0) {
+            setPullDistance(Math.min(delta, 90))
+        }
+    }
+
+    const onTouchEndPage = async () => {
+        if (pullDistance >= 72) {
+            await handleRefresh()
+        }
+        setPullDistance(0)
+        pullStartYRef.current = null
+    }
+
+    useEffect(() => {
+        if (!imageLightbox) return
+
+        lightboxRef.current?.focus()
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (!imageLightbox) return
+            if (event.key === 'Escape') {
+                event.preventDefault()
+                closeLightbox()
+            }
+            if (event.key === 'Tab') {
+                const focusable = lightboxRef.current?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+                if (!focusable || focusable.length === 0) return
+                const first = focusable[0]
+                const last = focusable[focusable.length - 1]
+                const active = document.activeElement
+                if (event.shiftKey && active === first) {
+                    event.preventDefault()
+                    last.focus()
+                } else if (!event.shiftKey && active === last) {
+                    event.preventDefault()
+                    first.focus()
+                }
+            }
+        }
+
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [imageLightbox])
 
     // ─── Helpers ──────────────────────────────────
     const bristolLabels: Record<string, string> = {
@@ -414,7 +574,7 @@ export function LogPage() {
         switch (item.type) {
             case 'diary':
                 return (
-                    <SwipeableRow key={`d-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                    <SwipeableRow key={`d-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
                         <Card variant="default" padding="md" className="timeline-card">
                             <div className="timeline-badge diary-badge">📝</div>
                             <div className="timeline-content">
@@ -440,7 +600,7 @@ export function LogPage() {
             case 'poop': {
                 const isAbnormal = Number(item.data.bristol_type) >= 6 || ['red', 'black', 'white'].includes(item.data.color)
                 return (
-                    <SwipeableRow key={`p-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                    <SwipeableRow key={`p-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
                         <Card variant="default" padding="md" className={`timeline-card ${isAbnormal ? 'timeline-warn' : ''}`}>
                             <div className="timeline-badge poop-badge">💩</div>
                             <div className="timeline-content">
@@ -460,7 +620,7 @@ export function LogPage() {
             }
             case 'weight':
                 return (
-                    <SwipeableRow key={`w-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                    <SwipeableRow key={`w-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
                         <Card variant="default" padding="md" className="timeline-card">
                             <div className="timeline-badge weight-badge">⚖️</div>
                             <div className="timeline-content">
@@ -475,7 +635,7 @@ export function LogPage() {
                 )
             case 'mood':
                 return (
-                    <SwipeableRow key={`m-${item.data.id}`} onDelete={() => deleteTimelineItem(item)}>
+                    <SwipeableRow key={`m-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
                         <Card variant="default" padding="md" className="timeline-card">
                             <div className="timeline-badge mood-badge">{item.data.mood}</div>
                             <div className="timeline-content">
@@ -492,10 +652,60 @@ export function LogPage() {
     }
 
     return (
-        <div className="log-page fade-in">
+        <div className="log-page fade-in" onTouchStart={onTouchStart} onTouchMove={onTouchMovePage} onTouchEnd={onTouchEndPage}>
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">📝 记录</h1>
                 <p className="text-secondary text-sm">所有猫咪动态</p>
+            </div>
+
+            <div className="px-4">
+                <Card variant="default" padding="md" className="log-filter-card">
+                    <div className="pull-refresh-hint text-xs text-secondary">
+                        {refreshing ? '刷新中…' : pullDistance >= 72 ? '松开刷新' : '下拉可刷新'}
+                    </div>
+                    <input
+                        type="search"
+                        className="form-input"
+                        placeholder="搜索记录关键字"
+                        value={keyword}
+                        onChange={(event) => setKeyword(event.target.value)}
+                        aria-label="搜索记录"
+                    />
+                    <div className="timeline-chip-row" role="group" aria-label="记录类型筛选">
+                        {([
+                            { key: 'diary' as const, label: '📝 日记' },
+                            { key: 'poop' as const, label: '💩 便便' },
+                            { key: 'weight' as const, label: '⚖️ 体重' },
+                            { key: 'mood' as const, label: '😺 心情' },
+                        ]).map((item) => (
+                            <button
+                                key={item.key}
+                                className={`timeline-chip ${filterTypes.includes(item.key) ? 'timeline-chip-active' : ''}`}
+                                onClick={() => toggleTypeFilter(item.key)}
+                                aria-pressed={filterTypes.includes(item.key)}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="timeline-date-row">
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={dateStart}
+                            onChange={(event) => setDateStart(event.target.value)}
+                            aria-label="开始日期"
+                        />
+                        <span className="text-secondary text-sm">至</span>
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={dateEnd}
+                            onChange={(event) => setDateEnd(event.target.value)}
+                            aria-label="结束日期"
+                        />
+                    </div>
+                </Card>
             </div>
 
             <div className="timeline px-4">
@@ -504,13 +714,19 @@ export function LogPage() {
                         <span className="empty-icon">⏳</span>
                         <p className="text-secondary text-sm">加载中...</p>
                     </div>
-                ) : timeline.length === 0 ? (
+                ) : filteredTimeline.length === 0 ? (
                     <div className="empty-state">
                         <EmptyCatIllustration mood="play" />
-                        <p className="text-secondary text-sm">还没有记录，点右下角 + 开始吧！</p>
+                        <p className="text-secondary text-sm">没有符合筛选条件的记录</p>
                     </div>
                 ) : (
-                    timeline.map(renderItem)
+                    filteredTimeline.map(renderItem)
+                )}
+
+                {!loading && hasMore && (
+                    <Button variant="secondary" onClick={handleLoadMore} disabled={loadingMore}>
+                        {loadingMore ? '加载中...' : '加载更多'}
+                    </Button>
                 )}
             </div>
 
@@ -523,8 +739,10 @@ export function LogPage() {
                             placeholder="今天猫咪做了什么..."
                             value={diaryText}
                             onChange={(e) => setDiaryText(e.target.value)}
+                            maxLength={500}
                             rows={4}
                         />
+                        <p className="text-muted text-xs">{diaryText.length}/500</p>
                     </div>
 
                     <div className="form-group">
@@ -563,29 +781,34 @@ export function LogPage() {
                         />
                     </div>
 
-                    <Button variant="primary" fullWidth onClick={handleDiarySave} disabled={diarySaving}>
+                    <Button variant="primary" fullWidth onClick={handleDiarySave} disabled={diarySaving || !online}>
                         {diarySaving ? '保存中...' : editingDiaryId ? '保存修改' : '发布 🐾'}
                     </Button>
                 </div>
             </Modal>
 
             {/* Weight Modal */}
-            <Modal isOpen={weightOpen} onClose={() => { setWeightOpen(false); setEditingWeightId(null); setWeightValue('') }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 记录体重'}>
+            <Modal isOpen={weightOpen} onClose={() => { setWeightOpen(false); setEditingWeightId(null); setWeightValue(''); setWeightError('') }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 记录体重'}>
                 <div className="weight-form">
                     <div className="form-group">
                         <label className="form-label">体重 (kg)</label>
                         <input
                             type="number"
                             step="0.01"
-                            min="0"
+                            min="0.1"
+                            max="30"
                             className="form-input weight-input"
                             placeholder="4.50"
                             value={weightValue}
-                            onChange={(e) => setWeightValue(e.target.value)}
+                            onChange={(e) => {
+                                setWeightValue(e.target.value)
+                                setWeightError('')
+                            }}
                             autoFocus
                         />
+                        {weightError && <p className="text-xs text-danger">{weightError}</p>}
                     </div>
-                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving}>
+                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
                         {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
                     </Button>
                 </div>
@@ -625,7 +848,7 @@ export function LogPage() {
                             ))}
                         </select>
                     </div>
-                    <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving}>
+                    <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
                         {poopSaving ? '保存中...' : '更新便便记录'}
                     </Button>
                 </div>
@@ -633,25 +856,49 @@ export function LogPage() {
 
             <Modal isOpen={moodOpen} onClose={() => { setMoodOpen(false); setEditingMoodId(null) }} title="😺 编辑心情记录">
                 <div className="weight-form">
-                    <div className="tag-picker">
+                    <div
+                        className="tag-picker"
+                        role="radiogroup"
+                        aria-label="心情选择"
+                        onKeyDown={(event) => {
+                            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                                event.preventDefault()
+                                moveMoodSelection(1)
+                            }
+                            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                                event.preventDefault()
+                                moveMoodSelection(-1)
+                            }
+                        }}
+                    >
                         {(['😸', '😾', '😴'] as const).map((mood) => (
                             <button
                                 key={mood}
                                 className={`tag-btn ${moodValue === mood ? 'tag-btn-active' : ''}`}
                                 onClick={() => setMoodValue(mood)}
+                                role="radio"
+                                aria-checked={moodValue === mood}
                             >
                                 {mood}
                             </button>
                         ))}
                     </div>
-                    <Button variant="primary" fullWidth onClick={handleMoodSave} disabled={moodSaving}>
+                    <Button variant="primary" fullWidth onClick={handleMoodSave} disabled={moodSaving || !online}>
                         {moodSaving ? '保存中...' : '更新心情'}
                     </Button>
                 </div>
             </Modal>
 
             {imageLightbox && (
-                <div className="lightbox-overlay" onClick={closeLightbox}>
+                <div
+                    className="lightbox-overlay"
+                    onClick={closeLightbox}
+                    ref={lightboxRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="图片预览"
+                    tabIndex={-1}
+                >
                     <div className="lightbox-toolbar" onClick={(event) => event.stopPropagation()}>
                         <button className="lightbox-btn" onClick={() => updateLightboxScale(lightboxScale - 0.2)}>-</button>
                         <span className="lightbox-scale">{Math.round(lightboxScale * 100)}%</span>
@@ -683,6 +930,20 @@ export function LogPage() {
                     </div>
                 </div>
             )}
+
+            <Modal isOpen={Boolean(pendingDeleteItem)} onClose={() => setPendingDeleteItem(null)} title="确认删除？">
+                <div className="weight-form">
+                    <p className="text-sm text-secondary">此操作不可恢复，确认删除这条记录吗？</p>
+                    <Button
+                        variant="primary"
+                        fullWidth
+                        onClick={() => pendingDeleteItem && deleteTimelineItem(pendingDeleteItem)}
+                        disabled={deleteSubmitting}
+                    >
+                        {deleteSubmitting ? '删除中...' : '确认删除'}
+                    </Button>
+                </div>
+            </Modal>
         </div>
     )
 }

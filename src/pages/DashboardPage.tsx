@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { Skeleton } from '../components/ui/Skeleton'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useCat } from '../lib/useCat'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
@@ -26,9 +28,10 @@ type RewardParticle = {
 
 export function DashboardPage() {
     const { user } = useSession()
-    const { cat, catId } = useCat()
+    const { cat, catId, cats, setCatId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
+    const online = useOnlineStatus()
 
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
 
@@ -39,6 +42,17 @@ export function DashboardPage() {
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [nextDeworming, setNextDeworming] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+
+    const [weekFeedCount, setWeekFeedCount] = useState(0)
+    const [weekMoodCounts, setWeekMoodCounts] = useState<Record<string, number>>({ '😸': 0, '😾': 0, '😴': 0 })
+    const [weekAbnormalPoopCount, setWeekAbnormalPoopCount] = useState(0)
+    const [weekWeightDelta, setWeekWeightDelta] = useState<number | null>(null)
+
+    const [onboardingName, setOnboardingName] = useState('')
+    const [onboardingBreed, setOnboardingBreed] = useState('')
+    const [onboardingBirthday, setOnboardingBirthday] = useState('')
+    const [onboardingSaving, setOnboardingSaving] = useState(false)
 
     // Poop modal
     const [poopModalOpen, setPoopModalOpen] = useState(false)
@@ -87,9 +101,17 @@ export function DashboardPage() {
 
     // ─── Load all data (parallel) ─────────────────
     const loadData = useCallback(async () => {
-        if (!catId) return
+        if (!catId) {
+            setLoading(false)
+            return
+        }
 
-        const [feedRes, moodRes, diaryRes, invRes, healthRes] = await Promise.all([
+        setLoading(true)
+        const weekStart = new Date()
+        weekStart.setDate(weekStart.getDate() - 6)
+        const weekStartIso = `${format(weekStart, 'yyyy-MM-dd')}T00:00:00`
+
+        const [feedRes, moodRes, diaryRes, invRes, healthRes, weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes] = await Promise.all([
             supabase
                 .from('feed_status')
                 .select('*')
@@ -122,6 +144,27 @@ export function DashboardPage() {
                 .order('date', { ascending: false })
                 .limit(1)
                 .single(),
+            supabase
+                .from('feed_status')
+                .select('*')
+                .eq('cat_id', catId)
+                .gte('updated_at', weekStartIso),
+            supabase
+                .from('mood_logs')
+                .select('*')
+                .eq('cat_id', catId)
+                .gte('created_at', weekStartIso),
+            supabase
+                .from('poop_logs')
+                .select('*')
+                .eq('cat_id', catId)
+                .gte('created_at', weekStartIso),
+            supabase
+                .from('weight_records')
+                .select('*')
+                .eq('cat_id', catId)
+                .gte('recorded_at', weekStartIso)
+                .order('recorded_at', { ascending: true }),
         ])
 
         if (feedRes.data) setTodayFeeds(feedRes.data)
@@ -132,6 +175,32 @@ export function DashboardPage() {
             const nextDue = healthRes.data.next_due || format(addMonths(new Date(healthRes.data.date), 3), 'yyyy-MM-dd')
             setNextDeworming(nextDue)
         }
+
+        if (weekFeedsRes.data) {
+            setWeekFeedCount(weekFeedsRes.data.length)
+        }
+
+        if (weekMoodsRes.data) {
+            const counts = { '😸': 0, '😾': 0, '😴': 0 }
+            weekMoodsRes.data.forEach((item) => {
+                counts[item.mood] += 1
+            })
+            setWeekMoodCounts(counts)
+        }
+
+        if (weekPoopsRes.data) {
+            const abnormal = weekPoopsRes.data.filter((item) => Number(item.bristol_type) >= 6 || ['red', 'black', 'white'].includes(item.color))
+            setWeekAbnormalPoopCount(abnormal.length)
+        }
+
+        if (weekWeightsRes.data && weekWeightsRes.data.length >= 2) {
+            const first = weekWeightsRes.data[0].weight_kg
+            const last = weekWeightsRes.data[weekWeightsRes.data.length - 1].weight_kg
+            setWeekWeightDelta(Number((last - first).toFixed(2)))
+        } else {
+            setWeekWeightDelta(null)
+        }
+        setLoading(false)
     }, [catId, today])
 
     useEffect(() => {
@@ -353,6 +422,103 @@ export function DashboardPage() {
         setFeedModalOpen(true)
     }
 
+    const handleOnboardingSave = async () => {
+        if (!user || !onboardingName.trim()) {
+            pushToast('error', '请先填写猫咪名字')
+            return
+        }
+        setOnboardingSaving(true)
+        try {
+            const { data, error } = await supabase
+                .from('cats')
+                .insert({
+                    name: onboardingName.trim(),
+                    breed: onboardingBreed.trim() || null,
+                    birthday: onboardingBirthday || null,
+                    adopted_at: null,
+                    avatar_url: null,
+                    created_by: user.id,
+                })
+                .select()
+                .single()
+            if (error) throw error
+            if (data) {
+                setCatId(data.id)
+                pushToast('success', '欢迎加入喵记！🐱')
+            }
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '创建猫咪档案失败，请稍后重试'))
+        } finally {
+            setOnboardingSaving(false)
+        }
+    }
+
+    const moveMoodSelection = (direction: 1 | -1) => {
+        const options: MoodType[] = ['😸', '😾', '😴']
+        const currentIndex = options.findIndex((item) => item === (todayMood || '😸'))
+        const nextIndex = (currentIndex + direction + options.length) % options.length
+        void handleMoodPick(options[nextIndex])
+    }
+
+    const moveBristolSelection = (direction: 1 | -1) => {
+        const options: BristolType[] = [1, 2, 3, 4, 5, 6, 7]
+        const currentIndex = options.findIndex((item) => item === selectedBristol)
+        const nextIndex = (currentIndex + direction + options.length) % options.length
+        setSelectedBristol(options[nextIndex])
+    }
+
+    if (!loading && cats.length === 0) {
+        return (
+            <div className="dashboard fade-in onboarding-page">
+                <Card variant="accent" padding="lg" className="onboarding-card">
+                    <h1 className="text-2xl font-bold">欢迎来到喵记！</h1>
+                    <p className="text-sm text-secondary">先来建立猫咪档案吧</p>
+                    <div className="onboarding-form">
+                        <input
+                            className="form-input"
+                            placeholder="猫咪名字 *"
+                            value={onboardingName}
+                            onChange={(event) => setOnboardingName(event.target.value)}
+                        />
+                        <input
+                            className="form-input"
+                            placeholder="品种（可选）"
+                            value={onboardingBreed}
+                            onChange={(event) => setOnboardingBreed(event.target.value)}
+                        />
+                        <input
+                            className="form-input"
+                            type="date"
+                            value={onboardingBirthday}
+                            onChange={(event) => setOnboardingBirthday(event.target.value)}
+                        />
+                        <Button variant="primary" fullWidth onClick={handleOnboardingSave} disabled={onboardingSaving || !online}>
+                            {onboardingSaving ? '创建中...' : '完成并进入首页'}
+                        </Button>
+                    </div>
+                </Card>
+            </div>
+        )
+    }
+
+    if (loading) {
+        return (
+            <div className="dashboard fade-in">
+                <div className="cat-profile-card">
+                    <Skeleton height="180px" borderRadius="var(--radius-xl)" />
+                </div>
+                <div className="bento-grid">
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" className="span-2" />
+                </div>
+                <div className="px-4">
+                    <Skeleton height="180px" borderRadius="var(--radius-lg)" />
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="dashboard fade-in">
             {rewardEmoji && <div className="reward-burst">{rewardEmoji}</div>}
@@ -420,7 +586,7 @@ export function DashboardPage() {
             {/* ── Quick Actions Bento Grid ── */}
             <div className="bento-grid">
                 {/* Feed Status */}
-                <Card variant="glass" className="bento-item" onClick={openFeedModal}>
+                <Card variant="glass" className="bento-item" onClick={openFeedModal} aria-label="记录喂食">
                     <div className="bento-icon">🍽️</div>
                     <div className="bento-label">记录喂食</div>
                     {todayFeeds.length > 0 ? (
@@ -436,24 +602,40 @@ export function DashboardPage() {
                 </Card>
 
                 {/* Poop Button */}
-                <Card variant="glass" className="bento-item poop-card" onClick={() => setPoopModalOpen(true)}>
+                <Card variant="glass" className="bento-item poop-card" onClick={() => setPoopModalOpen(true)} aria-label="记录便便">
                     <div className="bento-icon poop-icon">💩</div>
                     <div className="bento-label">一键铲屎</div>
                 </Card>
 
                 {/* Mood Picker */}
-                <Card variant="glass" className="bento-item span-2">
+                <Card variant="glass" className="bento-item span-2" aria-label="记录心情">
                     <div className="bento-label mb-2">
                         今日心情 {todayMood && <span className="current-mood">{todayMood}</span>}
                     </div>
-                    <div className="mood-picker">
+                    <div
+                        className="mood-picker"
+                        role="radiogroup"
+                        aria-label="心情选择"
+                        onKeyDown={(event) => {
+                            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                                event.preventDefault()
+                                moveMoodSelection(1)
+                            }
+                            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                                event.preventDefault()
+                                moveMoodSelection(-1)
+                            }
+                        }}
+                    >
                         {(['😸', '😾', '😴'] as MoodType[]).map((mood) => (
                             <button
                                 key={mood}
                                 className={`mood-btn ${todayMood === mood ? 'mood-btn-active' : ''}`}
                                 onClick={() => handleMoodPick(mood)}
-                                disabled={moodSaving}
+                                disabled={moodSaving || !online}
                                 aria-label={mood}
+                                role="radio"
+                                aria-checked={todayMood === mood}
                             >
                                 {mood}
                             </button>
@@ -468,12 +650,38 @@ export function DashboardPage() {
             </div>
             <div className="px-4">
                 <Card variant="default" padding="md">
+                    <div className="section-row">
+                        <h2 className="text-lg font-semibold">📊 本周总结</h2>
+                    </div>
+                    <div className="week-summary-grid">
+                        <div className="week-item">
+                            <span className="text-sm text-secondary">喂食次数</span>
+                            <strong>{weekFeedCount} 次</strong>
+                        </div>
+                        <div className="week-item">
+                            <span className="text-sm text-secondary">心情分布</span>
+                            <strong>😸{weekMoodCounts['😸']} / 😾{weekMoodCounts['😾']} / 😴{weekMoodCounts['😴']}</strong>
+                        </div>
+                        <div className="week-item">
+                            <span className="text-sm text-secondary">异常便便</span>
+                            <strong>{weekAbnormalPoopCount} 次</strong>
+                        </div>
+                        <div className="week-item">
+                            <span className="text-sm text-secondary">体重变化</span>
+                            <strong>{weekWeightDelta === null ? '暂无数据' : `${weekWeightDelta > 0 ? '+' : ''}${weekWeightDelta} kg`}</strong>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            <div className="px-4" style={{ marginTop: 'var(--space-3)' }}>
+                <Card variant="default" padding="md">
                     {latestDiary ? (
                         <div className="diary-snippet">
                             {latestDiary.image_url && (
                                 <img src={latestDiary.image_url} alt="" className="diary-img" />
                             )}
-                            <p className="text-sm">{latestDiary.text || '(无文字)'}</p>
+                            <p className="text-sm diary-snippet-text">{latestDiary.text || '(无文字)'}</p>
                             {latestDiary.tags.length > 0 && (
                                 <div className="diary-tags">
                                     {latestDiary.tags.map((tag) => (
@@ -499,12 +707,28 @@ export function DashboardPage() {
                 <div className="poop-form">
                     <div className="form-section">
                         <label className="form-label">布里斯托分类</label>
-                        <div className="bristol-grid">
+                        <div
+                            className="bristol-grid"
+                            role="radiogroup"
+                            aria-label="布里斯托类型选择"
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                                    event.preventDefault()
+                                    moveBristolSelection(1)
+                                }
+                                if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                                    event.preventDefault()
+                                    moveBristolSelection(-1)
+                                }
+                            }}
+                        >
                             {([1, 2, 3, 4, 5, 6, 7] as BristolType[]).map((type) => (
                                 <button
                                     key={type}
                                     className={`bristol-btn ${selectedBristol === type ? 'bristol-btn-active' : ''} ${type >= 6 ? 'bristol-btn-warn' : ''}`}
                                     onClick={() => setSelectedBristol(type)}
+                                    role="radio"
+                                    aria-checked={selectedBristol === type}
                                 >
                                     <span className="bristol-num">{type}</span>
                                     <span className="bristol-label">{bristolLabels[type]}</span>
@@ -515,12 +739,14 @@ export function DashboardPage() {
 
                     <div className="form-section">
                         <label className="form-label">颜色</label>
-                        <div className="color-grid">
+                        <div className="color-grid" role="radiogroup" aria-label="便便颜色选择">
                             {(Object.entries(colorLabels) as [PoopColor, string][]).map(([color, label]) => (
                                 <button
                                     key={color}
                                     className={`color-btn ${selectedColor === color ? 'color-btn-active' : ''}`}
                                     onClick={() => setSelectedColor(color)}
+                                    role="radio"
+                                    aria-checked={selectedColor === color}
                                 >
                                     {label}
                                 </button>
@@ -532,7 +758,7 @@ export function DashboardPage() {
                         variant="primary"
                         fullWidth
                         onClick={handlePoopSave}
-                        disabled={poopSaving}
+                        disabled={poopSaving || !online}
                     >
                         {poopSaving ? '记录中...' : '保存记录'}
                     </Button>
@@ -571,7 +797,7 @@ export function DashboardPage() {
                         variant="primary"
                         fullWidth
                         onClick={handleFeedRecord}
-                        disabled={feedLoading}
+                        disabled={feedLoading || !online}
                     >
                         {feedLoading ? '记录中...' : '确认喂食 🐾'}
                     </Button>

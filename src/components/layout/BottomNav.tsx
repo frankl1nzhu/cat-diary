@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import './BottomNav.css'
 
@@ -15,6 +15,7 @@ const rightItems = [
 export function BottomNav() {
     const navigate = useNavigate()
     const [quickOpen, setQuickOpen] = useState(false)
+    const quickSheetRef = useRef<HTMLDivElement>(null)
 
     const actions = [
         { label: '📝 写日记', path: '/log?quick=diary' },
@@ -28,11 +29,45 @@ export function BottomNav() {
         navigate(path)
     }
 
+    useEffect(() => {
+        if (!quickOpen) return
+
+        const focusable = quickSheetRef.current?.querySelectorAll<HTMLElement>('button')
+        focusable?.[0]?.focus()
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (!quickOpen) return
+            if (event.key === 'Escape') {
+                event.preventDefault()
+                setQuickOpen(false)
+                return
+            }
+            if (event.key !== 'Tab') return
+
+            const list = quickSheetRef.current?.querySelectorAll<HTMLElement>('button')
+            if (!list || list.length === 0) return
+
+            const first = list[0]
+            const last = list[list.length - 1]
+            const active = document.activeElement
+            if (event.shiftKey && active === first) {
+                event.preventDefault()
+                last.focus()
+            } else if (!event.shiftKey && active === last) {
+                event.preventDefault()
+                first.focus()
+            }
+        }
+
+        window.addEventListener('keydown', onKeyDown)
+        return () => window.removeEventListener('keydown', onKeyDown)
+    }, [quickOpen])
+
     return (
         <>
             {quickOpen && <div className="quick-backdrop" onClick={() => setQuickOpen(false)} />}
             {quickOpen && (
-                <div className="quick-sheet fade-in">
+                <div className="quick-sheet fade-in" ref={quickSheetRef} role="dialog" aria-modal="true" aria-label="快速记录菜单">
                     <div className="quick-sheet-title">快速记录</div>
                     <div className="quick-grid">
                         {actions.map((action) => (

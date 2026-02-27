@@ -150,6 +150,12 @@
     box-shadow: var(--shadow-sm);
 }
 
+.settings-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
 @media (max-width: 380px) {
     .form-row {
         flex-direction: column;

@@ -11,8 +11,9 @@ import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
+import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { format } from 'date-fns'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
 import './StatsPage.css'
 
@@ -20,6 +21,7 @@ export function StatsPage() {
     const { user } = useSession()
     const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
+    const online = useOnlineStatus()
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
@@ -45,8 +47,11 @@ export function StatsPage() {
     const [weightModalOpen, setWeightModalOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
     const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
+    const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
+    const [deleteSubmitting, setDeleteSubmitting] = useState(false)
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
@@ -73,6 +78,39 @@ export function StatsPage() {
         date: format(new Date(w.recorded_at), 'MM/dd'),
         weight: w.weight_kg,
     })), [weights])
+
+    const poopFrequencyData = useMemo(() => {
+        const dayMap = new Map<string, number>()
+        for (let i = 29; i >= 0; i -= 1) {
+            const d = new Date()
+            d.setDate(d.getDate() - i)
+            const key = format(d, 'MM/dd')
+            dayMap.set(key, 0)
+        }
+
+        poops.forEach((item) => {
+            const key = format(new Date(item.created_at), 'MM/dd')
+            if (dayMap.has(key)) {
+                dayMap.set(key, (dayMap.get(key) || 0) + 1)
+            }
+        })
+
+        return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
+    }, [poops])
+
+    const bristolDistributionData = useMemo(() => {
+        const counts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0 }
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+        poops.forEach((item) => {
+            if (new Date(item.created_at).getTime() >= cutoff) {
+                counts[String(item.bristol_type)] += 1
+            }
+        })
+
+        return Object.entries(counts)
+            .map(([type, value]) => ({ name: `类型${type}`, value }))
+            .filter((item) => item.value > 0)
+    }, [poops])
 
     // ─── Save health record ───────────────────────
     const handleHealthSave = async () => {
@@ -208,10 +246,11 @@ export function StatsPage() {
     const handleWeightSave = async () => {
         if (!catId || !user) return
         const kg = parseFloat(weightValue)
-        if (isNaN(kg) || kg <= 0) {
-            pushToast('error', '请输入有效体重')
+        if (isNaN(kg) || kg < 0.1 || kg > 30) {
+            setWeightError('体重需在 0.1 到 30kg 之间')
             return
         }
+        setWeightError('')
 
         setWeightSaving(true)
         try {
@@ -252,6 +291,25 @@ export function StatsPage() {
             await loadData()
         } catch (err) {
             pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+        }
+    }
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return
+        setDeleteSubmitting(true)
+        try {
+            if (pendingDelete.type === 'health') {
+                await deleteHealthRecord(pendingDelete.id)
+            }
+            if (pendingDelete.type === 'inventory') {
+                await deleteInventoryItem(pendingDelete.id)
+            }
+            if (pendingDelete.type === 'weight') {
+                await deleteWeightRecord(pendingDelete.id)
+            }
+        } finally {
+            setDeleteSubmitting(false)
+            setPendingDelete(null)
         }
     }
 
@@ -375,10 +433,72 @@ export function StatsPage() {
                         </div>
                     )}
 
+                    <div className="poop-charts-wrap">
+                        <h3 className="text-base font-semibold">💩 近 30 天便便频率</h3>
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={180}>
+                                <BarChart data={poopFrequencyData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={4} />
+                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: 'var(--color-bg-card)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: '8px',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                    <Bar dataKey="count" fill="var(--color-secondary)" radius={[6, 6, 0, 0]} name="次数" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        <h3 className="text-base font-semibold">🧻 Bristol 分型分布（近30天）</h3>
+                        <div className="chart-container">
+                            {bristolDistributionData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie
+                                            data={bristolDistributionData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={42}
+                                            outerRadius={72}
+                                            paddingAngle={2}
+                                        >
+                                            {bristolDistributionData.map((entry, index) => (
+                                                <Cell
+                                                    key={`${entry.name}-${index}`}
+                                                    fill={['var(--color-primary)', 'var(--color-secondary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-primary-dark)'][index % 7]}
+                                                />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{
+                                                background: 'var(--color-bg-card)',
+                                                border: '1px solid var(--color-border)',
+                                                borderRadius: '8px',
+                                                fontSize: '13px',
+                                            }}
+                                        />
+                                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="empty-state-sm">
+                                    <p className="text-secondary text-sm">近30天暂无便便记录</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {recentWeights.length > 0 && (
                         <div className="weight-list">
                             {recentWeights.slice(0, 20).map((item) => (
-                                <SwipeableRow key={item.id} onDelete={() => deleteWeightRecord(item.id)}>
+                                <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'weight' })}>
                                     <div className="weight-item" onClick={() => openEditWeight(item)}>
                                         <span className="text-sm font-semibold">{item.weight_kg} kg</span>
                                         <span className="text-muted text-xs">{format(new Date(item.recorded_at), 'yyyy/MM/dd')}</span>
@@ -406,7 +526,7 @@ export function StatsPage() {
                                 const config = healthTypeLabels[r.type]
                                 const isPastDue = r.next_due && new Date(r.next_due) < new Date()
                                 return (
-                                    <SwipeableRow key={r.id} onDelete={() => deleteHealthRecord(r.id)}>
+                                    <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
                                         <div className={`health-item ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
                                             <span className="health-icon">{config.icon}</span>
                                             <div className="health-info">
@@ -444,7 +564,7 @@ export function StatsPage() {
                     {inventory.length > 0 ? (
                         <div className="inventory-list">
                             {inventory.map((item) => (
-                                <SwipeableRow key={item.id} onDelete={() => deleteInventoryItem(item.id)}>
+                                <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'inventory' })}>
                                     <div
                                         className="inventory-item"
                                         onClick={() => openEditInventory(item)}
@@ -516,7 +636,7 @@ export function StatsPage() {
                         </div>
                     </div>
 
-                    <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving}>
+                    <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving || !online}>
                         {healthSaving ? '保存中...' : editingHealthId ? '更新记录' : '保存记录'}
                     </Button>
                 </div>
@@ -556,7 +676,7 @@ export function StatsPage() {
                         </div>
                     </div>
 
-                    <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving}>
+                    <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving || !online}>
                         {invSaving ? '保存中...' : editingInvId ? '更新库存' : '添加物资'}
                     </Button>
                 </div>
@@ -569,13 +689,18 @@ export function StatsPage() {
                         <input
                             id="weight-value"
                             type="number"
-                            min="0"
+                            min="0.1"
+                            max="30"
                             step="0.01"
                             className="form-input"
                             placeholder="4.50"
                             value={weightValue}
-                            onChange={(e) => setWeightValue(e.target.value)}
+                            onChange={(e) => {
+                                setWeightValue(e.target.value)
+                                setWeightError('')
+                            }}
                         />
+                        {weightError && <p className="text-xs text-danger">{weightError}</p>}
                     </div>
                     <div className="form-group">
                         <label className="form-label" htmlFor="weight-date">日期</label>
@@ -587,8 +712,17 @@ export function StatsPage() {
                             onChange={(e) => setWeightDate(e.target.value)}
                         />
                     </div>
-                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving}>
+                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
                         {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
+                    </Button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)} title="确认删除？">
+                <div className="weight-form">
+                    <p className="text-sm text-secondary">此操作不可恢复，确认继续删除吗？</p>
+                    <Button variant="primary" fullWidth onClick={confirmDelete} disabled={deleteSubmitting}>
+                        {deleteSubmitting ? '删除中...' : '确认删除'}
                     </Button>
                 </div>
             </Modal>

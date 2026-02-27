@@ -2,6 +2,47 @@
     padding-bottom: calc(var(--space-8) + 80px);
 }
 
+.log-filter-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.pull-refresh-hint {
+    text-align: center;
+}
+
+.timeline-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.timeline-chip {
+    border-radius: var(--radius-full);
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--font-size-sm);
+}
+
+.timeline-chip-active {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.timeline-date-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.timeline-date-row .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
 /* ── Timeline ── */
 .timeline {
     display: flex;
@@ -56,6 +97,14 @@
     gap: var(--space-1);
 }
 
+.timeline-content>p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
 .timeline-actions {
     display: flex;
     justify-content: flex-end;
@@ -98,6 +147,10 @@
     color: var(--color-danger);
     font-weight: 600;
     margin-left: var(--space-1);
+}
+
+.text-danger {
+    color: var(--color-danger);
 }
 
 /* ── Diary Form ── */

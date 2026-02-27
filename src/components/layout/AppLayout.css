@@ -13,3 +13,14 @@
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
 }
+
+.offline-banner {
+    margin: var(--space-2) var(--space-4) 0;
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    background: rgba(255, 217, 61, 0.16);
+    border: 1px solid rgba(255, 217, 61, 0.35);
+    color: var(--color-warning);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
