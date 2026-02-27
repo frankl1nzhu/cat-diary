@@ -505,7 +505,7 @@ export function DashboardPage() {
                         <input
                             id="onboarding-name"
                             className="form-input"
-                            placeholder="例如：团团"
+                            placeholder="咪名"
                             value={onboardingName}
                             onChange={(event) => setOnboardingName(event.target.value)}
                         />
@@ -513,7 +513,7 @@ export function DashboardPage() {
                         <input
                             id="onboarding-breed"
                             className="form-input"
-                            placeholder="例如：英短蓝猫"
+                            placeholder="咪族"
                             value={onboardingBreed}
                             onChange={(event) => setOnboardingBreed(event.target.value)}
                         />

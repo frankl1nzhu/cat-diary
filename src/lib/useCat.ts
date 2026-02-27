@@ -11,7 +11,7 @@ import type { Cat } from '../types/database.types'
  * Returns the full Cat row so pages don't need their own cat query.
  */
 export function useCat() {
-    const { user } = useSession()
+    const { user, loading: authLoading } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const [cats, setCats] = useState<Cat[]>([])
@@ -21,12 +21,18 @@ export function useCat() {
         let cancelled = false
 
         async function load() {
+            if (authLoading) {
+                return
+            }
+
             if (!user) {
                 setCats([])
                 setCurrentCatId(null)
                 setLoading(false)
                 return
             }
+
+            setLoading(true)
 
             const { data: memberships } = await supabase
                 .from('family_members')
@@ -65,7 +71,7 @@ export function useCat() {
 
         load()
         return () => { cancelled = true }
-    }, [currentCatId, setCurrentCatId, user])
+    }, [authLoading, currentCatId, setCurrentCatId, user])
 
     const cat = cats.find((item) => item.id === currentCatId) || null
 
