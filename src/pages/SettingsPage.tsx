@@ -204,7 +204,7 @@ export function SettingsPage() {
         } catch (err) {
             const message = getErrorMessage(err, '测试推送发送失败')
             if (message.toLowerCase().includes('non-2xx')) {
-                pushToast('error', '测试推送服务暂不可用，请先部署并配置 edge function')
+                pushToast('error', '测试推送暂不可用，请先配置 Edge Function')
                 return
             }
             pushToast('error', message)
@@ -283,6 +283,25 @@ export function SettingsPage() {
                                 <div className="saved-row"><span className="text-secondary">品种</span><strong>{breed || '—'}</strong></div>
                                 <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
                                 <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
+                                <div className="cat-actions-row">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        fullWidth
+                                        onClick={() => setProfileLocked(false)}
+                                    >
+                                        编辑档案
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        fullWidth
+                                        onClick={openDeleteCatModal}
+                                        disabled={!catId || createMode}
+                                    >
+                                        删除猫咪
+                                    </Button>
+                                </div>
                             </div>
                         ) : (
                             <>
@@ -360,15 +379,6 @@ export function SettingsPage() {
                                 <div className="cat-actions-row">
                                     <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
                                         {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        fullWidth
-                                        onClick={openDeleteCatModal}
-                                        disabled={!catId}
-                                    >
-                                        删除猫咪
                                     </Button>
                                 </div>
                             </>

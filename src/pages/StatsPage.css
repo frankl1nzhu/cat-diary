@@ -149,7 +149,8 @@
 }
 
 .health-type-grid {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-2);
 }
 
@@ -175,10 +176,16 @@
 .form-row {
     display: flex;
     gap: var(--space-3);
+    flex-wrap: wrap;
 }
 
 .flex-1 {
     flex: 1;
+    min-width: 0;
+}
+
+.weight-form .form-input[type='date'] {
+    width: 100%;
 }
 
 /* ── Inventory Status ── */
@@ -205,6 +212,9 @@
     background: rgba(248, 165, 194, 0.1);
 }
 
-.weight-date-input {
-    max-width: 220px;
+@media (max-width: 480px) {
+    .form-row {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
 }

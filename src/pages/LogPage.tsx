@@ -37,7 +37,6 @@ export function LogPage() {
     const [loadLimit, setLoadLimit] = useState(50)
     const [hasMore, setHasMore] = useState(false)
     const [loadingMore, setLoadingMore] = useState(false)
-    const [refreshing, setRefreshing] = useState(false)
     const [pullDistance, setPullDistance] = useState(0)
 
     // New diary modal
@@ -523,9 +522,7 @@ export function LogPage() {
     }
 
     const handleRefresh = async () => {
-        setRefreshing(true)
         await loadTimeline()
-        setRefreshing(false)
     }
 
     const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -681,9 +678,6 @@ export function LogPage() {
 
             <div className="px-4">
                 <Card variant="default" padding="md" className="log-filter-card">
-                    <div className="pull-refresh-hint text-xs text-secondary">
-                        {refreshing ? '刷新中…' : pullDistance >= 72 ? '松开刷新' : '下拉可刷新'}
-                    </div>
                     <input
                         type="search"
                         className="form-input"

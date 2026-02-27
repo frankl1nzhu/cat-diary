@@ -9,10 +9,6 @@
     margin-bottom: var(--space-3);
 }
 
-.pull-refresh-hint {
-    text-align: center;
-}
-
 .timeline-chip-row {
     display: flex;
     flex-wrap: wrap;

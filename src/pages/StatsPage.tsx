@@ -17,6 +17,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
 import './StatsPage.css'
 
+type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
+
 export function StatsPage() {
     const { user } = useSession()
     const { catId } = useCat()
@@ -31,7 +33,7 @@ export function StatsPage() {
 
     // Modals
     const [healthModalOpen, setHealthModalOpen] = useState(false)
-    const [healthType, setHealthType] = useState<'vaccine' | 'deworming' | 'medical'>('vaccine')
+    const [healthType, setHealthType] = useState<HealthFormType>('vaccine')
     const [healthName, setHealthName] = useState('')
     const [healthDate, setHealthDate] = useState(format(new Date(), 'yyyy-MM-dd'))
     const [healthNextDue, setHealthNextDue] = useState('')
@@ -125,24 +127,27 @@ export function StatsPage() {
         if (!catId || !user || !healthName.trim()) return
         setHealthSaving(true)
         try {
+            const payloadType = healthType === 'vomit' ? 'medical' : healthType
+            const payloadName = healthType === 'vomit' ? '呕吐' : healthName.trim()
+            const payloadNextDue = payloadType === 'medical' ? null : (healthNextDue || null)
             if (editingHealthId) {
                 await supabase
                     .from('health_records')
                     .update({
-                        type: healthType,
-                        name: healthName.trim(),
+                        type: payloadType,
+                        name: payloadName,
                         date: healthDate,
-                        next_due: healthNextDue || null,
+                        next_due: payloadNextDue,
                         notes: healthNotes.trim() || null,
                     })
                     .eq('id', editingHealthId)
             } else {
                 await supabase.from('health_records').insert({
                     cat_id: catId,
-                    type: healthType,
-                    name: healthName.trim(),
+                    type: payloadType,
+                    name: payloadName,
                     date: healthDate,
-                    next_due: healthNextDue || null,
+                    next_due: payloadNextDue,
                     notes: healthNotes.trim() || null,
                     created_by: user.id,
                 })
@@ -163,7 +168,7 @@ export function StatsPage() {
         setHealthName('')
         setHealthDate(format(new Date(), 'yyyy-MM-dd'))
         setHealthNextDue('')
-        setHealthMedicalPreset('vomit')
+        setHealthMedicalPreset('other')
         setHealthNotes('')
         setHealthType('vaccine')
         setEditingHealthId(null)
@@ -219,7 +224,11 @@ export function StatsPage() {
 
     const openEditHealth = (item: HealthRecord) => {
         setEditingHealthId(item.id)
-        setHealthType(item.type)
+        if (item.type === 'medical' && item.name.includes('呕吐')) {
+            setHealthType('vomit')
+        } else {
+            setHealthType(item.type)
+        }
         setHealthName(item.name)
         setHealthDate(item.date)
         setHealthNextDue(item.next_due || '')
@@ -386,22 +395,58 @@ export function StatsPage() {
         <h2>${t.healthRecords}</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString(dateLocale)}: ${t.healthFormat(h.name, t.typeLabel[h.type], h.notes)}</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
         </body></html>`
 
-        const reportWindow = window.open('', '_blank')
-        if (!reportWindow) {
-            pushToast('error', t.popupBlocked)
-            return
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.setAttribute('aria-hidden', 'true')
+        document.body.appendChild(iframe)
+
+        const cleanup = () => {
+            setTimeout(() => {
+                iframe.remove()
+            }, 1500)
         }
-        reportWindow.document.write(html)
-        reportWindow.document.close()
-        reportWindow.focus()
-        reportWindow.print()
+
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document
+            if (!doc || !iframe.contentWindow) throw new Error('print-frame-unavailable')
+            doc.open()
+            doc.write(html)
+            doc.close()
+            const runPrint = () => {
+                iframe.contentWindow?.focus()
+                iframe.contentWindow?.print()
+                cleanup()
+            }
+            if (doc.readyState === 'complete') {
+                runPrint()
+            } else {
+                iframe.onload = runPrint
+            }
+        } catch {
+            cleanup()
+            const reportWindow = window.open('', '_blank')
+            if (!reportWindow) {
+                pushToast('error', t.popupBlocked)
+                return
+            }
+            reportWindow.document.write(html)
+            reportWindow.document.close()
+            reportWindow.focus()
+            reportWindow.print()
+        }
     }
 
     // ─── Health type labels ───────────────────────
-    const healthTypeLabels: Record<string, { icon: string; label: string }> = {
+    const healthTypeLabels: Record<HealthFormType, { icon: string; label: string }> = {
         vaccine: { icon: '💉', label: '疫苗' },
         deworming: { icon: '💊', label: '驱虫' },
         medical: { icon: '🏥', label: '就医' },
+        vomit: { icon: '🤮', label: '呕吐' },
     }
 
     if (loading) {
@@ -572,7 +617,8 @@ export function StatsPage() {
                     {healthRecords.length > 0 ? (
                         <div className="health-list">
                             {healthRecords.map((r) => {
-                                const config = healthTypeLabels[r.type]
+                                const viewType: HealthFormType = (r.type === 'medical' && r.name.includes('呕吐')) ? 'vomit' : r.type
+                                const config = healthTypeLabels[viewType]
                                 const isPastDue = r.next_due && new Date(r.next_due) < new Date()
                                 return (
                                     <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
@@ -639,7 +685,7 @@ export function StatsPage() {
                     <div className="form-group">
                         <label className="form-label">类型</label>
                         <div className="health-type-grid">
-                            {(['vaccine', 'deworming', 'medical'] as const).map((t) => (
+                            {(['vaccine', 'deworming', 'medical', 'vomit'] as const).map((t) => (
                                 <button
                                     key={t}
                                     className={`health-type-btn ${healthType === t ? 'health-type-active' : ''}`}
@@ -648,6 +694,10 @@ export function StatsPage() {
                                         if (t === 'medical') {
                                             const map = { vomit: '呕吐', cough: '咳嗽', fever: '发热', other: '' }
                                             setHealthName(map[healthMedicalPreset])
+                                            setHealthNextDue('')
+                                        }
+                                        if (t === 'vomit') {
+                                            setHealthName('呕吐')
                                             setHealthNextDue('')
                                         }
                                     }}
@@ -705,6 +755,18 @@ export function StatsPage() {
                                 />
                             </div>
                         </>
+                    ) : healthType === 'vomit' ? (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="health-notes">呕吐备注</label>
+                            <textarea
+                                id="health-notes"
+                                className="form-input"
+                                placeholder="可填写频次、状态、触发情况"
+                                rows={3}
+                                value={healthNotes}
+                                onChange={(e) => setHealthNotes(e.target.value)}
+                            />
+                        </div>
                     ) : (
                         <div className="form-group">
                             <label className="form-label" htmlFor="health-name">名称</label>
@@ -726,10 +788,11 @@ export function StatsPage() {
                                 type="date"
                                 className="form-input"
                                 value={healthDate}
+                                max={format(new Date(), 'yyyy-MM-dd')}
                                 onChange={(e) => setHealthDate(e.target.value)}
                             />
                         </div>
-                        {healthType !== 'medical' && (
+                        {healthType === 'vaccine' || healthType === 'deworming' ? (
                             <div className="form-group flex-1">
                                 <label className="form-label" htmlFor="health-next">下次到期</label>
                                 <input
@@ -737,10 +800,11 @@ export function StatsPage() {
                                     type="date"
                                     className="form-input"
                                     value={healthNextDue}
+                                    min={healthDate || undefined}
                                     onChange={(e) => setHealthNextDue(e.target.value)}
                                 />
                             </div>
-                        )}
+                        ) : null}
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving || !online}>
@@ -791,34 +855,37 @@ export function StatsPage() {
 
             <Modal isOpen={weightModalOpen} onClose={() => { setWeightModalOpen(false); resetWeightForm() }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 添加体重'}>
                 <div className="weight-form">
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="weight-value">体重 (kg)</label>
-                        <input
-                            id="weight-value"
-                            type="number"
-                            min="0.1"
-                            max="30"
-                            step="0.01"
-                            className="form-input"
-                            placeholder="4.50"
-                            value={weightValue}
-                            onChange={(e) => {
-                                setWeightValue(e.target.value)
-                                setWeightError('')
-                            }}
-                        />
-                        {weightError && <p className="text-xs text-danger">{weightError}</p>}
+                    <div className="form-row">
+                        <div className="form-group flex-1">
+                            <label className="form-label" htmlFor="weight-value">体重 (kg)</label>
+                            <input
+                                id="weight-value"
+                                type="number"
+                                min="0.1"
+                                max="30"
+                                step="0.01"
+                                className="form-input"
+                                placeholder="4.50"
+                                value={weightValue}
+                                onChange={(e) => {
+                                    setWeightValue(e.target.value)
+                                    setWeightError('')
+                                }}
+                            />
+                        </div>
+                        <div className="form-group flex-1">
+                            <label className="form-label" htmlFor="weight-date">日期</label>
+                            <input
+                                id="weight-date"
+                                type="date"
+                                className="form-input"
+                                value={weightDate}
+                                max={format(new Date(), 'yyyy-MM-dd')}
+                                onChange={(e) => setWeightDate(e.target.value)}
+                            />
+                        </div>
                     </div>
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="weight-date">日期</label>
-                        <input
-                            id="weight-date"
-                            type="date"
-                            className="form-input weight-date-input"
-                            value={weightDate}
-                            onChange={(e) => setWeightDate(e.target.value)}
-                        />
-                    </div>
+                    {weightError && <p className="text-xs text-danger">{weightError}</p>}
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
                         {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
                     </Button>

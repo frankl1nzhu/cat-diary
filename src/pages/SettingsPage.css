@@ -164,6 +164,10 @@
     gap: var(--space-2);
 }
 
+.cat-actions-row > :only-child {
+    grid-column: 1 / -1;
+}
+
 .saved-row {
     display: flex;
     justify-content: space-between;
