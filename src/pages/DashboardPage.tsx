@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useAppStore } from '../stores/useAppStore'
+import { useToastStore } from '../stores/useToastStore'
+import { getErrorMessage } from '../lib/errorMessage'
 import { differenceInDays, format, addMonths } from 'date-fns'
 import type { Cat, MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
@@ -15,6 +17,7 @@ export function DashboardPage() {
     const { user } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [cat, setCat] = useState<Cat | null>(null)
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
@@ -171,7 +174,7 @@ export function DashboardPage() {
             setFeedModalOpen(false)
             await loadData()
         } catch (err) {
-            console.error('Feed record error:', err)
+            pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
         } finally {
             setFeedLoading(false)
         }
@@ -204,7 +207,7 @@ export function DashboardPage() {
                 )
             setTodayMood(mood)
         } catch (err) {
-            console.error('Mood pick error:', err)
+            pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
         } finally {
             setMoodSaving(false)
         }
@@ -226,7 +229,7 @@ export function DashboardPage() {
             setSelectedBristol(4)
             setSelectedColor('brown')
         } catch (err) {
-            console.error('Poop log error:', err)
+            pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
         } finally {
             setPoopSaving(false)
         }

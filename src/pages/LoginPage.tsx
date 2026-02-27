@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { signIn, useSession } from '../lib/auth'
+import { useToastStore } from '../stores/useToastStore'
+import { getErrorMessage } from '../lib/errorMessage'
 import './LoginPage.css'
 
 export function LoginPage() {
     const navigate = useNavigate()
-    const { user, loading: sessionLoading } = useSession()
+    const { user } = useSession()
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(false)
+    const pushToast = useToastStore((s) => s.pushToast)
 
     // Redirect if already logged in or after successful login
     useEffect(() => {
@@ -29,8 +32,9 @@ export function LoginPage() {
             const data = await signIn(email, password)
             console.log('✅ Login success:', data)
         } catch (err) {
-            console.error('❌ Login error:', err)
-            setError(err instanceof Error ? err.message : '登录失败，请检查邮箱和密码')
+            const message = getErrorMessage(err, '登录失败，请检查邮箱和密码')
+            setError(message)
+            pushToast('error', message)
         } finally {
             setLoading(false)
         }

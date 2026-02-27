@@ -6,7 +6,9 @@ import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useAppStore } from '../stores/useAppStore'
+import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
+import { getErrorMessage } from '../lib/errorMessage'
 import { format } from 'date-fns'
 import type { DiaryEntry, PoopLog, WeightRecord, MoodLog } from '../types/database.types'
 import './LogPage.css'
@@ -23,6 +25,7 @@ export function LogPage() {
     const { user } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [timeline, setTimeline] = useState<TimelineItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -130,7 +133,7 @@ export function LogPage() {
             resetDiaryForm()
             await loadTimeline()
         } catch (err) {
-            console.error('Diary save error:', err)
+            pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))
         } finally {
             setDiarySaving(false)
         }
@@ -161,7 +164,7 @@ export function LogPage() {
             setWeightValue('')
             await loadTimeline()
         } catch (err) {
-            console.error('Weight save error:', err)
+            pushToast('error', getErrorMessage(err, '体重记录失败，请稍后重试'))
         } finally {
             setWeightSaving(false)
         }

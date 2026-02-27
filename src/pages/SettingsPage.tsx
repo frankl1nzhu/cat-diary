@@ -4,12 +4,15 @@ import { Button } from '../components/ui/Button'
 import { supabase } from '../lib/supabase'
 import { signOut, useSession } from '../lib/auth'
 import { useAppStore } from '../stores/useAppStore'
+import { useToastStore } from '../stores/useToastStore'
+import { getErrorMessage } from '../lib/errorMessage'
 import './SettingsPage.css'
 
 export function SettingsPage() {
     const { user } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [name, setName] = useState('')
     const [breed, setBreed] = useState('')
@@ -69,7 +72,7 @@ export function SettingsPage() {
             setAvatarUrl(urlData.publicUrl)
             setMessage({ type: 'success', text: '头像上传成功！' })
         } catch (err) {
-            console.error('Upload error:', err)
+            pushToast('error', getErrorMessage(err, '头像上传失败，请稍后重试'))
             setMessage({ type: 'error', text: '上传失败，请重试' })
         } finally {
             setUploading(false)
@@ -117,7 +120,7 @@ export function SettingsPage() {
 
             setMessage({ type: 'success', text: '档案保存成功！🎉' })
         } catch (err) {
-            console.error('Save error:', err)
+            pushToast('error', getErrorMessage(err, '档案保存失败，请稍后重试'))
             setMessage({ type: 'error', text: '保存失败，请重试' })
         } finally {
             setSaving(false)
@@ -128,7 +131,7 @@ export function SettingsPage() {
         try {
             await signOut()
         } catch (err) {
-            console.error('Sign out error:', err)
+            pushToast('error', getErrorMessage(err, '退出登录失败，请稍后重试'))
         }
     }
 

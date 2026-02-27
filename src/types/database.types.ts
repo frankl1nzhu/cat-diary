@@ -170,8 +170,8 @@ export interface Database {
                 Relationships: []
             }
         }
-        Views: {}
-        Functions: {}
+        Views: Record<string, never>
+        Functions: Record<string, never>
         Enums: {
             mood_type: MoodType
             bristol_type: BristolType

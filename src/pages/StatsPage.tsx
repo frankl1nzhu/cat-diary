@@ -6,6 +6,8 @@ import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useAppStore } from '../stores/useAppStore'
+import { useToastStore } from '../stores/useToastStore'
+import { getErrorMessage } from '../lib/errorMessage'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus } from '../types/database.types'
@@ -15,6 +17,7 @@ export function StatsPage() {
     const { user } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
@@ -89,7 +92,7 @@ export function StatsPage() {
             resetHealthForm()
             await loadData()
         } catch (err) {
-            console.error('Health save error:', err)
+            pushToast('error', getErrorMessage(err, '健康记录保存失败，请稍后重试'))
         } finally {
             setHealthSaving(false)
         }
@@ -123,7 +126,7 @@ export function StatsPage() {
             resetInvForm()
             await loadData()
         } catch (err) {
-            console.error('Inventory save error:', err)
+            pushToast('error', getErrorMessage(err, '库存保存失败，请稍后重试'))
         } finally {
             setInvSaving(false)
         }

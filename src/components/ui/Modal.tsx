@@ -15,15 +15,32 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         const dialog = dialogRef.current
         if (!dialog) return
 
-        if (isOpen) {
+        if (isOpen && !dialog.open) {
             dialog.showModal()
-        } else {
+        } else if (!isOpen && dialog.open) {
             dialog.close()
         }
     }, [isOpen])
 
+    const handleDialogClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+        if (e.target === dialogRef.current) {
+            onClose()
+        }
+    }
+
+    const handleCancel = (e: React.SyntheticEvent<HTMLDialogElement, Event>) => {
+        e.preventDefault()
+        onClose()
+    }
+
     return (
-        <dialog ref={dialogRef} className="modal" onClose={onClose}>
+        <dialog
+            ref={dialogRef}
+            className="modal"
+            onClose={onClose}
+            onClick={handleDialogClick}
+            onCancel={handleCancel}
+        >
             <div className="modal-content fade-in">
                 {title && (
                     <div className="modal-header">

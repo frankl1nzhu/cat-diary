@@ -14,8 +14,6 @@ export function useRealtimeSubscription<T extends Record<string, unknown>>(
     filter?: string
 ) {
     useEffect(() => {
-        let channel: RealtimeChannel
-
         const subscriptionConfig: {
             event: 'INSERT' | 'UPDATE' | 'DELETE' | '*'
             schema: string
@@ -31,7 +29,7 @@ export function useRealtimeSubscription<T extends Record<string, unknown>>(
             subscriptionConfig.filter = filter
         }
 
-        channel = supabase
+        const channel: RealtimeChannel = supabase
             .channel(`realtime-${table}`)
             .on(
                 'postgres_changes' as never,
