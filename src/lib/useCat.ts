@@ -1,67 +1,105 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 import { useAppStore } from '../stores/useAppStore'
 import { useSession } from './auth'
-import type { Cat } from '../types/database.types'
+import type { Cat, Family, FamilyMember } from '../types/database.types'
 
 /**
- * Shared hook that loads the first (currently only) cat from Supabase
- * and keeps `currentCatId` in sync with the Zustand store.
- *
- * Returns the full Cat row so pages don't need their own cat query.
+ * Shared hook that loads cats scoped to the active family,
+ * auto-resolves the active family if none is set,
+ * and keeps `currentCatId` / `activeFamilyId` in sync with Zustand.
  */
 export function useCat() {
     const { user, loading: authLoading } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
+    const activeFamilyId = useAppStore((s) => s.activeFamilyId)
+    const setActiveFamilyId = useAppStore((s) => s.setActiveFamilyId)
     const [cats, setCats] = useState<Cat[]>([])
+    const [families, setFamilies] = useState<Family[]>([])
+    const [myRole, setMyRole] = useState<string>('member')
     const [loading, setLoading] = useState(true)
+
+    const loadFamilies = useCallback(async (userId: string) => {
+        const { data: memberships } = await supabase
+            .from('family_members')
+            .select('family_id, role')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: true })
+
+        const memberList = (memberships || []) as Pick<FamilyMember, 'family_id' | 'role'>[]
+        if (memberList.length === 0) return { families: [] as Family[], memberships: memberList }
+
+        const familyIds = memberList.map((m) => m.family_id)
+        const { data: familyRows } = await supabase
+            .from('families')
+            .select('*')
+            .in('id', familyIds)
+            .order('created_at', { ascending: true })
+
+        return { families: (familyRows || []) as Family[], memberships: memberList }
+    }, [])
 
     useEffect(() => {
         let cancelled = false
 
         async function load() {
-            if (authLoading) {
-                return
-            }
+            if (authLoading) return
 
             if (!user) {
                 setCats([])
+                setFamilies([])
                 setCurrentCatId(null)
+                setActiveFamilyId(null)
                 setLoading(false)
                 return
             }
 
             setLoading(true)
 
-            const { data: memberships } = await supabase
-                .from('family_members')
-                .select('family_id')
-                .eq('user_id', user.id)
+            const { families: fams, memberships } = await loadFamilies(user.id)
+            if (cancelled) return
 
-            const familyIds = (memberships || []).map((item) => item.family_id)
+            setFamilies(fams)
 
-            const { data } = familyIds.length > 0
-                ? await supabase
+            // Auto-resolve active family
+            let resolvedFamilyId = activeFamilyId
+            if (!resolvedFamilyId || !fams.some((f) => f.id === resolvedFamilyId)) {
+                resolvedFamilyId = fams[0]?.id || null
+                setActiveFamilyId(resolvedFamilyId)
+            }
+
+            // Determine role in active family
+            const membership = memberships.find((m) => m.family_id === resolvedFamilyId)
+            setMyRole(membership?.role || 'member')
+
+            // Load cats scoped to active family
+            let catData: Cat[] = []
+            if (resolvedFamilyId) {
+                const { data } = await supabase
                     .from('cats')
                     .select('*')
-                    .or(`family_id.in.(${familyIds.join(',')}),and(created_by.eq.${user.id},family_id.is.null)`)
+                    .eq('family_id', resolvedFamilyId)
                     .order('created_at', { ascending: true })
-                : await supabase
+                catData = (data || []) as Cat[]
+            } else {
+                // Fallback: personal cats without family
+                const { data } = await supabase
                     .from('cats')
                     .select('*')
                     .eq('created_by', user.id)
                     .order('created_at', { ascending: true })
+                catData = (data || []) as Cat[]
+            }
 
             if (cancelled) return
 
-            const list = data || []
-            setCats(list)
+            setCats(catData)
 
-            if (list.length > 0) {
-                const hasSelected = currentCatId && list.some((item) => item.id === currentCatId)
+            if (catData.length > 0) {
+                const hasSelected = currentCatId && catData.some((c) => c.id === currentCatId)
                 if (!hasSelected) {
-                    setCurrentCatId(list[0].id)
+                    setCurrentCatId(catData[0].id)
                 }
             } else {
                 setCurrentCatId(null)
@@ -71,7 +109,7 @@ export function useCat() {
 
         load()
         return () => { cancelled = true }
-    }, [authLoading, currentCatId, setCurrentCatId, user])
+    }, [authLoading, activeFamilyId, currentCatId, setCurrentCatId, setActiveFamilyId, user, loadFamilies])
 
     const resolvedCatId = currentCatId && cats.some((item) => item.id === currentCatId)
         ? currentCatId
@@ -84,6 +122,10 @@ export function useCat() {
         cats,
         catId: resolvedCatId,
         setCatId: setCurrentCatId,
+        families,
+        activeFamilyId,
+        setActiveFamilyId,
+        myRole,
         loading,
     }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -18,7 +18,7 @@ import './SettingsPage.css'
 
 export function SettingsPage() {
     const { user } = useSession()
-    const { cat, catId, loading: catLoading } = useCat()
+    const { cat, catId, families, activeFamilyId, setActiveFamilyId, myRole, loading: catLoading } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
@@ -39,7 +39,6 @@ export function SettingsPage() {
     const [createMode, setCreateMode] = useState(false)
     const [deletingCat, setDeletingCat] = useState(false)
     const [currentFamily, setCurrentFamily] = useState<Family | null>(null)
-    const [familyOptions, setFamilyOptions] = useState<Family[]>([])
     const [selectedFamilyId, setSelectedFamilyId] = useState('')
     const [familyName, setFamilyName] = useState('')
     const [joinCode, setJoinCode] = useState('')
@@ -49,36 +48,11 @@ export function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
-    const loadFamily = useCallback(async () => {
-        if (!user) {
-            setCurrentFamily(null)
-            return
-        }
-
-        const { data: memberships } = await supabase
-            .from('family_members')
-            .select('family_id')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: true })
-
-        const familyIds = (memberships || []).map((item) => item.family_id)
-        if (familyIds.length === 0) {
-            setCurrentFamily(null)
-            setFamilyOptions([])
-            return
-        }
-
-        const { data: families } = await supabase
-            .from('families')
-            .select('*')
-            .in('id', familyIds)
-            .order('created_at', { ascending: true })
-            .limit(1)
-
-        const options = families || []
-        setFamilyOptions(options)
-        setCurrentFamily(options[0] || null)
-    }, [user])
+    // Derive currentFamily from useCat's families + activeFamilyId
+    useEffect(() => {
+        const fam = families.find((f) => f.id === activeFamilyId) || families[0] || null
+        setCurrentFamily(fam)
+    }, [families, activeFamilyId])
 
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
@@ -105,7 +79,7 @@ export function SettingsPage() {
         setBirthday('')
         setAdoptedAt('')
         setAvatarUrl(null)
-        setSelectedFamilyId(currentFamily?.id || '')
+        setSelectedFamilyId(activeFamilyId || '')
         setProfileLocked(false)
 
         setSearchParams((prev) => {
@@ -113,17 +87,13 @@ export function SettingsPage() {
             next.delete('mode')
             return next
         }, { replace: true })
-    }, [currentFamily?.id, searchParams, setCurrentCatId, setSearchParams])
+    }, [activeFamilyId, searchParams, setCurrentCatId, setSearchParams])
 
     useEffect(() => {
-        void loadFamily()
-    }, [loadFamily])
-
-    useEffect(() => {
-        if (!selectedFamilyId && currentFamily?.id) {
-            setSelectedFamilyId(currentFamily.id)
+        if (!selectedFamilyId && activeFamilyId) {
+            setSelectedFamilyId(activeFamilyId)
         }
-    }, [currentFamily, selectedFamilyId])
+    }, [activeFamilyId, selectedFamilyId])
 
     useEffect(() => {
         if (typeof Notification === 'undefined') return
@@ -339,7 +309,7 @@ export function SettingsPage() {
             }
 
             setCurrentFamily(newFamily)
-            setFamilyOptions((prev) => [newFamily, ...prev.filter((item) => item.id !== newFamily.id)])
+            setActiveFamilyId(newFamily.id)
             setSelectedFamilyId(newFamily.id)
             setFamilyName('')
             pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
@@ -382,7 +352,7 @@ export function SettingsPage() {
             }
 
             setCurrentFamily(family)
-            setFamilyOptions((prev) => [family, ...prev.filter((item) => item.id !== family.id)])
+            setActiveFamilyId(family.id)
             setSelectedFamilyId(family.id)
             setJoinCode('')
             pushToast('success', `已加入家庭：${family.name}`)
@@ -410,6 +380,10 @@ export function SettingsPage() {
 
     const handleLeaveFamily = async () => {
         if (!user || !currentFamily) return
+        if (myRole === 'owner') {
+            pushToast('error', '家庭创建者不能退出，请先转让所有权或删除家庭')
+            return
+        }
         try {
             const { error: memberError } = await supabase
                 .from('family_members')
@@ -423,7 +397,8 @@ export function SettingsPage() {
                 setSelectedFamilyId('')
             }
 
-            await loadFamily()
+            setActiveFamilyId(null)
+            setCurrentFamily(null)
             pushToast('success', '已退出家庭')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '退出家庭失败，请稍后重试'))
@@ -506,7 +481,7 @@ export function SettingsPage() {
                                             {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" /> : <span>—</span>}
                                         </div>
                                         <div className="saved-row"><span className="text-secondary">名字</span><strong>{name || '—'}</strong></div>
-                                        <div className="saved-row"><span className="text-secondary">家庭</span><strong>{familyOptions.find((f) => f.id === selectedFamilyId)?.name || '未分配'}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">家庭</span><strong>{families.find((f) => f.id === selectedFamilyId)?.name || '未分配'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">品种</span><strong>{breed || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
@@ -519,7 +494,7 @@ export function SettingsPage() {
                                                 variant="ghost"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
-                                                disabled={!catId}
+                                                disabled={!catId || (myRole !== 'owner' && myRole !== 'admin' && cat?.created_by !== user?.id)}
                                             >
                                                 删除猫咪
                                             </Button>
@@ -574,8 +549,8 @@ export function SettingsPage() {
                                                 onChange={(e) => setSelectedFamilyId(e.target.value)}
                                                 required={createMode}
                                             >
-                                                <option value="">{familyOptions.length > 0 ? '请选择家庭' : '暂无家庭，请先创建或加入'}</option>
-                                                {familyOptions.map((family) => (
+                                                <option value="">{families.length > 0 ? '请选择家庭' : '暂无家庭，请先创建或加入'}</option>
+                                                {families.map((family) => (
                                                     <option key={family.id} value={family.id}>{family.name}</option>
                                                 ))}
                                             </select>
@@ -622,7 +597,7 @@ export function SettingsPage() {
                                                 variant="ghost"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
-                                                disabled={!catId || createMode}
+                                                disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin' && cat?.created_by !== user?.id)}
                                             >
                                                 删除猫咪
                                             </Button>
@@ -636,19 +611,55 @@ export function SettingsPage() {
                     {/* Family Members */}
                     <div className="p-4">
                         <Card variant="default" padding="md">
-                            <h2 className="text-lg font-semibold mb-3">👨‍👩‍👧 家庭成员</h2>
+                            <h2 className="text-lg font-semibold mb-3">👨‍👩‍👧 家庭管理</h2>
                             {currentFamily ? (
                                 <>
                                     <p className="text-secondary text-sm">当前家庭：{currentFamily.name}</p>
-                                    <p className="text-muted text-xs" style={{ marginTop: '8px' }}>邀请码：{currentFamily.invite_code}</p>
+                                    <p className="text-muted text-xs" style={{ marginTop: '4px' }}>
+                                        你的角色：{myRole === 'owner' ? '创建者' : myRole === 'admin' ? '管理员' : '成员'}
+                                    </p>
+                                    <p className="text-muted text-xs" style={{ marginTop: '4px' }}>邀请码：{currentFamily.invite_code}</p>
+                                    {families.length > 1 && (
+                                        <div className="form-group" style={{ marginTop: '12px' }}>
+                                            <label className="form-label">切换家庭</label>
+                                            <select
+                                                className="form-input"
+                                                value={activeFamilyId || ''}
+                                                onChange={(e) => {
+                                                    setActiveFamilyId(e.target.value || null)
+                                                    setCurrentCatId(null)
+                                                }}
+                                            >
+                                                {families.map((f) => (
+                                                    <option key={f.id} value={f.id}>{f.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
                                     <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        <Button variant="ghost" onClick={handleLeaveFamily}>退出家庭</Button>
+                                        {myRole !== 'owner' && (
+                                            <Button variant="ghost" onClick={handleLeaveFamily}>退出家庭</Button>
+                                        )}
                                     </div>
                                     {cat && cat.family_id !== currentFamily.id && (
                                         <div style={{ marginTop: '12px' }}>
                                             <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>将当前猫咪归属到该家庭</Button>
                                         </div>
                                     )}
+                                    {/* Join another family */}
+                                    <div className="form-group" style={{ marginTop: '16px' }}>
+                                        <label className="form-label" htmlFor="family-invite-code">加入其他家庭</label>
+                                        <input
+                                            id="family-invite-code"
+                                            className="form-input"
+                                            placeholder="输入邀请码"
+                                            value={joinCode}
+                                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                        />
+                                        <Button variant="ghost" onClick={handleJoinFamily} disabled={familySaving || !online} style={{ marginTop: '8px' }}>
+                                            {familySaving ? '处理中...' : '加入家庭'}
+                                        </Button>
+                                    </div>
                                 </>
                             ) : (
                                 <div className="family-actions">

@@ -27,7 +27,7 @@ type RewardParticle = {
 
 export function DashboardPage() {
     const { user } = useSession()
-    const { cat, catId, cats, setCatId, loading: catLoading } = useCat()
+    const { cat, catId, cats, setCatId, activeFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
@@ -471,6 +471,7 @@ export function DashboardPage() {
                     birthday: onboardingBirthday || null,
                     adopted_at: onboardingAdoptedAt || null,
                     avatar_url: null,
+                    family_id: activeFamilyId,
                     created_by: user.id,
                 })
                 .select()
