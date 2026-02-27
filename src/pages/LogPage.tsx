@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -14,6 +15,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
+import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
 import type { DiaryEntry, PoopLog, WeightRecord } from '../types/database.types'
 import './LogPage.css'
@@ -23,7 +25,7 @@ type TimelineItem =
     | { type: 'poop'; data: PoopLog; time: string }
     | { type: 'weight'; data: WeightRecord; time: string }
 
-const TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇']
+const TAGS = DIARY_TAGS
 
 export function LogPage() {
     const { user } = useSession()
@@ -70,6 +72,7 @@ export function LogPage() {
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
 
     const [keyword, setKeyword] = useState('')
+    const deferredKeyword = useDeferredValue(keyword)
     const [filterTypes, setFilterTypes] = useState<Array<TimelineItem['type']>>(['diary'])
     const [dateStart, setDateStart] = useState('')
     const [dateEnd, setDateEnd] = useState('')
@@ -429,7 +432,7 @@ export function LogPage() {
     const filteredTimeline = useMemo(() => {
         const startTs = dateStart ? new Date(`${dateStart}T00:00:00`).getTime() : null
         const endTs = dateEnd ? new Date(`${dateEnd}T23:59:59.999`).getTime() : null
-        const normalizedKeyword = keyword.trim().toLowerCase()
+        const normalizedKeyword = deferredKeyword.trim().toLowerCase()
 
         return timeline.filter((item) => {
             if (!filterTypes.includes(item.type)) return false
@@ -451,7 +454,7 @@ export function LogPage() {
             }
             return false
         })
-    }, [dateEnd, dateStart, filterTypes, keyword, timeline])
+    }, [dateEnd, dateStart, filterTypes, deferredKeyword, timeline])
 
     const toggleTypeFilter = (type: TimelineItem['type']) => {
         setFilterTypes((prev) => {
@@ -496,6 +499,15 @@ export function LogPage() {
     const handleRefresh = async () => {
         await loadTimeline()
     }
+
+    // ─── Virtual list ─────────────────────────────
+    const timelineParentRef = useRef<HTMLDivElement>(null)
+    const virtualizer = useVirtualizer({
+        count: filteredTimeline.length,
+        getScrollElement: () => timelineParentRef.current,
+        estimateSize: () => 120,
+        overscan: 5,
+    })
 
     const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
         if (window.scrollY > 0) return
@@ -550,15 +562,9 @@ export function LogPage() {
     }, [imageLightbox])
 
     // ─── Helpers ──────────────────────────────────
-    const bristolLabels: Record<string, string> = {
-        '1': '硬球状', '2': '腊肠状硬块', '3': '腊肠状裂纹',
-        '4': '软条状', '5': '软团状', '6': '泥状', '7': '水状',
-    }
+    const bristolLabels = BRISTOL_LABELS
 
-    const colorEmojis: Record<string, string> = {
-        brown: '🟫', dark_brown: '⬛', yellow: '🟨',
-        green: '🟩', red: '🟥', black: '⬛', white: '⬜',
-    }
+    const colorEmojis = POOP_COLOR_EMOJIS
 
     const renderItem = (item: TimelineItem) => {
         switch (item.type) {
@@ -573,7 +579,7 @@ export function LogPage() {
                                 </div>
                                 {item.data.image_url && (
                                     <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
-                                        <img src={item.data.image_url} alt="" className="timeline-img" />
+                                        <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
                                     </button>
                                 )}
                                 <p className="text-sm">{item.data.text || ''}</p>
@@ -588,19 +594,19 @@ export function LogPage() {
                     </SwipeableRow>
                 )
             case 'poop': {
-                const isAbnormal = Number(item.data.bristol_type) >= 6 || ['red', 'black', 'white'].includes(item.data.color)
+                const abnormal = isAbnormalPoop(item.data.bristol_type, item.data.color)
                 return (
                     <SwipeableRow key={`p-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
-                        <Card variant="default" padding="md" className={`timeline-card ${isAbnormal ? 'timeline-warn' : ''}`}>
+                        <Card variant="default" padding="md" className={`timeline-card ${abnormal ? 'timeline-warn' : ''}`}>
                             <div className="timeline-badge poop-badge">💩</div>
                             <div className="timeline-content">
                                 <div className="timeline-actions">
                                     <button className="timeline-action-btn" onClick={() => openEditPoop(item.data)}>编辑</button>
                                 </div>
                                 <p className="text-sm">
-                                    布里斯托 {item.data.bristol_type} 型 · {bristolLabels[String(item.data.bristol_type)]}
+                                    布里斯托 {item.data.bristol_type} 型 · {bristolLabels[item.data.bristol_type]}
                                     {' '}{colorEmojis[item.data.color]}
-                                    {isAbnormal && <span className="warn-tag">⚠️ 异常</span>}
+                                    {abnormal && <span className="warn-tag">⚠️ 异常</span>}
                                 </p>
                                 <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
                             </div>
@@ -681,7 +687,7 @@ export function LogPage() {
                 </Card>
             </div>
 
-            <div className="timeline px-4">
+            <div className="timeline px-4" ref={timelineParentRef} style={{ overflowY: 'auto', maxHeight: '70vh' }}>
                 {loading || catLoading ? (
                     <div className="empty-state">
                         <span className="empty-icon">⏳</span>
@@ -693,7 +699,33 @@ export function LogPage() {
                         <p className="text-secondary text-sm">没有符合筛选条件的记录</p>
                     </div>
                 ) : (
-                    filteredTimeline.map(renderItem)
+                    <div
+                        style={{
+                            height: `${virtualizer.getTotalSize()}px`,
+                            width: '100%',
+                            position: 'relative',
+                        }}
+                    >
+                        {virtualizer.getVirtualItems().map((virtualRow) => {
+                            const item = filteredTimeline[virtualRow.index]
+                            return (
+                                <div
+                                    key={virtualRow.key}
+                                    data-index={virtualRow.index}
+                                    ref={virtualizer.measureElement}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        transform: `translateY(${virtualRow.start}px)`,
+                                    }}
+                                >
+                                    {renderItem(item)}
+                                </div>
+                            )
+                        })}
+                    </div>
                 )}
 
                 {!loading && hasMore && (
@@ -737,7 +769,7 @@ export function LogPage() {
                         <label className="form-label">照片</label>
                         {diaryImagePreview ? (
                             <div className="image-preview-container">
-                                <img src={diaryImagePreview} alt="" className="image-preview" />
+                                <img src={diaryImagePreview} alt="" className="image-preview" loading="lazy" />
                                 <button className="image-remove" onClick={() => { setDiaryImage(null); setDiaryImagePreview(null) }}>✕</button>
                             </div>
                         ) : (
@@ -777,8 +809,10 @@ export function LogPage() {
                                 setWeightError('')
                             }}
                             autoFocus
+                            aria-invalid={weightError ? true : undefined}
+                            aria-describedby={weightError ? 'weight-error' : undefined}
                         />
-                        {weightError && <p className="text-xs text-danger">{weightError}</p>}
+                        {weightError && <p className="text-xs text-danger" id="weight-error">{weightError}</p>}
                     </div>
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
                         {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}

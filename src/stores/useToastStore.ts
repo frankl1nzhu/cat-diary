@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export type ToastType = 'success' | 'error' | 'info'
 
 export interface ToastItem {
-    id: number
+    id: string
     type: ToastType
     message: string
 }
@@ -11,13 +11,13 @@ export interface ToastItem {
 interface ToastState {
     items: ToastItem[]
     pushToast: (type: ToastType, message: string, durationMs?: number) => void
-    removeToast: (id: number) => void
+    removeToast: (id: string) => void
 }
 
 export const useToastStore = create<ToastState>((set, get) => ({
     items: [],
     pushToast: (type, message, durationMs = 2800) => {
-        const id = Date.now() + Math.floor(Math.random() * 1000)
+        const id = crypto.randomUUID()
         set((state) => ({
             items: [...state.items, { id, type, message }],
         }))

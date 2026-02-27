@@ -12,6 +12,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { isAbnormalPoop } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
@@ -67,19 +68,25 @@ export function StatsPage() {
             return
         }
 
-        const [w, h, inv, poopData] = await Promise.all([
-            supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
-            supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
-            supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
-            supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
-        ])
+        try {
+            const [w, h, inv, poopData] = await Promise.all([
+                supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
+                supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
+                supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
+                supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
+            ])
 
-        if (w.data) setWeights(w.data)
-        if (h.data) setHealthRecords(h.data)
-        if (inv.data) setInventory(inv.data)
-        if (poopData.data) setPoops(poopData.data)
-        setLoading(false)
-    }, [catId, catLoading])
+            if (w.data) setWeights(w.data)
+            if (h.data) setHealthRecords(h.data)
+            if (inv.data) setInventory(inv.data)
+            if (poopData.data) setPoops(poopData.data)
+        } catch (err) {
+            console.error('Failed to load stats data:', err)
+            pushToast('error', getErrorMessage(err, '统计数据加载失败，请稍后重试'))
+        } finally {
+            setLoading(false)
+        }
+    }, [catId, catLoading, pushToast])
 
     useEffect(() => { loadData() }, [loadData])
 
@@ -118,7 +125,7 @@ export function StatsPage() {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         poops.forEach((item) => {
             if (new Date(item.created_at).getTime() >= cutoff) {
-                counts[String(item.bristol_type)] += 1
+                counts[item.bristol_type] += 1
             }
         })
 
@@ -359,8 +366,7 @@ export function StatsPage() {
         })
         const recentAbnormalPoops = poops.filter((p) => {
             const inRange = new Date(p.created_at).getTime() >= cutoff
-            const abnormal = Number(p.bristol_type) >= 6 || ['red', 'black', 'white'].includes(p.color)
-            return inRange && abnormal
+            return inRange && isAbnormalPoop(p.bristol_type, p.color)
         })
 
         const isZh = lang === 'zh'
@@ -917,6 +923,8 @@ export function StatsPage() {
                                     setWeightValue(e.target.value)
                                     setWeightError('')
                                 }}
+                                aria-invalid={weightError ? true : undefined}
+                                aria-describedby={weightError ? 'stats-weight-error' : undefined}
                             />
                         </div>
                         <div className="form-group flex-1">
@@ -931,7 +939,7 @@ export function StatsPage() {
                             />
                         </div>
                     </div>
-                    {weightError && <p className="text-xs text-danger">{weightError}</p>}
+                    {weightError && <p className="text-xs text-danger" id="stats-weight-error">{weightError}</p>}
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
                         {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
                     </Button>

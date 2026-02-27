@@ -139,6 +139,7 @@ export function LoginPage() {
                                 onChange={(e) => setIdentifier(e.target.value)}
                                 required
                                 autoComplete="username"
+                                aria-invalid={error ? true : undefined}
                             />
                         </div>
 
@@ -153,6 +154,7 @@ export function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 autoComplete="current-password"
+                                aria-invalid={error ? true : undefined}
                             />
                         </div>
 
@@ -185,6 +187,7 @@ export function LoginPage() {
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
                                 autoComplete="username"
+                                aria-invalid={error?.includes('用户名') ? true : undefined}
                             />
                         </div>
 
@@ -227,6 +230,7 @@ export function LoginPage() {
                                 required
                                 minLength={6}
                                 autoComplete="new-password"
+                                aria-invalid={error?.includes('密码') ? true : undefined}
                             />
                         </div>
 

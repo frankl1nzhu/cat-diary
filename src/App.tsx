@@ -1,6 +1,9 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useSession, updatePassword } from './lib/auth'
+import { initAuth } from './stores/useAuthStore'
+import { initCatStore } from './stores/useCatStore'
+import { startOfflineSync } from './lib/offlineQueue'
 import { AppLayout } from './components/layout/AppLayout'
 import { ToastViewport } from './components/ui/ToastViewport'
 import { Modal } from './components/ui/Modal'
@@ -75,11 +78,11 @@ function PasswordResetModal() {
         )}
         <div className="form-group">
           <label className="form-label" htmlFor="reset-new-pwd">新密码</label>
-          <input id="reset-new-pwd" type="password" className="form-input" placeholder="至少6位" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} autoComplete="new-password" />
+          <input id="reset-new-pwd" type="password" className="form-input" placeholder="至少6位" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="reset-confirm-pwd">确认新密码</label>
-          <input id="reset-confirm-pwd" type="password" className="form-input" placeholder="再次输入新密码" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} autoComplete="new-password" />
+          <input id="reset-confirm-pwd" type="password" className="form-input" placeholder="再次输入新密码" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
         </div>
         <Button variant="primary" fullWidth onClick={handleSave} disabled={saving}>
           {saving ? '保存中...' : '确认重置'}
@@ -90,6 +93,18 @@ function PasswordResetModal() {
 }
 
 export default function App() {
+  // Initialize auth & cat stores once at app startup (single subscription for the entire app)
+  useEffect(() => {
+    const cleanupAuth = initAuth()
+    const cleanupCat = initCatStore()
+    const cleanupOffline = startOfflineSync()
+    return () => {
+      cleanupAuth()
+      cleanupCat()
+      cleanupOffline()
+    }
+  }, [])
+
   return (
     <BrowserRouter>
       <Suspense fallback={<PageLoader />}>

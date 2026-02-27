@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from './supabase'
+import { useAuthStore } from '../stores/useAuthStore'
+import { useShallow } from 'zustand/shallow'
 
 /** Sign in with email/username/phone + password */
 export async function signIn(identifier: string, password: string) {
@@ -13,7 +13,8 @@ export async function signIn(identifier: string, password: string) {
             .select('email')
             .or(`username.eq.${identifier},phone.eq.${identifier}`)
             .maybeSingle()
-        if (!profile?.email) throw new Error('未找到该用户')
+        // Use generic error to prevent username enumeration
+        if (!profile?.email) throw new Error('用户名或密码错误')
         email = profile.email
     }
 
@@ -75,35 +76,17 @@ export async function signOut() {
     if (error) throw error
 }
 
-/** React hook — subscribe to auth state changes */
+/**
+ * React hook — reads auth state from the shared store.
+ * No per-component subscriptions; a single auth listener
+ * is created once via initAuth() at app startup.
+ */
 export function useSession() {
-    const [session, setSession] = useState<Session | null>(null)
-    const [user, setUser] = useState<User | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [isPasswordRecovery, setIsPasswordRecovery] = useState(false)
-
-    useEffect(() => {
-        // Get initial session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session)
-            setUser(session?.user ?? null)
-            setLoading(false)
-        })
-
-        // Listen for auth changes
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((event, session) => {
-            setSession(session)
-            setUser(session?.user ?? null)
-            setLoading(false)
-            if (event === 'PASSWORD_RECOVERY') {
-                setIsPasswordRecovery(true)
-            }
-        })
-
-        return () => subscription.unsubscribe()
-    }, [])
-
-    return { session, user, loading, isPasswordRecovery, clearPasswordRecovery: () => setIsPasswordRecovery(false) }
+    return useAuthStore(useShallow((s) => ({
+        session: s.session,
+        user: s.user,
+        loading: s.loading,
+        isPasswordRecovery: s.isPasswordRecovery,
+        clearPasswordRecovery: s.clearPasswordRecovery,
+    })))
 }

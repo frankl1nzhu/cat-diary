@@ -5,7 +5,7 @@
 
 export type MoodType = '😸' | '😾' | '😴'
 
-export type BristolType = 1 | 2 | 3 | 4 | 5 | 6 | 7
+export type BristolType = '1' | '2' | '3' | '4' | '5' | '6' | '7'
 
 export type PoopColor = 'brown' | 'dark_brown' | 'yellow' | 'green' | 'red' | 'black' | 'white'
 

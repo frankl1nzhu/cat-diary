@@ -50,7 +50,7 @@ export async function enablePushNotifications() {
         return { ok: true as const, subscribed: false as const, reason: 'no-vapid-key' as const }
     }
 
-    const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/push/' })
+    const registration = await navigator.serviceWorker.ready
     const existing = await registration.pushManager.getSubscription()
     if (existing) {
         const subscriptionJson = existing.toJSON()

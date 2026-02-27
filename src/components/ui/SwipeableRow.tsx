@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import './SwipeableRow.css'
 
 interface SwipeableRowProps {
@@ -37,8 +37,15 @@ export function SwipeableRow({ onDelete, children }: SwipeableRowProps) {
         setOffsetX(0)
     }
 
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault()
+            onDelete()
+        }
+    }, [onDelete])
+
     return (
-        <div className="swipe-row" onClick={open ? close : undefined}>
+        <div className="swipe-row" onClick={open ? close : undefined} onKeyDown={handleKeyDown} tabIndex={0} role="group" aria-label="可滑动删除的行">
             <button className="swipe-delete" onClick={onDelete} aria-label="删除">
                 删除
             </button>
@@ -50,6 +57,9 @@ export function SwipeableRow({ onDelete, children }: SwipeableRowProps) {
                 onTouchEnd={onTouchEnd}
             >
                 {children}
+                <button className="swipe-kb-delete" onClick={onDelete} aria-label="删除此记录">
+                    🗑
+                </button>
             </div>
         </div>
     )

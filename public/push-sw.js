@@ -24,7 +24,9 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const targetUrl = event.notification.data?.url || '/'
+  const rawUrl = event.notification.data?.url || '/'
+  // Validate URL: only allow same-origin paths to prevent open redirect
+  const targetUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('/')) ? rawUrl : '/'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

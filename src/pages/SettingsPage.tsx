@@ -8,6 +8,7 @@ import { signOut, useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useAppStore } from '../stores/useAppStore'
 import { useToastStore } from '../stores/useToastStore'
+import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
@@ -225,6 +226,7 @@ export function SettingsPage() {
 
             setCreateMode(false)
             setProfileLocked(true)
+            reloadCatData()
             pushToast('success', '档案保存成功！🎉')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '档案保存失败，请稍后重试'))
@@ -328,6 +330,7 @@ export function SettingsPage() {
             setActiveFamilyId(newFamily.id)
             setSelectedFamilyId(newFamily.id)
             setFamilyName('')
+            reloadCatData()
             pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
         } catch (err) {
             pushToast('error', getErrorMessage(err, '创建家庭失败，请稍后重试'))
@@ -359,6 +362,7 @@ export function SettingsPage() {
             setActiveFamilyId(family.id)
             setSelectedFamilyId(family.id)
             setJoinCode('')
+            reloadCatData()
             pushToast('success', `已加入家庭：${family.name}`)
         } catch (err) {
             pushToast('error', getErrorMessage(err, '加入家庭失败，请检查邀请码'))
@@ -376,6 +380,7 @@ export function SettingsPage() {
                 .eq('id', catId)
             if (error) throw error
             setSelectedFamilyId(currentFamily.id)
+            reloadCatData()
             pushToast('success', '当前猫咪已归属到家庭')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '猫咪归属家庭失败'))
@@ -495,6 +500,7 @@ export function SettingsPage() {
             setAdoptedAt('')
             setAvatarUrl(null)
             setSelectedFamilyId(currentFamily?.id || '')
+            reloadCatData()
             pushToast('success', '猫咪档案已删除')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '删除猫咪失败，请稍后重试'))
@@ -546,7 +552,7 @@ export function SettingsPage() {
                                         <p className="text-sm text-secondary">已保存档案</p>
                                         <div className="saved-row">
                                             <span className="text-secondary">头像</span>
-                                            {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" /> : <span>—</span>}
+                                            {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" /> : <span>—</span>}
                                         </div>
                                         <div className="saved-row"><span className="text-secondary">名字</span><strong>{name || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">家庭</span><strong>{families.find((f) => f.id === selectedFamilyId)?.name || '未分配'}</strong></div>
@@ -578,7 +584,7 @@ export function SettingsPage() {
                                                 onClick={() => fileInputRef.current?.click()}
                                             >
                                                 {avatarUrl ? (
-                                                    <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" />
+                                                    <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" />
                                                 ) : (
                                                     <span className="avatar-upload-icon">📷</span>
                                                 )}

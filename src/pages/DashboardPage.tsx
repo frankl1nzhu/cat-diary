@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useOptimistic, useTransition } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -10,9 +10,11 @@ import { useRealtimeSubscription } from '../lib/realtime'
 import { useCat } from '../lib/useCat'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useToastStore } from '../stores/useToastStore'
+import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { sendReminderPush } from '../lib/pushServer'
+import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import { computeInventoryStatus } from '../types/database.types'
@@ -34,11 +36,17 @@ export function DashboardPage() {
     const online = useOnlineStatus()
 
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
+    const [optimisticFeeds, addOptimisticFeed] = useOptimistic(
+        todayFeeds,
+        (current, newFeed: FeedStatus) => [newFeed, ...current],
+    )
 
     // Feed modal
     const [feedModalOpen, setFeedModalOpen] = useState(false)
     const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
     const [todayMood, setTodayMood] = useState<MoodType | null>(null)
+    const [optimisticMood, setOptimisticMood] = useOptimistic(todayMood)
+    const [, startTransition] = useTransition()
     const [moodEditing, setMoodEditing] = useState(false)
     const [monthMoodMap, setMonthMoodMap] = useState<Record<string, MoodType>>({})
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
@@ -64,7 +72,7 @@ export function DashboardPage() {
 
     // Poop modal
     const [poopModalOpen, setPoopModalOpen] = useState(false)
-    const [selectedBristol, setSelectedBristol] = useState<BristolType>(4)
+    const [selectedBristol, setSelectedBristol] = useState<BristolType>('4')
     const [selectedColor, setSelectedColor] = useState<PoopColor>('brown')
     const [poopSaving, setPoopSaving] = useState(false)
 
@@ -124,111 +132,117 @@ export function DashboardPage() {
         weekStart.setDate(weekStart.getDate() - 6)
         const weekStartIso = `${format(weekStart, 'yyyy-MM-dd')}T00:00:00`
 
-        const [feedRes, moodRes, diaryRes, invRes, healthRes, weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes, monthMoodsRes] = await Promise.all([
-            supabase
-                .from('feed_status')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('updated_at', `${today}T00:00:00`)
-                .order('fed_at', { ascending: false }),
-            supabase
-                .from('mood_logs')
-                .select('*')
-                .eq('cat_id', catId)
-                .eq('date', today)
-                .limit(1)
-                .single(),
-            supabase
-                .from('diary_entries')
-                .select('*')
-                .eq('cat_id', catId)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single(),
-            supabase
-                .from('inventory')
-                .select('*')
-                .eq('cat_id', catId),
-            supabase
-                .from('health_records')
-                .select('*')
-                .eq('cat_id', catId)
-                .eq('type', 'deworming')
-                .order('date', { ascending: false })
-                .limit(1)
-                .single(),
-            supabase
-                .from('feed_status')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('updated_at', weekStartIso),
-            supabase
-                .from('mood_logs')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('created_at', weekStartIso),
-            supabase
-                .from('poop_logs')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('created_at', weekStartIso),
-            supabase
-                .from('weight_records')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('recorded_at', weekStartIso)
-                .order('recorded_at', { ascending: true }),
-            supabase
-                .from('mood_logs')
-                .select('*')
-                .eq('cat_id', catId)
-                .gte('date', format(monthStart, 'yyyy-MM-dd'))
-                .lte('date', format(monthEnd, 'yyyy-MM-dd')),
-        ])
+        try {
+            const [feedRes, moodRes, diaryRes, invRes, healthRes, weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes, monthMoodsRes] = await Promise.all([
+                supabase
+                    .from('feed_status')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('updated_at', `${today}T00:00:00`)
+                    .order('fed_at', { ascending: false }),
+                supabase
+                    .from('mood_logs')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .eq('date', today)
+                    .limit(1)
+                    .single(),
+                supabase
+                    .from('diary_entries')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .single(),
+                supabase
+                    .from('inventory')
+                    .select('*')
+                    .eq('cat_id', catId),
+                supabase
+                    .from('health_records')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .eq('type', 'deworming')
+                    .order('date', { ascending: false })
+                    .limit(1)
+                    .single(),
+                supabase
+                    .from('feed_status')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('updated_at', weekStartIso),
+                supabase
+                    .from('mood_logs')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('created_at', weekStartIso),
+                supabase
+                    .from('poop_logs')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('created_at', weekStartIso),
+                supabase
+                    .from('weight_records')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('recorded_at', weekStartIso)
+                    .order('recorded_at', { ascending: true }),
+                supabase
+                    .from('mood_logs')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .gte('date', format(monthStart, 'yyyy-MM-dd'))
+                    .lte('date', format(monthEnd, 'yyyy-MM-dd')),
+            ])
 
-        if (feedRes.data) setTodayFeeds(feedRes.data)
-        if (moodRes.data) setTodayMood(moodRes.data.mood)
-        if (diaryRes.data) setLatestDiary(diaryRes.data)
-        if (invRes.data) setInventory(invRes.data)
-        if (healthRes.data) {
-            const nextDue = healthRes.data.next_due || format(addMonths(new Date(healthRes.data.date), 3), 'yyyy-MM-dd')
-            setNextDeworming(nextDue)
-        }
+            if (feedRes.data) setTodayFeeds(feedRes.data)
+            if (moodRes.data) setTodayMood(moodRes.data.mood)
+            if (diaryRes.data) setLatestDiary(diaryRes.data)
+            if (invRes.data) setInventory(invRes.data)
+            if (healthRes.data) {
+                const nextDue = healthRes.data.next_due || format(addMonths(new Date(healthRes.data.date), 3), 'yyyy-MM-dd')
+                setNextDeworming(nextDue)
+            }
 
-        if (weekFeedsRes.data) {
-            setWeekFeedCount(weekFeedsRes.data.length)
-        }
+            if (weekFeedsRes.data) {
+                setWeekFeedCount(weekFeedsRes.data.length)
+            }
 
-        if (weekMoodsRes.data) {
-            const counts = { '😸': 0, '😾': 0, '😴': 0 }
-            weekMoodsRes.data.forEach((item) => {
-                counts[item.mood] += 1
-            })
-            setWeekMoodCounts(counts)
-        }
+            if (weekMoodsRes.data) {
+                const counts = { '😸': 0, '😾': 0, '😴': 0 }
+                weekMoodsRes.data.forEach((item) => {
+                    counts[item.mood] += 1
+                })
+                setWeekMoodCounts(counts)
+            }
 
-        if (weekPoopsRes.data) {
-            const abnormal = weekPoopsRes.data.filter((item) => Number(item.bristol_type) >= 6 || ['red', 'black', 'white'].includes(item.color))
-            setWeekAbnormalPoopCount(abnormal.length)
-        }
+            if (weekPoopsRes.data) {
+                const abnormal = weekPoopsRes.data.filter((item) => isAbnormalPoop(item.bristol_type, item.color))
+                setWeekAbnormalPoopCount(abnormal.length)
+            }
 
-        if (weekWeightsRes.data && weekWeightsRes.data.length >= 2) {
-            const first = weekWeightsRes.data[0].weight_kg
-            const last = weekWeightsRes.data[weekWeightsRes.data.length - 1].weight_kg
-            setWeekWeightDelta(Number((last - first).toFixed(2)))
-        } else {
-            setWeekWeightDelta(null)
-        }
+            if (weekWeightsRes.data && weekWeightsRes.data.length >= 2) {
+                const first = weekWeightsRes.data[0].weight_kg
+                const last = weekWeightsRes.data[weekWeightsRes.data.length - 1].weight_kg
+                setWeekWeightDelta(Number((last - first).toFixed(2)))
+            } else {
+                setWeekWeightDelta(null)
+            }
 
-        if (monthMoodsRes.data) {
-            const map: Record<string, MoodType> = {}
-            monthMoodsRes.data.forEach((entry) => {
-                map[entry.date] = entry.mood
-            })
-            setMonthMoodMap(map)
+            if (monthMoodsRes.data) {
+                const map: Record<string, MoodType> = {}
+                monthMoodsRes.data.forEach((entry) => {
+                    map[entry.date] = entry.mood
+                })
+                setMonthMoodMap(map)
+            }
+        } catch (err) {
+            console.error('Failed to load dashboard data:', err)
+            pushToast('error', getErrorMessage(err, '数据加载失败，请稍后重试'))
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
-    }, [catId, catLoading, monthEnd, monthStart, today])
+    }, [catId, catLoading, monthEnd, monthStart, today, pushToast])
 
     useEffect(() => {
         loadData()
@@ -305,60 +319,71 @@ export function DashboardPage() {
         if (!cat || !user || feedLoading) return
         setFeedLoading(true)
 
-        try {
-            await supabase.from('feed_status').insert({
-                cat_id: cat.id,
-                status: 'fed' as const,
-                fed_by: user.id,
-                fed_at: new Date().toISOString(),
-                meal_type: selectedMeal,
-            })
-            setFeedModalOpen(false)
-            await loadData()
-            lightHaptic()
-            triggerRewardBurst('🐾')
-            pushToast('success', '喂食记录成功 🐾')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
-        } finally {
-            setFeedLoading(false)
+        const optimisticFeed: FeedStatus = {
+            id: crypto.randomUUID(),
+            cat_id: cat.id,
+            status: 'fed',
+            fed_by: user.id,
+            fed_at: new Date().toISOString(),
+            meal_type: selectedMeal,
+            updated_at: new Date().toISOString(),
         }
+
+        startTransition(async () => {
+            addOptimisticFeed(optimisticFeed)
+            try {
+                await supabase.from('feed_status').insert({
+                    cat_id: cat.id,
+                    status: 'fed' as const,
+                    fed_by: user.id,
+                    fed_at: new Date().toISOString(),
+                    meal_type: selectedMeal,
+                })
+                setFeedModalOpen(false)
+                await loadData()
+                lightHaptic()
+                triggerRewardBurst('🐾')
+                pushToast('success', '喂食记录成功 🐾')
+            } catch (err) {
+                pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
+            } finally {
+                setFeedLoading(false)
+            }
+        })
     }
 
-    const mealLabels: Record<string, string> = {
-        breakfast: '🌅 早餐',
-        lunch: '☀️ 午餐',
-        dinner: '🌙 晚餐',
-        snack: '🍬 加餐',
-    }
+    const mealLabels = MEAL_LABELS
 
     // ─── Mood picker ──────────────────────────────
     const handleMoodPick = async (mood: MoodType) => {
         if (!cat || !user || moodSaving) return
         setMoodSaving(true)
 
-        try {
-            // Upsert mood for today
-            await supabase
-                .from('mood_logs')
-                .upsert(
-                    {
-                        cat_id: cat.id,
-                        mood,
-                        date: today,
-                        created_by: user.id,
-                    },
-                    { onConflict: 'cat_id,date' }
-                )
-            setTodayMood(mood)
-            setMoodEditing(false)
-            lightHaptic()
-            pushToast('success', '心情已记录')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
-        } finally {
-            setMoodSaving(false)
-        }
+        startTransition(async () => {
+            setOptimisticMood(mood)
+            try {
+                // Upsert mood for today
+                await supabase
+                    .from('mood_logs')
+                    .upsert(
+                        {
+                            cat_id: cat.id,
+                            mood,
+                            date: today,
+                            created_by: user.id,
+                        },
+                        { onConflict: 'cat_id,date' }
+                    )
+                setTodayMood(mood)
+                setMoodEditing(false)
+                lightHaptic()
+                pushToast('success', '心情已记录')
+            } catch (err) {
+                pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
+            } finally {
+                setMoodSaving(false)
+            }
+        })
     }
 
     // ─── Poop log ─────────────────────────────────
@@ -369,15 +394,15 @@ export function DashboardPage() {
         try {
             await supabase.from('poop_logs').insert({
                 cat_id: cat.id,
-                bristol_type: String(selectedBristol) as '1' | '2' | '3' | '4' | '5' | '6' | '7',
+                bristol_type: selectedBristol,
                 color: selectedColor,
                 created_by: user.id,
             })
             setPoopModalOpen(false)
-            setSelectedBristol(4)
+            setSelectedBristol('4')
             setSelectedColor('brown')
             lightHaptic()
-            if (selectedBristol === 4) {
+            if (selectedBristol === '4') {
                 triggerRewardBurst('💖')
             }
             pushToast('success', '铲屎记录成功 💩')
@@ -389,25 +414,9 @@ export function DashboardPage() {
     }
 
     // ─── Bristol type descriptions ────────────────
-    const bristolLabels: Record<number, string> = {
-        1: '硬球状',
-        2: '腊肠状硬块',
-        3: '腊肠状裂纹',
-        4: '软条状 ✅',
-        5: '软团状',
-        6: '泥状',
-        7: '水状',
-    }
+    const bristolLabels = BRISTOL_LABELS
 
-    const colorLabels: Record<PoopColor, string> = {
-        brown: '🟫 棕色（正常）',
-        dark_brown: '⬛ 深棕色',
-        yellow: '🟨 黄色',
-        green: '🟩 绿色',
-        red: '🟥 红色 ⚠️',
-        black: '⬛ 黑色 ⚠️',
-        white: '⬜ 白色 ⚠️',
-    }
+    const colorLabels = POOP_COLOR_LABELS
 
     const moodColorMap: Record<MoodType, string> = {
         '😸': 'mood-day-happy',
@@ -416,7 +425,7 @@ export function DashboardPage() {
     }
 
     // ─── Inventory alerts ─────────────────────────
-    const lowInventory = inventory.filter((i) => computeInventoryStatus(i) !== 'plenty')
+    const lowInventory = useMemo(() => inventory.filter((i) => computeInventoryStatus(i) !== 'plenty'), [inventory])
 
     useEffect(() => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
@@ -533,6 +542,7 @@ export function DashboardPage() {
             if (error) throw error
             if (data) {
                 setCatId(data.id)
+                reloadCatData()
                 pushToast('success', '欢迎加入喵记！🐱')
             }
         } catch (err) {
@@ -544,7 +554,7 @@ export function DashboardPage() {
 
     const moveMoodSelection = (direction: 1 | -1) => {
         const options: MoodType[] = ['😸', '😾', '😴']
-        const currentIndex = options.findIndex((item) => item === (todayMood || '😸'))
+        const currentIndex = options.findIndex((item) => item === (optimisticMood || '😸'))
         const nextIndex = (currentIndex + direction + options.length) % options.length
         void handleMoodPick(options[nextIndex])
     }
@@ -678,7 +688,7 @@ export function DashboardPage() {
                 <div className="profile-header">
                     <div className="avatar-placeholder">
                         {cat?.avatar_url ? (
-                            <img src={cat.avatar_url} alt={cat.name} className="avatar-img" />
+                            <img src={cat.avatar_url} alt={cat.name} className="avatar-img" loading="lazy" />
                         ) : (
                             <span className="avatar-emoji">🐱</span>
                         )}
@@ -723,16 +733,16 @@ export function DashboardPage() {
                         <div className="bento-label">今日心情</div>
                         <div className="mood-status-row">
                             <span className="text-sm text-secondary">
-                                {todayMood ? `已记录：${todayMood}` : '未记录'}
+                                {optimisticMood ? `已记录：${optimisticMood}` : '未记录'}
                             </span>
-                            {todayMood && !moodEditing && (
+                            {optimisticMood && !moodEditing && (
                                 <button type="button" className="mood-edit-btn" onClick={() => setMoodEditing(true)}>
                                     修改
                                 </button>
                             )}
                         </div>
                     </div>
-                    {(!todayMood || moodEditing) && (
+                    {(!optimisticMood || moodEditing) && (
                         <div
                             className="mood-picker"
                             role="radiogroup"
@@ -751,12 +761,12 @@ export function DashboardPage() {
                             {(['😸', '😾', '😴'] as MoodType[]).map((mood) => (
                                 <button
                                     key={mood}
-                                    className={`mood-btn ${todayMood === mood ? 'mood-btn-active' : ''}`}
+                                    className={`mood-btn ${optimisticMood === mood ? 'mood-btn-active' : ''}`}
                                     onClick={() => handleMoodPick(mood)}
                                     disabled={moodSaving || !online}
                                     aria-label={mood}
                                     role="radio"
-                                    aria-checked={todayMood === mood}
+                                    aria-checked={optimisticMood === mood}
                                 >
                                     {mood}
                                 </button>
@@ -816,7 +826,7 @@ export function DashboardPage() {
                     {latestDiary ? (
                         <div className="diary-snippet">
                             {latestDiary.image_url && (
-                                <img src={latestDiary.image_url} alt="" className="diary-img" />
+                                <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
                             )}
                             <p className="text-sm diary-snippet-text">{latestDiary.text || '(无文字)'}</p>
                             {latestDiary.tags.length > 0 && (
@@ -848,9 +858,9 @@ export function DashboardPage() {
                             className="form-input"
                             aria-label="布里斯托类型选择"
                             value={selectedBristol}
-                            onChange={(event) => setSelectedBristol(Number(event.target.value) as BristolType)}
+                            onChange={(event) => setSelectedBristol(event.target.value as BristolType)}
                         >
-                            {([1, 2, 3, 4, 5, 6, 7] as BristolType[]).map((type) => (
+                            {(['1', '2', '3', '4', '5', '6', '7'] as BristolType[]).map((type) => (
                                 <option key={type} value={type}>
                                     类型 {type} · {bristolLabels[type]}
                                 </option>
@@ -902,10 +912,10 @@ export function DashboardPage() {
                         ))}
                     </div>
 
-                    {todayFeeds.length > 0 && (
+                    {optimisticFeeds.length > 0 && (
                         <div className="feed-history">
                             <label className="form-label">今日记录</label>
-                            {todayFeeds.map((f) => (
+                            {optimisticFeeds.map((f) => (
                                 <div key={f.id} className="feed-history-item">
                                     <span>{mealLabels[f.meal_type]}</span>
                                     <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>

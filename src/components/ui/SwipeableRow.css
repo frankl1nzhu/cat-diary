@@ -32,3 +32,33 @@
 .swipe-content>* {
     width: 100%;
 }
+
+.swipe-kb-delete {
+    position: absolute;
+    top: 50%;
+    right: var(--space-2, 8px);
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm, 4px);
+    opacity: 0.5;
+    transition: opacity var(--transition-fast, 0.15s);
+}
+
+.swipe-kb-delete:hover,
+.swipe-kb-delete:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--color-primary, #f8a5c2);
+    outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+
+    /* Hide the icon-button on touch-only devices where swipe works */
+    .swipe-kb-delete {
+        display: none;
+    }
+}
