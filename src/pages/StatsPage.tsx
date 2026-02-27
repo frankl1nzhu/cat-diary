@@ -865,7 +865,6 @@ export function StatsPage() {
                                 max="30"
                                 step="0.01"
                                 className="form-input"
-                                placeholder="4.50"
                                 value={weightValue}
                                 onChange={(e) => {
                                     setWeightValue(e.target.value)

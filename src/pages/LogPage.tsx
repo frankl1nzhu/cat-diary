@@ -766,7 +766,6 @@ export function LogPage() {
                             min="0.1"
                             max="30"
                             className="form-input weight-input"
-                            placeholder="4.50"
                             value={weightValue}
                             onChange={(e) => {
                                 setWeightValue(e.target.value)
