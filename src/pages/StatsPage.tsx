@@ -53,6 +53,7 @@ export function StatsPage() {
     const [weightSaving, setWeightSaving] = useState(false)
     const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+    const [vomitSaving, setVomitSaving] = useState(false)
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
@@ -316,6 +317,11 @@ export function StatsPage() {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         const recentWeights = weights.filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
         const recentHealth = healthRecords.filter((h) => new Date(h.date).getTime() >= cutoff)
+        const recentVomit = healthRecords.filter((h) => {
+            const inRange = new Date(h.date).getTime() >= cutoff
+            const isVomit = h.type === 'medical' && h.name.includes('呕吐')
+            return inRange && isVomit
+        })
         const recentAbnormalPoops = poops.filter((p) => {
             const inRange = new Date(p.created_at).getTime() >= cutoff
             const abnormal = Number(p.bristol_type) >= 6 || ['red', 'black', 'white'].includes(p.color)
@@ -328,6 +334,7 @@ export function StatsPage() {
         </head><body>
         <h1>🐱 就医报告</h1><div>最近30天</div>
         <h2>体重变化</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString()}：${w.weight_kg} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>
+        <h2>呕吐记录</h2><ul>${recentVomit.map((v) => `<li>${new Date(v.date).toLocaleDateString()}：${v.name}</li>`).join('') || '<li>暂无记录</li>'}</ul>
         <h2>异常便便记录</h2><ul>${recentAbnormalPoops.map((p) => `<li>${new Date(p.created_at).toLocaleDateString()}：布里斯托${p.bristol_type}型，颜色${p.color}</li>`).join('') || '<li>暂无异常记录</li>'}</ul>
         <h2>健康记录</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString()}：${h.name}（${h.type}）</li>`).join('') || '<li>暂无记录</li>'}</ul>
         </body></html>`
@@ -341,6 +348,29 @@ export function StatsPage() {
         reportWindow.document.close()
         reportWindow.focus()
         reportWindow.print()
+    }
+
+    const addVomitRecord = async () => {
+        if (!catId || !user) return
+        setVomitSaving(true)
+        try {
+            const today = format(new Date(), 'yyyy-MM-dd')
+            await supabase.from('health_records').insert({
+                cat_id: catId,
+                type: 'medical',
+                name: '呕吐',
+                date: today,
+                next_due: null,
+                created_by: user.id,
+            })
+            await loadData()
+            lightHaptic()
+            pushToast('success', '已记录呕吐 🤮')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '呕吐记录失败，请稍后重试'))
+        } finally {
+            setVomitSaving(false)
+        }
     }
 
     // ─── Health type labels ───────────────────────
@@ -509,9 +539,14 @@ export function StatsPage() {
                 <Card variant="default" padding="md">
                     <div className="section-row">
                         <h2 className="text-lg font-semibold">💉 健康记录</h2>
-                        <Button variant="ghost" size="sm" onClick={() => setHealthModalOpen(true)}>
-                            + 添加
-                        </Button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button variant="secondary" size="sm" onClick={addVomitRecord} disabled={vomitSaving || !online}>
+                                {vomitSaving ? '记录中...' : '🤮 记呕吐'}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setHealthModalOpen(true)}>
+                                + 添加
+                            </Button>
+                        </div>
                     </div>
 
                     {healthRecords.length > 0 ? (

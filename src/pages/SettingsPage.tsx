@@ -32,6 +32,8 @@ export function SettingsPage() {
     const [themePreset, setThemePreset] = useState<ThemePreset>(getStoredTheme())
     const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
+    const [deleteStep, setDeleteStep] = useState(1)
+    const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
     const [profileLocked, setProfileLocked] = useState(false)
     const [createMode, setCreateMode] = useState(false)
     const [deletingCat, setDeletingCat] = useState(false)
@@ -203,12 +205,20 @@ export function SettingsPage() {
 
     const handleDeleteCat = async () => {
         if (!catId) return
+        if (deleteStep < 2) {
+            setDeleteStep(2)
+            return
+        }
+        if (deleteConfirmInput.trim() !== (cat?.name || '')) {
+            pushToast('error', '请输入正确的猫咪名字以确认删除')
+            return
+        }
         setDeletingCat(true)
         try {
             const { error } = await supabase.from('cats').delete().eq('id', catId)
             if (error) throw error
             setCurrentCatId(null)
-            setDeleteCatConfirmOpen(false)
+            closeDeleteCatModal()
             setProfileLocked(false)
             setName('')
             setBreed('')
@@ -227,6 +237,18 @@ export function SettingsPage() {
         setThemePreset(preset)
         applyThemePreset(preset)
         pushToast('success', '主题已切换')
+    }
+
+    const openDeleteCatModal = () => {
+        setDeleteStep(1)
+        setDeleteConfirmInput('')
+        setDeleteCatConfirmOpen(true)
+    }
+
+    const closeDeleteCatModal = () => {
+        setDeleteCatConfirmOpen(false)
+        setDeleteStep(1)
+        setDeleteConfirmInput('')
     }
 
     return (
@@ -327,16 +349,21 @@ export function SettingsPage() {
                                         />
                                     </div>
                                 </div>
-                                <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
-                                    {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
-                                </Button>
+                                <div className="cat-actions-row">
+                                    <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
+                                        {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        fullWidth
+                                        onClick={openDeleteCatModal}
+                                        disabled={!catId}
+                                    >
+                                        删除猫咪
+                                    </Button>
+                                </div>
                             </>
-                        )}
-
-                        {catId && (
-                            <Button type="button" variant="ghost" fullWidth onClick={() => setDeleteCatConfirmOpen(true)}>
-                                删除猫咪
-                            </Button>
                         )}
                     </Card>
                 </div>
@@ -421,12 +448,29 @@ export function SettingsPage() {
                 </div>
             </Modal>
 
-            <Modal isOpen={deleteCatConfirmOpen} onClose={() => setDeleteCatConfirmOpen(false)} title="确认删除猫咪？">
+            <Modal isOpen={deleteCatConfirmOpen} onClose={closeDeleteCatModal} title="确认删除猫咪？">
                 <div className="settings-confirm">
-                    <p className="text-sm text-secondary">删除后将清空该猫咪全部记录，此操作不可恢复。</p>
-                    <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
-                        {deletingCat ? '删除中...' : '确认删除'}
-                    </Button>
+                    {deleteStep === 1 ? (
+                        <>
+                            <p className="text-sm text-secondary">删除后将清空该猫咪全部记录，此操作不可恢复。</p>
+                            <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
+                                下一步
+                            </Button>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm text-secondary">请输入猫咪名字「{cat?.name || ''}」以确认删除。</p>
+                            <input
+                                className="form-input"
+                                value={deleteConfirmInput}
+                                onChange={(event) => setDeleteConfirmInput(event.target.value)}
+                                placeholder="输入猫咪名字确认"
+                            />
+                            <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
+                                {deletingCat ? '删除中...' : '确认删除'}
+                            </Button>
+                        </>
+                    )}
                 </div>
             </Modal>
         </div>
