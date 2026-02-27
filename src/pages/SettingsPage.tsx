@@ -9,6 +9,7 @@ import { useCat } from '../lib/useCat'
 import { useAppStore } from '../stores/useAppStore'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
@@ -144,10 +145,10 @@ export function SettingsPage() {
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        if (file.size > 5 * 1024 * 1024) {
-            pushToast('error', '图片大小不能超过 5MB')
+        const rawFile = e.target.files?.[0]
+        if (!rawFile) return
+        if (rawFile.size > 10 * 1024 * 1024) {
+            pushToast('error', '图片大小不能超过 10MB')
             e.target.value = ''
             return
         }
@@ -155,8 +156,8 @@ export function SettingsPage() {
         setUploading(true)
 
         try {
-            const fileExt = file.name.split('.').pop()
-            const fileName = `avatar-${Date.now()}.${fileExt}`
+            const file = await compressImage(rawFile)
+            const fileName = `avatar-${Date.now()}.jpg`
             const filePath = `avatars/${fileName}`
 
             const { error: uploadError } = await supabase.storage

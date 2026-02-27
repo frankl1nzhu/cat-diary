@@ -12,6 +12,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
+import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
 import type { DiaryEntry, PoopLog, WeightRecord } from '../types/database.types'
@@ -157,14 +158,15 @@ export function LogPage() {
     }, [timeline])
 
     // ─── Add diary ────────────────────────────────
-    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        if (file.size > 5 * 1024 * 1024) {
-            pushToast('error', '图片大小不能超过 5MB')
+    const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawFile = e.target.files?.[0]
+        if (!rawFile) return
+        if (rawFile.size > 10 * 1024 * 1024) {
+            pushToast('error', '图片大小不能超过 10MB')
             e.target.value = ''
             return
         }
+        const file = await compressImage(rawFile)
         setDiaryImage(file)
         setDiaryImagePreview(URL.createObjectURL(file))
     }
