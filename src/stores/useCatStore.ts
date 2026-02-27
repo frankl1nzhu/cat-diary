@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { supabase } from '../lib/supabase'
 import { useAppStore } from './useAppStore'
 import { useAuthStore } from './useAuthStore'
-import type { Cat, Family, FamilyMember } from '../types/database.types'
+import type { Cat, Family, FamilyMember, FamilyRole } from '../types/database.types'
 
 /* ─── Cat Store ──────────────────────────────────────
  *  Centralized cat & family data — replaces per-component
@@ -12,7 +12,7 @@ import type { Cat, Family, FamilyMember } from '../types/database.types'
 interface CatState {
     cats: Cat[]
     families: Family[]
-    myRole: string
+    myRole: FamilyRole
     loading: boolean
 }
 
@@ -40,75 +40,92 @@ async function _loadCatData() {
 
     useCatStore.setState({ loading: true })
 
-    // 1. Load family memberships
-    const { data: memberships } = await supabase
-        .from('family_members')
-        .select('family_id, role')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true })
-
-    if (version !== _loadVersion) return // stale
-
-    const memberList = (memberships || []) as Pick<FamilyMember, 'family_id' | 'role'>[]
-    if (memberList.length === 0) {
-        useCatStore.setState({ cats: [], families: [], myRole: 'member', loading: false })
-        return
-    }
-
-    // 2. Load family rows
-    const familyIds = memberList.map((m) => m.family_id)
-    const { data: familyRows } = await supabase
-        .from('families')
-        .select('*')
-        .in('id', familyIds)
-        .order('created_at', { ascending: true })
-
-    if (version !== _loadVersion) return
-
-    const fams = (familyRows || []) as Family[]
-
-    // 3. Auto-resolve active family
-    let resolvedFamilyId = activeFamilyId
-    if (!resolvedFamilyId || !fams.some((f) => f.id === resolvedFamilyId)) {
-        resolvedFamilyId = fams[0]?.id || null
-        setActiveFamilyId(resolvedFamilyId)
-    }
-
-    // 4. Determine role in active family
-    const membership = memberList.find((m) => m.family_id === resolvedFamilyId)
-    const myRole = membership?.role || 'member'
-
-    // 5. Load cats scoped to active family
-    let catData: Cat[] = []
-    if (resolvedFamilyId) {
-        const { data } = await supabase
-            .from('cats')
-            .select('*')
-            .eq('family_id', resolvedFamilyId)
+    try {
+        // 1. Load family memberships
+        const { data: memberships, error: membershipsError } = await supabase
+            .from('family_members')
+            .select('family_id, role')
+            .eq('user_id', user.id)
             .order('created_at', { ascending: true })
-        catData = (data || []) as Cat[]
-    } else {
-        const { data } = await supabase
-            .from('cats')
-            .select('*')
-            .eq('created_by', user.id)
-            .order('created_at', { ascending: true })
-        catData = (data || []) as Cat[]
-    }
 
-    if (version !== _loadVersion) return
-
-    // 6. Auto-select cat
-    if (catData.length > 0) {
-        const hasSelected = currentCatId && catData.some((c) => c.id === currentCatId)
-        if (!hasSelected) {
-            setCurrentCatId(catData[0].id)
+        if (membershipsError) {
+            console.error('Failed to load memberships:', membershipsError)
+            useCatStore.setState({ cats: [], families: [], myRole: 'member', loading: false })
+            return
         }
-    } else {
-        setCurrentCatId(null)
-    }
 
-    useCatStore.setState({ cats: catData, families: fams, myRole, loading: false })
+        if (version !== _loadVersion) return // stale
+
+        const memberList = (memberships || []) as Pick<FamilyMember, 'family_id' | 'role'>[]
+        if (memberList.length === 0) {
+            useCatStore.setState({ cats: [], families: [], myRole: 'member', loading: false })
+            return
+        }
+
+        // 2. Load family rows
+        const familyIds = memberList.map((m) => m.family_id)
+        const { data: familyRows, error: familyError } = await supabase
+            .from('families')
+            .select('*')
+            .in('id', familyIds)
+            .order('created_at', { ascending: true })
+
+        if (familyError) {
+            console.error('Failed to load families:', familyError)
+            useCatStore.setState({ cats: [], families: [], myRole: 'member', loading: false })
+            return
+        }
+
+        if (version !== _loadVersion) return
+
+        const fams = (familyRows || []) as Family[]
+
+        // 3. Auto-resolve active family
+        let resolvedFamilyId = activeFamilyId
+        if (!resolvedFamilyId || !fams.some((f) => f.id === resolvedFamilyId)) {
+            resolvedFamilyId = fams[0]?.id || null
+            setActiveFamilyId(resolvedFamilyId)
+        }
+
+        // 4. Determine role in active family
+        const membership = memberList.find((m) => m.family_id === resolvedFamilyId)
+        const myRole = membership?.role || 'member'
+
+        // 5. Load cats scoped to active family
+        let catData: Cat[] = []
+        if (resolvedFamilyId) {
+            const { data } = await supabase
+                .from('cats')
+                .select('*')
+                .eq('family_id', resolvedFamilyId)
+                .order('created_at', { ascending: true })
+            catData = (data || []) as Cat[]
+        } else {
+            const { data } = await supabase
+                .from('cats')
+                .select('*')
+                .eq('created_by', user.id)
+                .order('created_at', { ascending: true })
+            catData = (data || []) as Cat[]
+        }
+
+        if (version !== _loadVersion) return
+
+        // 6. Auto-select cat
+        if (catData.length > 0) {
+            const hasSelected = currentCatId && catData.some((c) => c.id === currentCatId)
+            if (!hasSelected) {
+                setCurrentCatId(catData[0].id)
+            }
+        } else {
+            setCurrentCatId(null)
+        }
+
+        useCatStore.setState({ cats: catData, families: fams, myRole, loading: false })
+    } catch (err) {
+        console.error('Failed to load cat data:', err)
+        useCatStore.setState({ loading: false })
+    }
 }
 
 /** Manually trigger a reload of cat/family data (e.g. after creating/deleting a cat). */

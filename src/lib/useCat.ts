@@ -12,10 +12,12 @@ export function useCat() {
     const activeFamilyId = useAppStore((s) => s.activeFamilyId)
     const setActiveFamilyId = useAppStore((s) => s.setActiveFamilyId)
 
-    const cats = useCatStore((s) => s.cats)
-    const families = useCatStore((s) => s.families)
-    const myRole = useCatStore((s) => s.myRole)
-    const loading = useCatStore((s) => s.loading)
+    const { cats, families, myRole, loading } = useCatStore((s) => ({
+        cats: s.cats,
+        families: s.families,
+        myRole: s.myRole,
+        loading: s.loading,
+    }))
 
     const resolvedCatId = currentCatId && cats.some((item) => item.id === currentCatId)
         ? currentCatId

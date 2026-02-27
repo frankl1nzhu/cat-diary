@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { CatSwitcher } from './CatSwitcher'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
@@ -7,7 +7,6 @@ import './AppLayout.css'
 
 export function AppLayout() {
     const navigate = useNavigate()
-    const location = useLocation()
     const online = useOnlineStatus()
 
     useEffect(() => {
@@ -20,28 +19,23 @@ export function AppLayout() {
 
             if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
 
-            const key = event.key.toLowerCase()
-            if (key === 'n') {
-                event.preventDefault()
-                navigate('/log?quick=diary')
+            const keyMap: Record<string, string> = {
+                n: '/log?quick=diary',
+                f: '/?quick=feed',
+                p: '/?quick=poop',
+                w: '/log?quick=weight',
             }
-            if (key === 'f') {
+
+            const route = keyMap[event.key.toLowerCase()]
+            if (route) {
                 event.preventDefault()
-                navigate('/?quick=feed')
-            }
-            if (key === 'p') {
-                event.preventDefault()
-                navigate('/?quick=poop')
-            }
-            if (key === 'w') {
-                event.preventDefault()
-                navigate('/log?quick=weight')
+                navigate(route)
             }
         }
 
         window.addEventListener('keydown', onKeyDown)
         return () => window.removeEventListener('keydown', onKeyDown)
-    }, [location.pathname, navigate])
+    }, [navigate])
 
     return (
         <div className="app-layout">

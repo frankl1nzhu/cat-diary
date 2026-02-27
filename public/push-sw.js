@@ -26,7 +26,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const rawUrl = event.notification.data?.url || '/'
   // Validate URL: only allow same-origin paths to prevent open redirect
-  const targetUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('/')) ? rawUrl : '/'
+  const targetUrl = (typeof rawUrl === 'string' && rawUrl.startsWith('/') && !rawUrl.startsWith('//')) ? rawUrl : '/'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {

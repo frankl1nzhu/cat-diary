@@ -5,7 +5,7 @@ interface EmptyCatIllustrationProps {
 export function EmptyCatIllustration({ mood }: EmptyCatIllustrationProps) {
     if (mood === 'hungry') {
         return (
-            <svg width="140" height="96" viewBox="0 0 140 96" role="img" aria-label="empty-hungry-cat">
+            <svg width="140" height="96" viewBox="0 0 140 96" role="img" aria-label="饥饿的猫咪插图">
                 <circle cx="70" cy="48" r="30" fill="var(--color-bg-input)" />
                 <circle cx="58" cy="44" r="4" fill="var(--color-text)" />
                 <circle cx="82" cy="44" r="4" fill="var(--color-text)" />
@@ -17,7 +17,7 @@ export function EmptyCatIllustration({ mood }: EmptyCatIllustrationProps) {
     }
 
     return (
-        <svg width="140" height="96" viewBox="0 0 140 96" role="img" aria-label="empty-play-cat">
+        <svg width="140" height="96" viewBox="0 0 140 96" role="img" aria-label="玩耍的猫咪插图">
             <circle cx="70" cy="48" r="30" fill="var(--color-bg-input)" />
             <circle cx="58" cy="44" r="4" fill="var(--color-text)" />
             <circle cx="82" cy="44" r="4" fill="var(--color-text)" />

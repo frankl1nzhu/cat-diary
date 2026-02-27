@@ -13,8 +13,12 @@ export async function signIn(identifier: string, password: string) {
             .select('email')
             .or(`username.eq.${identifier},phone.eq.${identifier}`)
             .maybeSingle()
-        // Use generic error to prevent username enumeration
-        if (!profile?.email) throw new Error('用户名或密码错误')
+
+        if (!profile?.email) {
+            // Always call signInWithPassword to prevent username enumeration via timing
+            await supabase.auth.signInWithPassword({ email: `${identifier}@invalid.local`, password }).catch(() => { })
+            throw new Error('用户名或密码错误')
+        }
         email = profile.email
     }
 

@@ -14,6 +14,8 @@ export function Skeleton({
     return (
         <div
             className={`skeleton ${className}`}
+            role="status"
+            aria-label="加载中"
             style={{
                 width,
                 height,

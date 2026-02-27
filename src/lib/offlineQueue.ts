@@ -7,6 +7,12 @@ const DB_NAME = 'cat-diary-offline'
 const STORE_NAME = 'pending-ops'
 const DB_VERSION = 1
 
+/** Allowed tables for offline queue replay to prevent IndexedDB tampering. */
+const ALLOWED_TABLES = new Set([
+    'diary_entries', 'mood_logs', 'poop_logs', 'weight_records',
+    'health_records', 'feed_status', 'inventory',
+])
+
 export interface OfflineOp {
     id: string
     table: string
@@ -16,8 +22,12 @@ export interface OfflineOp {
     createdAt: string
 }
 
+/** Cached DB connection singleton. */
+let _dbPromise: Promise<IDBDatabase> | null = null
+
 function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
+    if (_dbPromise) return _dbPromise
+    _dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION)
         request.onupgradeneeded = () => {
             const db = request.result
@@ -26,8 +36,12 @@ function openDB(): Promise<IDBDatabase> {
             }
         }
         request.onsuccess = () => resolve(request.result)
-        request.onerror = () => reject(request.error)
+        request.onerror = () => {
+            _dbPromise = null
+            reject(request.error)
+        }
     })
+    return _dbPromise
 }
 
 /** Enqueue an operation for later sync. */
@@ -84,20 +98,29 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
 
     for (const op of ops) {
         try {
+            if (!ALLOWED_TABLES.has(op.table)) {
+                console.warn(`[OfflineQueue] Skipping disallowed table: ${op.table}`)
+                await removeOp(op.id)
+                continue
+            }
             if (op.type === 'insert') {
                 const { error } = await supabase.from(op.table).insert(op.payload)
                 if (error) throw error
             } else if (op.type === 'update') {
                 const { id: rowId, ...rest } = op.payload as { id: string;[k: string]: unknown }
+                if (!rowId) throw new Error('Missing row id for update')
                 const { error } = await supabase.from(op.table).update(rest).eq('id', rowId)
                 if (error) throw error
             } else if (op.type === 'delete') {
-                const { error } = await supabase.from(op.table).delete().eq('id', op.payload.id as string)
+                const rowId = op.payload.id as string | undefined
+                if (!rowId) throw new Error('Missing row id for delete')
+                const { error } = await supabase.from(op.table).delete().eq('id', rowId)
                 if (error) throw error
             }
             await removeOp(op.id)
             synced++
-        } catch {
+        } catch (err) {
+            console.warn(`[OfflineQueue] Failed to replay op ${op.id}:`, err)
             failed++
         }
     }

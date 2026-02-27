@@ -2,8 +2,7 @@ import { useToastStore } from '../../stores/useToastStore'
 import './ToastViewport.css'
 
 export function ToastViewport() {
-    const items = useToastStore((s) => s.items)
-    const removeToast = useToastStore((s) => s.removeToast)
+    const { items, removeToast } = useToastStore()
 
     return (
         <div className="toast-viewport" aria-live="polite" aria-atomic="true">

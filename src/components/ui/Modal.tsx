@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useId, useRef } from 'react'
 import './Modal.css'
 
 interface ModalProps {
@@ -10,6 +10,7 @@ interface ModalProps {
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     const dialogRef = useRef<HTMLDialogElement>(null)
+    const titleId = useId()
 
     useEffect(() => {
         const dialog = dialogRef.current
@@ -37,14 +38,14 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         <dialog
             ref={dialogRef}
             className="modal"
-            onClose={onClose}
             onClick={handleDialogClick}
             onCancel={handleCancel}
+            aria-labelledby={title ? titleId : undefined}
         >
             <div className="modal-content fade-in">
                 {title && (
                     <div className="modal-header">
-                        <h2 className="modal-title">{title}</h2>
+                        <h2 className="modal-title" id={titleId}>{title}</h2>
                         <button className="modal-close" onClick={onClose} aria-label="关闭">
                             ✕
                         </button>

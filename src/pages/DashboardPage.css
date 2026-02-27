@@ -89,10 +89,6 @@
     opacity: 0.8;
 }
 
-.text-danger {
-    color: var(--color-danger) !important;
-}
-
 /* ── Inventory Alert ── */
 .inventory-alert {
     padding: var(--space-3) var(--space-4);
@@ -250,13 +246,6 @@
     margin-bottom: var(--space-3);
 }
 
-.section-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-2);
-}
-
 /* ── Diary Snippet ── */
 .diary-snippet {
     display: flex;
@@ -355,15 +344,6 @@
     color: var(--color-primary);
 }
 
-/* ── Empty State ── */
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-4) 0;
-}
-
 .empty-icon {
     font-size: 2.5rem;
     opacity: 0.6;
@@ -382,10 +362,8 @@
     gap: var(--space-2);
 }
 
-.form-label {
-    font-size: var(--font-size-sm);
+.poop-form .form-label {
     font-weight: 600;
-    color: var(--color-text-secondary);
 }
 
 .bristol-grid {

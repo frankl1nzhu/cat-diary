@@ -20,8 +20,8 @@ export function applyThemePreset(preset: ThemePreset) {
 
 export function getStoredTheme(): ThemePreset {
     const stored = localStorage.getItem(THEME_KEY)
-    if (stored === 'orange' || stored === 'blue' || stored === 'midnight' || stored === 'pink') {
-        return stored
+    if (stored && stored in themeMap) {
+        return stored as ThemePreset
     }
     return 'pink'
 }

@@ -14,6 +14,7 @@ import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { sendReminderPush } from '../lib/pushServer'
+import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
@@ -30,7 +31,7 @@ type RewardParticle = {
 
 export function DashboardPage() {
     const { user } = useSession()
-    const { cat, catId, cats, setCatId, families, activeFamilyId, setActiveFamilyId, loading: catLoading } = useCat()
+    const { cat, catId, cats, setCatId, families, activeFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
@@ -68,7 +69,7 @@ export function DashboardPage() {
     // Family onboarding
     const [obFamilyName, setObFamilyName] = useState('')
     const [obJoinCode, setObJoinCode] = useState('')
-    const [obFamilySaving, setObFamilySaving] = useState(false)
+    const { createFamily, joinFamily, familySaving: obFamilySaving } = useFamily()
 
     // Poop modal
     const [poopModalOpen, setPoopModalOpen] = useState(false)
@@ -352,8 +353,6 @@ export function DashboardPage() {
         })
     }
 
-    const mealLabels = MEAL_LABELS
-
     // ─── Mood picker ──────────────────────────────
     const handleMoodPick = async (mood: MoodType) => {
         if (!cat || !user || moodSaving) return
@@ -413,11 +412,6 @@ export function DashboardPage() {
         }
     }
 
-    // ─── Bristol type descriptions ────────────────
-    const bristolLabels = BRISTOL_LABELS
-
-    const colorLabels = POOP_COLOR_LABELS
-
     const moodColorMap: Record<MoodType, string> = {
         '😸': 'mood-day-happy',
         '😾': 'mood-day-angry',
@@ -472,51 +466,15 @@ export function DashboardPage() {
     }, [catId, daysToDeworming, lowInventory])
 
     const handleObCreateFamily = async () => {
-        if (!user) return
-        const nameValue = obFamilyName.trim()
-        if (!nameValue) {
-            pushToast('error', '请输入家庭名称')
-            return
-        }
-        setObFamilySaving(true)
-        try {
-            const { data, error } = await supabase.rpc('create_family_with_owner', { family_name: nameValue })
-            if (error) throw error
-            const newFamily = data as unknown as { id: string; name: string; invite_code: string }
-            if (!newFamily?.id) throw new Error('家庭创建失败')
-
-            setActiveFamilyId(newFamily.id)
-            setObFamilyName('')
-            pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '创建家庭失败'))
-        } finally {
-            setObFamilySaving(false)
-        }
+        await createFamily(obFamilyName, {
+            onSuccess: () => setObFamilyName(''),
+        })
     }
 
     const handleObJoinFamily = async () => {
-        if (!user) return
-        const code = obJoinCode.trim().toUpperCase()
-        if (!code) {
-            pushToast('error', '请输入邀请码')
-            return
-        }
-        setObFamilySaving(true)
-        try {
-            const { data, error } = await supabase.rpc('join_family_by_code', { code })
-            if (error) throw error
-            const family = data as unknown as { id: string; name: string }
-            if (!family?.id) throw new Error('家庭不存在')
-
-            setActiveFamilyId(family.id)
-            setObJoinCode('')
-            pushToast('success', `已加入家庭：${family.name}`)
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '加入家庭失败，请检查邀请码'))
-        } finally {
-            setObFamilySaving(false)
-        }
+        await joinFamily(obJoinCode, {
+            onSuccess: () => setObJoinCode(''),
+        })
     }
 
     const handleOnboardingSave = async () => {
@@ -862,7 +820,7 @@ export function DashboardPage() {
                         >
                             {(['1', '2', '3', '4', '5', '6', '7'] as BristolType[]).map((type) => (
                                 <option key={type} value={type}>
-                                    类型 {type} · {bristolLabels[type]}
+                                    类型 {type} · {BRISTOL_LABELS[type]}
                                 </option>
                             ))}
                         </select>
@@ -871,7 +829,7 @@ export function DashboardPage() {
                     <div className="form-section">
                         <label className="form-label">颜色</label>
                         <div className="color-grid compact" role="radiogroup" aria-label="便便颜色选择">
-                            {(Object.entries(colorLabels) as [PoopColor, string][]).map(([color, label]) => (
+                            {(Object.entries(POOP_COLOR_LABELS) as [PoopColor, string][]).map(([color, label]) => (
                                 <button
                                     key={color}
                                     className={`color-btn ${selectedColor === color ? 'color-btn-active' : ''}`}
@@ -907,7 +865,7 @@ export function DashboardPage() {
                                 className={`meal-btn ${selectedMeal === meal ? 'meal-btn-active' : ''}`}
                                 onClick={() => setSelectedMeal(meal)}
                             >
-                                {mealLabels[meal]}
+                                {MEAL_LABELS[meal]}
                             </button>
                         ))}
                     </div>
@@ -917,7 +875,7 @@ export function DashboardPage() {
                             <label className="form-label">今日记录</label>
                             {optimisticFeeds.map((f) => (
                                 <div key={f.id} className="feed-history-item">
-                                    <span>{mealLabels[f.meal_type]}</span>
+                                    <span>{MEAL_LABELS[f.meal_type]}</span>
                                     <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
                                 </div>
                             ))}

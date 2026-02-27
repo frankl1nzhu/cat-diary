@@ -40,11 +40,13 @@ export interface Family {
     created_at: string
 }
 
+export type FamilyRole = 'owner' | 'admin' | 'member'
+
 export interface FamilyMember {
     id: string
     family_id: string
     user_id: string
-    role: string
+    role: FamilyRole
     created_at: string
 }
 
@@ -142,27 +144,15 @@ export interface PushSubscriptionRow {
 export interface FamilyMemberWithEmail {
     id: string
     user_id: string
-    role: string
+    role: FamilyRole
     email: string
     created_at: string
 }
 
 /* ─── Database type for Supabase client ──────────── */
 
-/** Compute days remaining from total_quantity / daily_consumption. */
-export function computeDaysRemaining(item: InventoryItem): number | null {
-    if (item.total_quantity == null || item.daily_consumption == null || item.daily_consumption <= 0) return null
-    return item.total_quantity / item.daily_consumption
-}
-
-/** Derive status from days remaining: <7 = urgent, <14 = low, else plenty. */
-export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
-    const days = computeDaysRemaining(item)
-    if (days == null) return item.status // fallback to stored status
-    if (days < 7) return 'urgent'
-    if (days < 14) return 'low'
-    return 'plenty'
-}
+// Runtime utility functions moved to lib/inventory.ts — re-export for backward compatibility
+export { computeDaysRemaining, computeInventoryStatus } from '../lib/inventory'
 
 
 export interface Database {

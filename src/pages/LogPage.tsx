@@ -94,26 +94,32 @@ export function LogPage() {
 
         const effectiveLimit = nextLimit ?? loadLimit
 
-        const [diaries, poops, weights] = await Promise.all([
-            supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
-            supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
-            supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
-        ])
+        try {
+            const [diaries, poops, weights] = await Promise.all([
+                supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
+                supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
+                supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
+            ])
 
-        const items: TimelineItem[] = []
-        diaries.data?.forEach((d) => items.push({ type: 'diary', data: d, time: d.created_at }))
-        poops.data?.forEach((p) => items.push({ type: 'poop', data: p, time: p.created_at }))
-        weights.data?.forEach((w) => items.push({ type: 'weight', data: w, time: w.recorded_at }))
+            const items: TimelineItem[] = []
+            diaries.data?.forEach((d) => items.push({ type: 'diary', data: d, time: d.created_at }))
+            poops.data?.forEach((p) => items.push({ type: 'poop', data: p, time: p.created_at }))
+            weights.data?.forEach((w) => items.push({ type: 'weight', data: w, time: w.recorded_at }))
 
-        items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-        setTimeline(items)
-        setHasMore(
-            (diaries.data?.length || 0) >= effectiveLimit
-            || (poops.data?.length || 0) >= effectiveLimit
-            || (weights.data?.length || 0) >= effectiveLimit
-        )
-        setLoading(false)
-    }, [catId, catLoading, loadLimit])
+            items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+            setTimeline(items)
+            setHasMore(
+                (diaries.data?.length || 0) >= effectiveLimit
+                || (poops.data?.length || 0) >= effectiveLimit
+                || (weights.data?.length || 0) >= effectiveLimit
+            )
+        } catch (err) {
+            console.error('Failed to load timeline:', err)
+            pushToast('error', getErrorMessage(err, '时间线加载失败，请稍后重试'))
+        } finally {
+            setLoading(false)
+        }
+    }, [catId, catLoading, loadLimit, pushToast])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
@@ -171,6 +177,10 @@ export function LogPage() {
         }
         const file = await compressImage(rawFile)
         setDiaryImage(file)
+        // Revoke previous preview URL to prevent memory leak
+        if (diaryImagePreview && diaryImagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(diaryImagePreview)
+        }
         setDiaryImagePreview(URL.createObjectURL(file))
     }
 
@@ -321,6 +331,9 @@ export function LogPage() {
         setDiaryText('')
         setDiaryTags([])
         setDiaryImage(null)
+        if (diaryImagePreview && diaryImagePreview.startsWith('blob:')) {
+            URL.revokeObjectURL(diaryImagePreview)
+        }
         setDiaryImagePreview(null)
         setEditingDiaryId(null)
     }

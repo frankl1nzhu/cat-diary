@@ -1,12 +1,14 @@
 import './StatusBadge.css'
 
+type StatusType = 'plenty' | 'low' | 'urgent' | 'fed' | 'not_fed'
+
 interface StatusBadgeProps {
-    status: 'plenty' | 'low' | 'urgent' | 'fed' | 'not_fed'
+    status: StatusType
     label?: string
     size?: 'sm' | 'md'
 }
 
-const statusConfig: Record<string, { emoji: string; color: string; text: string }> = {
+const statusConfig: Record<StatusType, { emoji: string; color: string; text: string }> = {
     plenty: { emoji: '🟢', color: 'var(--color-success)', text: '充足' },
     low: { emoji: '🟡', color: 'var(--color-warning)', text: '快没了' },
     urgent: { emoji: '🔴', color: 'var(--color-danger)', text: '紧急' },

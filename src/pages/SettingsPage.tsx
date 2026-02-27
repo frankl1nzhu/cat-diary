@@ -14,6 +14,7 @@ import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
+import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import type { Family, FamilyMemberWithEmail } from '../types/database.types'
 import './SettingsPage.css'
@@ -44,7 +45,7 @@ export function SettingsPage() {
     const [selectedFamilyId, setSelectedFamilyId] = useState('')
     const [familyName, setFamilyName] = useState('')
     const [joinCode, setJoinCode] = useState('')
-    const [familySaving, setFamilySaving] = useState(false)
+    const { createFamily, joinFamily, familySaving: isFamilySaving } = useFamily()
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
     const [notificationHint, setNotificationHint] = useState('')
     const [dissolveFamilyOpen, setDissolveFamilyOpen] = useState(false)
@@ -308,67 +309,25 @@ export function SettingsPage() {
     }
 
     const handleCreateFamily = async () => {
-        if (!user) return
-        const nameValue = familyName.trim()
-        if (!nameValue) {
-            pushToast('error', '请输入家庭名称')
-            return
-        }
-
-        setFamilySaving(true)
-        try {
-            const { data, error } = await supabase.rpc('create_family_with_owner', { family_name: nameValue })
-            if (error) throw error
-            const newFamily = data as unknown as { id: string; name: string; invite_code: string }
-            if (!newFamily?.id) throw new Error('家庭创建失败')
-
-            if (catId) {
-                await supabase.from('cats').update({ family_id: newFamily.id }).eq('id', catId)
-            }
-
-            setCurrentFamily(newFamily as Family)
-            setActiveFamilyId(newFamily.id)
-            setSelectedFamilyId(newFamily.id)
-            setFamilyName('')
-            reloadCatData()
-            pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '创建家庭失败，请稍后重试'))
-        } finally {
-            setFamilySaving(false)
-        }
+        await createFamily(familyName, {
+            assignCat: true,
+            onSuccess: (newFamily) => {
+                setCurrentFamily(newFamily as Family)
+                setSelectedFamilyId(newFamily.id)
+                setFamilyName('')
+            },
+        })
     }
 
     const handleJoinFamily = async () => {
-        if (!user) return
-        const code = joinCode.trim().toUpperCase()
-        if (!code) {
-            pushToast('error', '请输入邀请码')
-            return
-        }
-
-        setFamilySaving(true)
-        try {
-            const { data, error } = await supabase.rpc('join_family_by_code', { code })
-            if (error) throw error
-            const family = data as unknown as { id: string; name: string; invite_code: string }
-            if (!family?.id) throw new Error('家庭不存在')
-
-            if (catId) {
-                await supabase.from('cats').update({ family_id: family.id }).eq('id', catId)
-            }
-
-            setCurrentFamily(family as Family)
-            setActiveFamilyId(family.id)
-            setSelectedFamilyId(family.id)
-            setJoinCode('')
-            reloadCatData()
-            pushToast('success', `已加入家庭：${family.name}`)
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '加入家庭失败，请检查邀请码'))
-        } finally {
-            setFamilySaving(false)
-        }
+        await joinFamily(joinCode, {
+            assignCat: true,
+            onSuccess: (family) => {
+                setCurrentFamily(family as Family)
+                setSelectedFamilyId(family.id)
+                setJoinCode('')
+            },
+        })
     }
 
     const handleAssignCurrentCatToFamily = async () => {
@@ -767,8 +726,8 @@ export function SettingsPage() {
                                             value={familyName}
                                             onChange={(e) => setFamilyName(e.target.value)}
                                         />
-                                        <Button variant="secondary" onClick={handleCreateFamily} disabled={familySaving || !online} style={{ marginTop: '8px' }}>
-                                            {familySaving ? '处理中...' : '创建家庭'}
+                                        <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online} style={{ marginTop: '8px' }}>
+                                            {isFamilySaving ? '处理中...' : '创建家庭'}
                                         </Button>
                                     </div>
                                     {/* Join another family */}
@@ -781,37 +740,37 @@ export function SettingsPage() {
                                             value={joinCode}
                                             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                                         />
-                                        <Button variant="ghost" onClick={handleJoinFamily} disabled={familySaving || !online} style={{ marginTop: '8px' }}>
-                                            {familySaving ? '处理中...' : '加入家庭'}
+                                        <Button variant="ghost" onClick={handleJoinFamily} disabled={isFamilySaving || !online} style={{ marginTop: '8px' }}>
+                                            {isFamilySaving ? '处理中...' : '加入家庭'}
                                         </Button>
                                     </div>
                                 </>
                             ) : (
                                 <div className="family-actions">
                                     <div className="form-group">
-                                        <label className="form-label" htmlFor="family-name">创建家庭</label>
+                                        <label className="form-label" htmlFor="new-family-name">创建家庭</label>
                                         <input
-                                            id="family-name"
+                                            id="new-family-name"
                                             className="form-input"
                                             placeholder="输入家庭名称"
                                             value={familyName}
                                             onChange={(e) => setFamilyName(e.target.value)}
                                         />
-                                        <Button variant="secondary" onClick={handleCreateFamily} disabled={familySaving || !online}>
-                                            {familySaving ? '处理中...' : '创建家庭'}
+                                        <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online}>
+                                            {isFamilySaving ? '处理中...' : '创建家庭'}
                                         </Button>
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label" htmlFor="family-invite-code">加入家庭</label>
+                                        <label className="form-label" htmlFor="new-family-invite-code">加入家庭</label>
                                         <input
-                                            id="family-invite-code"
+                                            id="new-family-invite-code"
                                             className="form-input"
                                             placeholder="输入邀请码"
                                             value={joinCode}
                                             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                                         />
-                                        <Button variant="ghost" onClick={handleJoinFamily} disabled={familySaving || !online}>
-                                            {familySaving ? '处理中...' : '加入家庭'}
+                                        <Button variant="ghost" onClick={handleJoinFamily} disabled={isFamilySaving || !online}>
+                                            {isFamilySaving ? '处理中...' : '加入家庭'}
                                         </Button>
                                     </div>
                                 </div>

@@ -73,38 +73,6 @@
     color: var(--color-danger);
 }
 
-.form-group {
-    margin-bottom: var(--space-4);
-}
-
-.form-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    margin-bottom: var(--space-1);
-}
-
-.form-input {
-    width: 100%;
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-bg-input);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    color: var(--color-text);
-    transition: border-color var(--transition-fast);
-}
-
-.form-input:focus {
-    outline: none;
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(248, 165, 194, 0.15);
-}
-
-.form-input::placeholder {
-    color: var(--color-text-muted);
-}
-
 .login-footer {
     text-align: center;
     margin-top: var(--space-6);

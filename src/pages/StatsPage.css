@@ -41,14 +41,6 @@
     opacity: 0.9;
 }
 
-/* ── Section Row ── */
-.section-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--space-3);
-}
-
 /* ── Health List ── */
 .health-list {
     display: flex;
@@ -60,10 +52,16 @@
     display: flex;
     align-items: flex-start;
     gap: var(--space-3);
+    width: 100%;
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-input);
+    border: none;
     border-radius: var(--radius-md);
     border-left: 3px solid transparent;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
 }
 
 .health-past-due {
@@ -90,10 +88,6 @@
     white-space: nowrap;
 }
 
-.text-danger {
-    color: var(--color-danger) !important;
-}
-
 /* ── Inventory List ── */
 .inventory-list {
     display: flex;
@@ -105,11 +99,24 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    width: 100%;
     padding: var(--space-2) var(--space-3);
     background: var(--color-bg-input);
+    border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-align: left;
     transition: background var(--transition-fast);
+}
+
+.inventory-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
 }
 
 .inventory-item:hover {

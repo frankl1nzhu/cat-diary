@@ -35,6 +35,9 @@ export function initAuth(): () => void {
             user: session?.user ?? null,
             loading: false,
         })
+    }).catch((err) => {
+        console.error('Failed to get initial session:', err)
+        useAuthStore.setState({ loading: false })
     })
 
     // Listen for auth changes (single subscription for the entire app)

@@ -2,10 +2,10 @@
  *  Deduplicated labels and helpers used across pages.
  * ──────────────────────────────────────────────────── */
 
-import type { PoopColor } from '../types/database.types'
+import type { BristolType, PoopColor } from '../types/database.types'
 
-/** Bristol stool scale — base labels (string-keyed, works with both number and string indexing). */
-export const BRISTOL_LABELS: Record<string, string> = {
+/** Bristol stool scale — base labels. */
+export const BRISTOL_LABELS: Record<BristolType, string> = {
     '1': '硬球状',
     '2': '腊肠状硬块',
     '3': '腊肠状裂纹',
@@ -27,8 +27,8 @@ export const POOP_COLOR_LABELS: Record<PoopColor, string> = {
 }
 
 /** Poop color emojis only (for compact timeline display). */
-export const POOP_COLOR_EMOJIS: Record<string, string> = {
-    brown: '🟫',
+export const POOP_COLOR_EMOJIS: Record<PoopColor, string> = {
+    brown: '🟧',
     dark_brown: '⬛',
     yellow: '🟨',
     green: '🟩',
@@ -38,7 +38,7 @@ export const POOP_COLOR_EMOJIS: Record<string, string> = {
 }
 
 /** Meal type labels. */
-export const MEAL_LABELS: Record<string, string> = {
+export const MEAL_LABELS: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', string> = {
     breakfast: '🌅 早餐',
     lunch: '☀️ 午餐',
     dinner: '🌙 晚餐',
@@ -49,6 +49,6 @@ export const MEAL_LABELS: Record<string, string> = {
 export const DIARY_TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇'] as const
 
 /** Check if a poop record indicates abnormal health. */
-export function isAbnormalPoop(bristolType: string, color: string): boolean {
+export function isAbnormalPoop(bristolType: BristolType | string, color: PoopColor | string): boolean {
     return Number(bristolType) >= 6 || ['red', 'black', 'white'].includes(color)
 }

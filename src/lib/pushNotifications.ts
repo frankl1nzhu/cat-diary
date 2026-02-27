@@ -51,29 +51,34 @@ export async function enablePushNotifications() {
     }
 
     const registration = await navigator.serviceWorker.ready
-    const existing = await registration.pushManager.getSubscription()
-    if (existing) {
-        const subscriptionJson = existing.toJSON()
+
+    try {
+        const existing = await registration.pushManager.getSubscription()
+        if (existing) {
+            const subscriptionJson = existing.toJSON()
+            localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscriptionJson))
+            return {
+                ok: true as const,
+                subscribed: true as const,
+                reason: 'already-subscribed' as const,
+                subscription: subscriptionJson,
+            }
+        }
+
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
+        })
+
+        const subscriptionJson = subscription.toJSON()
         localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscriptionJson))
         return {
             ok: true as const,
             subscribed: true as const,
-            reason: 'already-subscribed' as const,
+            reason: 'subscribed' as const,
             subscription: subscriptionJson,
         }
-    }
-
-    const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
-    })
-
-    const subscriptionJson = subscription.toJSON()
-    localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscriptionJson))
-    return {
-        ok: true as const,
-        subscribed: true as const,
-        reason: 'subscribed' as const,
-        subscription: subscriptionJson,
+    } catch {
+        return { ok: false as const, reason: 'push-subscribe-failed' as const }
     }
 }

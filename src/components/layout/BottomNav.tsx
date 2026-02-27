@@ -17,6 +17,14 @@ const rightItems = [
     { to: '/settings', icon: '⚙️', label: '设置' },
 ]
 
+const quickActions = [
+    { label: '📝 写日记', path: '/log?quick=diary' as const, type: 'path' as const },
+    { label: '💩 记便便', path: '/?quick=poop' as const, type: 'path' as const },
+    { label: '🤮 记呕吐', path: '/stats' as const, type: 'vomit' as const },
+    { label: '🍽️ 记喂食', path: '/?quick=feed' as const, type: 'path' as const },
+    { label: '⚖️ 记体重', path: '/log?quick=weight' as const, type: 'path' as const },
+] as const
+
 export function BottomNav() {
     const navigate = useNavigate()
     const { user } = useSession()
@@ -25,14 +33,6 @@ export function BottomNav() {
     const [quickOpen, setQuickOpen] = useState(false)
     const [vomitSaving, setVomitSaving] = useState(false)
     const quickSheetRef = useRef<HTMLDivElement>(null)
-
-    const actions = [
-        { label: '📝 写日记', path: '/log?quick=diary' as const, type: 'path' as const },
-        { label: '💩 记便便', path: '/?quick=poop' as const, type: 'path' as const },
-        { label: '🤮 记呕吐', path: '/stats' as const, type: 'vomit' as const },
-        { label: '🍽️ 记喂食', path: '/?quick=feed' as const, type: 'path' as const },
-        { label: '⚖️ 记体重', path: '/log?quick=weight' as const, type: 'path' as const },
-    ]
 
     const onQuickAction = async (action: { path: string; type: 'path' | 'vomit' }) => {
         if (action.type === 'vomit') {
@@ -43,7 +43,7 @@ export function BottomNav() {
 
             setVomitSaving(true)
             try {
-                await supabase.from('health_records').insert({
+                const { error } = await supabase.from('health_records').insert({
                     cat_id: catId,
                     type: 'medical',
                     name: '呕吐',
@@ -51,6 +51,7 @@ export function BottomNav() {
                     next_due: null,
                     created_by: user.id,
                 })
+                if (error) throw error
                 setQuickOpen(false)
                 pushToast('success', '已快速记录呕吐 🤮')
             } catch (err) {
@@ -101,12 +102,12 @@ export function BottomNav() {
 
     return (
         <>
-            {quickOpen && <div className="quick-backdrop" onClick={() => setQuickOpen(false)} />}
+            {quickOpen && <div className="quick-backdrop" onClick={() => setQuickOpen(false)} onKeyDown={(e) => { if (e.key === 'Escape') setQuickOpen(false) }} role="button" tabIndex={-1} aria-label="关闭快速记录" />}
             {quickOpen && (
                 <div className="quick-sheet fade-in" ref={quickSheetRef} role="dialog" aria-modal="true" aria-label="快速记录菜单">
                     <div className="quick-sheet-title">快速记录</div>
                     <div className="quick-grid">
-                        {actions.map((action) => (
+                        {quickActions.map((action) => (
                             <button
                                 key={action.path}
                                 className="quick-item"

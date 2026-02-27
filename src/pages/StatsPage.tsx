@@ -21,6 +21,27 @@ import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
 
+/** Escape HTML special characters to prevent XSS in exported reports. */
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+}
+
+/** Health type labels (module-level constant to avoid re-creation). */
+const HEALTH_TYPE_LABELS: Record<HealthFormType, { icon: string; label: string }> = {
+    vaccine: { icon: '💉', label: '疫苗' },
+    deworming: { icon: '💊', label: '驱虫' },
+    medical: { icon: '🏥', label: '就医' },
+    vomit: { icon: '🤮', label: '呕吐' },
+}
+
+/** Pie chart colors (module-level constant). */
+const PIE_COLORS = ['var(--color-primary)', 'var(--color-secondary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-primary-dark)']
+
 export function StatsPage() {
     const { user } = useSession()
     const { catId, loading: catLoading } = useCat()
@@ -408,11 +429,11 @@ export function StatsPage() {
         <html><head><meta charset="utf-8" /><title>Vet Report</title>
         <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
         </head><body>
-        <h1>${t.reportTitle}</h1><div>${t.last30Days}</div>
-        <h2>${t.weightChange}</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString(dateLocale)}: ${w.weight_kg} kg</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
-        <h2>${t.vomitRecords}</h2><ul>${recentVomit.map((v) => `<li>${new Date(v.date).toLocaleDateString(dateLocale)}: ${v.name}${v.notes ? (isZh ? `（${v.notes}）` : ` (${v.notes})`) : ''}</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
-        <h2>${t.abnormalPoopRecords}</h2><ul>${recentAbnormalPoops.map((p) => `<li>${new Date(p.created_at).toLocaleDateString(dateLocale)}: ${t.medicalFormat(String(p.bristol_type), t.colorLabel[p.color as 'red' | 'black' | 'white'] ?? p.color)}</li>`).join('') || `<li>${t.noAbnormalRecord}</li>`}</ul>
-        <h2>${t.healthRecords}</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString(dateLocale)}: ${t.healthFormat(h.name, t.typeLabel[h.type], h.notes)}</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
+        <h1>${escapeHtml(t.reportTitle)}</h1><div>${escapeHtml(t.last30Days)}</div>
+        <h2>${escapeHtml(t.weightChange)}</h2><ul>${recentWeights.map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleDateString(dateLocale))}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.vomitRecords)}</h2><ul>${recentVomit.map((v) => `<li>${escapeHtml(new Date(v.date).toLocaleDateString(dateLocale))}: ${escapeHtml(v.name)}${v.notes ? (isZh ? `（${escapeHtml(v.notes)}）` : ` (${escapeHtml(v.notes)})`) : ''}</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.abnormalPoopRecords)}</h2><ul>${recentAbnormalPoops.map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleDateString(dateLocale))}: ${escapeHtml(t.medicalFormat(String(p.bristol_type), t.colorLabel[p.color as 'red' | 'black' | 'white'] ?? p.color))}</li>`).join('') || `<li>${escapeHtml(t.noAbnormalRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.healthRecords)}</h2><ul>${recentHealth.map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString(dateLocale))}: ${escapeHtml(t.healthFormat(h.name, t.typeLabel[h.type], h.notes))}</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
         </body></html>`
 
         const iframe = document.createElement('iframe')
@@ -462,12 +483,7 @@ export function StatsPage() {
     }
 
     // ─── Health type labels ───────────────────────
-    const healthTypeLabels: Record<HealthFormType, { icon: string; label: string }> = {
-        vaccine: { icon: '💉', label: '疫苗' },
-        deworming: { icon: '💊', label: '驱虫' },
-        medical: { icon: '🏥', label: '就医' },
-        vomit: { icon: '🤮', label: '呕吐' },
-    }
+    const healthTypeLabels = HEALTH_TYPE_LABELS
 
     if (loading || catLoading) {
         return (
@@ -598,7 +614,7 @@ export function StatsPage() {
                                             {bristolDistributionData.map((entry, index) => (
                                                 <Cell
                                                     key={`${entry.name}-${index}`}
-                                                    fill={['var(--color-primary)', 'var(--color-secondary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-primary-dark)'][index % 7]}
+                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
                                                 />
                                             ))}
                                         </Pie>
@@ -642,7 +658,7 @@ export function StatsPage() {
                                 const isPastDue = r.next_due && new Date(r.next_due) < new Date()
                                 return (
                                     <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
-                                        <div className={`health-item ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
+                                        <button type="button" className={`health-item ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
                                             <span className="health-icon">{config.icon}</span>
                                             <div className="health-info">
                                                 <span className="text-sm font-semibold">{r.name}</span>
@@ -653,7 +669,7 @@ export function StatsPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                        </div>
+                                        </button>
                                     </SwipeableRow>
                                 )
                             })}
@@ -683,18 +699,19 @@ export function StatsPage() {
                                 const derivedStatus = computeInventoryStatus(item)
                                 return (
                                     <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'inventory' })}>
-                                        <div
+                                        <button
+                                            type="button"
                                             className="inventory-item"
                                             onClick={() => openEditInventory(item)}
                                         >
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                                            <div className="inventory-item-info">
                                                 <span className="text-sm">{item.item_name}</span>
                                                 {days != null && (
                                                     <span className="text-xs text-muted">约剩 {Math.round(days)} 天</span>
                                                 )}
                                             </div>
                                             <StatusBadge status={derivedStatus} size="sm" />
-                                        </div>
+                                        </button>
                                     </SwipeableRow>
                                 )
                             })}

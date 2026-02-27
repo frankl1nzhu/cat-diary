@@ -1,13 +1,17 @@
 import React from 'react'
 import './Card.css'
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement | HTMLButtonElement> {
+type CardBaseProps = {
     children: React.ReactNode
     variant?: 'default' | 'glass' | 'accent'
     className?: string
-    onClick?: () => void
     padding?: 'none' | 'sm' | 'md' | 'lg'
 }
+
+type CardDivProps = CardBaseProps & React.HTMLAttributes<HTMLDivElement> & { onClick?: undefined }
+type CardButtonProps = CardBaseProps & React.ButtonHTMLAttributes<HTMLButtonElement> & { onClick: () => void }
+
+type CardProps = CardDivProps | CardButtonProps
 
 export function Card({
     children,
@@ -17,14 +21,27 @@ export function Card({
     padding = 'md',
     ...rest
 }: CardProps) {
-    const Component = onClick ? 'button' : 'div'
+    const classes = `card card-${variant} card-p-${padding} ${onClick ? 'card-interactive' : ''} ${className}`
+
+    if (onClick) {
+        return (
+            <button
+                type="button"
+                className={classes}
+                onClick={onClick}
+                {...(rest as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+            >
+                {children}
+            </button>
+        )
+    }
+
     return (
-        <Component
-            className={`card card-${variant} card-p-${padding} ${onClick ? 'card-interactive' : ''} ${className}`}
-            onClick={onClick}
-            {...rest}
+        <div
+            className={classes}
+            {...(rest as React.HTMLAttributes<HTMLDivElement>)}
         >
             {children}
-        </Component>
+        </div>
     )
 }
