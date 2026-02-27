@@ -129,7 +129,12 @@ export function SettingsPage() {
         if (typeof Notification === 'undefined') return
         setNotificationPermission(Notification.permission)
         if (Notification.permission === 'granted') {
-            setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+            const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
+            if (vapidKey) {
+                setNotificationHint('Web Push 已启用。')
+            } else {
+                setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+            }
         }
     }, [])
 
@@ -256,8 +261,14 @@ export function SettingsPage() {
                 setNotificationHint('Web Push 已启用。')
                 pushToast('success', '通知已开启（含 Web Push 订阅）')
             } else {
-                setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
-                pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
+                const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
+                if (vapidKey) {
+                    setNotificationHint('通知权限已开启，Web Push 订阅失败，请重试。')
+                    pushToast('error', 'Web Push 订阅失败，请重试')
+                } else {
+                    setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+                    pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
+                }
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '开启通知失败，请稍后重试'))

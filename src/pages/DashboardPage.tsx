@@ -494,7 +494,25 @@ export function DashboardPage() {
         void handleMoodPick(options[nextIndex])
     }
 
-    if (!loading && !catLoading && cats.length === 0) {
+    if (loading || catLoading) {
+        return (
+            <div className="dashboard fade-in">
+                <div className="cat-profile-card">
+                    <Skeleton height="180px" borderRadius="var(--radius-xl)" />
+                </div>
+                <div className="bento-grid">
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
+                    <Skeleton height="120px" borderRadius="var(--radius-lg)" className="span-2" />
+                </div>
+                <div className="px-4">
+                    <Skeleton height="180px" borderRadius="var(--radius-lg)" />
+                </div>
+            </div>
+        )
+    }
+
+    if (cats.length === 0) {
         return (
             <div className="dashboard fade-in onboarding-page">
                 <Card variant="accent" padding="lg" className="onboarding-card">
@@ -538,24 +556,6 @@ export function DashboardPage() {
                         </Button>
                     </div>
                 </Card>
-            </div>
-        )
-    }
-
-    if (loading || catLoading) {
-        return (
-            <div className="dashboard fade-in">
-                <div className="cat-profile-card">
-                    <Skeleton height="180px" borderRadius="var(--radius-xl)" />
-                </div>
-                <div className="bento-grid">
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" className="span-2" />
-                </div>
-                <div className="px-4">
-                    <Skeleton height="180px" borderRadius="var(--radius-lg)" />
-                </div>
             </div>
         )
     }

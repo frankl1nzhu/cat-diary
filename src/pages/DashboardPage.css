@@ -543,24 +543,27 @@
 }
 
 .onboarding-form input[type='date'] {
-    width: 100%;
-    inline-size: 100%;
-    max-width: 100%;
-    min-width: 0;
-    min-inline-size: 0;
-    -webkit-min-logical-width: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    -webkit-min-logical-width: calc(0px) !important;
     min-height: 42px;
     line-height: normal;
-    padding-top: 0;
-    padding-bottom: 0;
-    font-size: var(--font-size-sm);
-    box-sizing: border-box;
+    padding: var(--space-2) var(--space-3);
+    font-size: 14px;
+    box-sizing: border-box !important;
+    -webkit-appearance: none;
+    appearance: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .onboarding-form .form-input {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    overflow: hidden;
 }
 
 .week-summary-grid {
