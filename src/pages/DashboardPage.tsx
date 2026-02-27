@@ -27,7 +27,7 @@ type RewardParticle = {
 
 export function DashboardPage() {
     const { user } = useSession()
-    const { cat, catId, cats, setCatId, activeFamilyId, loading: catLoading } = useCat()
+    const { cat, catId, cats, setCatId, families, activeFamilyId, setActiveFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
@@ -55,6 +55,11 @@ export function DashboardPage() {
     const [onboardingBirthday, setOnboardingBirthday] = useState('')
     const [onboardingAdoptedAt, setOnboardingAdoptedAt] = useState('')
     const [onboardingSaving, setOnboardingSaving] = useState(false)
+
+    // Family onboarding
+    const [obFamilyName, setObFamilyName] = useState('')
+    const [obJoinCode, setObJoinCode] = useState('')
+    const [obFamilySaving, setObFamilySaving] = useState(false)
 
     // Poop modal
     const [poopModalOpen, setPoopModalOpen] = useState(false)
@@ -456,6 +461,69 @@ export function DashboardPage() {
             })
     }, [catId, daysToDeworming, lowInventory])
 
+    const handleObCreateFamily = async () => {
+        if (!user) return
+        const nameValue = obFamilyName.trim()
+        if (!nameValue) {
+            pushToast('error', '请输入家庭名称')
+            return
+        }
+        setObFamilySaving(true)
+        try {
+            const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+            const { data: newFamily, error: createErr } = await supabase
+                .from('families')
+                .insert({ name: nameValue, invite_code: inviteCode, created_by: user.id })
+                .select('*')
+                .single()
+            if (createErr || !newFamily) throw createErr || new Error('家庭创建失败')
+
+            const { error: memberErr } = await supabase
+                .from('family_members')
+                .insert({ family_id: newFamily.id, user_id: user.id, role: 'owner' })
+            if (memberErr) throw memberErr
+
+            setActiveFamilyId(newFamily.id)
+            setObFamilyName('')
+            pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '创建家庭失败'))
+        } finally {
+            setObFamilySaving(false)
+        }
+    }
+
+    const handleObJoinFamily = async () => {
+        if (!user) return
+        const code = obJoinCode.trim().toUpperCase()
+        if (!code) {
+            pushToast('error', '请输入邀请码')
+            return
+        }
+        setObFamilySaving(true)
+        try {
+            const { data: family, error: findErr } = await supabase
+                .from('families')
+                .select('*')
+                .eq('invite_code', code)
+                .single()
+            if (findErr || !family) throw findErr || new Error('家庭不存在')
+
+            const { error: joinErr } = await supabase
+                .from('family_members')
+                .upsert({ family_id: family.id, user_id: user.id, role: 'member' }, { onConflict: 'family_id,user_id' })
+            if (joinErr) throw joinErr
+
+            setActiveFamilyId(family.id)
+            setObJoinCode('')
+            pushToast('success', `已加入家庭：${family.name}`)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '加入家庭失败，请检查邀请码'))
+        } finally {
+            setObFamilySaving(false)
+        }
+    }
+
     const handleOnboardingSave = async () => {
         if (!user || !onboardingName.trim()) {
             pushToast('error', '请先填写猫咪名字')
@@ -509,6 +577,44 @@ export function DashboardPage() {
                 <div className="px-4">
                     <Skeleton height="180px" borderRadius="var(--radius-lg)" />
                 </div>
+            </div>
+        )
+    }
+
+    if (families.length === 0) {
+        return (
+            <div className="dashboard fade-in onboarding-page">
+                <Card variant="accent" padding="lg" className="onboarding-card">
+                    <h1 className="text-2xl font-bold">欢迎来到喵记！</h1>
+                    <p className="text-sm text-secondary">首先创建或加入一个家庭</p>
+                    <div className="onboarding-form">
+                        <label className="form-label" htmlFor="ob-family-name">创建家庭</label>
+                        <input
+                            id="ob-family-name"
+                            className="form-input"
+                            placeholder="输入家庭名称"
+                            value={obFamilyName}
+                            onChange={(e) => setObFamilyName(e.target.value)}
+                        />
+                        <Button variant="primary" fullWidth onClick={handleObCreateFamily} disabled={obFamilySaving || !online}>
+                            {obFamilySaving ? '创建中...' : '创建家庭'}
+                        </Button>
+                        <div className="onboarding-divider">
+                            <span>或者</span>
+                        </div>
+                        <label className="form-label" htmlFor="ob-join-code">加入家庭</label>
+                        <input
+                            id="ob-join-code"
+                            className="form-input"
+                            placeholder="输入邀请码"
+                            value={obJoinCode}
+                            onChange={(e) => setObJoinCode(e.target.value.toUpperCase())}
+                        />
+                        <Button variant="secondary" fullWidth onClick={handleObJoinFamily} disabled={obFamilySaving || !online}>
+                            {obFamilySaving ? '加入中...' : '加入家庭'}
+                        </Button>
+                    </div>
+                </Card>
             </div>
         )
     }

@@ -13,7 +13,7 @@ import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme
 import { enablePushNotifications } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
-import type { Family } from '../types/database.types'
+import type { Family, FamilyMemberWithEmail } from '../types/database.types'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -45,6 +45,13 @@ export function SettingsPage() {
     const [familySaving, setFamilySaving] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
     const [notificationHint, setNotificationHint] = useState('')
+    const [dissolveFamilyOpen, setDissolveFamilyOpen] = useState(false)
+    const [dissolveStep, setDissolveStep] = useState(1)
+    const [dissolveConfirmInput, setDissolveConfirmInput] = useState('')
+    const [dissolving, setDissolving] = useState(false)
+    const [familyMembers, setFamilyMembers] = useState<FamilyMemberWithEmail[]>([])
+    const [membersLoading, setMembersLoading] = useState(false)
+    const [roleSaving, setRoleSaving] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
@@ -53,6 +60,33 @@ export function SettingsPage() {
         const fam = families.find((f) => f.id === activeFamilyId) || families[0] || null
         setCurrentFamily(fam)
     }, [families, activeFamilyId])
+
+    // Load family members when currentFamily changes
+    useEffect(() => {
+        if (!currentFamily) {
+            setFamilyMembers([])
+            return
+        }
+        if (myRole !== 'owner' && myRole !== 'admin') {
+            setFamilyMembers([])
+            return
+        }
+        let cancelled = false
+        setMembersLoading(true)
+        supabase
+            .rpc('get_family_members_with_email', { target_family_id: currentFamily.id })
+            .then(({ data, error }) => {
+                if (cancelled) return
+                if (error) {
+                    console.error('Error loading family members:', error)
+                    setFamilyMembers([])
+                } else {
+                    setFamilyMembers((data || []) as FamilyMemberWithEmail[])
+                }
+                setMembersLoading(false)
+            })
+        return () => { cancelled = true }
+    }, [currentFamily, myRole])
 
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
@@ -151,8 +185,8 @@ export function SettingsPage() {
             pushToast('error', '请输入猫咪名字')
             return
         }
-        if (createMode && !selectedFamilyId) {
-            pushToast('error', '新增猫咪前请先选择家庭')
+        if (!selectedFamilyId) {
+            pushToast('error', '请选择猫咪所属家庭')
             return
         }
 
@@ -405,6 +439,70 @@ export function SettingsPage() {
         }
     }
 
+    const handleDissolveFamily = async () => {
+        if (!user || !currentFamily || myRole !== 'owner') return
+        if (dissolveStep < 2) {
+            setDissolveStep(2)
+            return
+        }
+        if (dissolveStep < 3) {
+            if (dissolveConfirmInput.trim() !== currentFamily.name) {
+                pushToast('error', '请输入正确的家庭名称以确认')
+                return
+            }
+            setDissolveStep(3)
+            return
+        }
+        setDissolving(true)
+        try {
+            const { error } = await supabase.rpc('dissolve_family', { target_family_id: currentFamily.id })
+            if (error) throw error
+            setActiveFamilyId(null)
+            setCurrentFamily(null)
+            setCurrentCatId(null)
+            closeDissolveFamilyModal()
+            pushToast('success', '家庭已解散，所有猫咪数据已删除')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '解散家庭失败，请稍后重试'))
+        } finally {
+            setDissolving(false)
+        }
+    }
+
+    const openDissolveFamilyModal = () => {
+        setDissolveStep(1)
+        setDissolveConfirmInput('')
+        setDissolveFamilyOpen(true)
+    }
+
+    const closeDissolveFamilyModal = () => {
+        setDissolveFamilyOpen(false)
+        setDissolveStep(1)
+        setDissolveConfirmInput('')
+    }
+
+    const handleToggleAdmin = async (memberId: string, memberUserId: string, currentRole: string) => {
+        if (!currentFamily || myRole !== 'owner') return
+        if (memberUserId === user?.id) return
+        const newRole = currentRole === 'admin' ? 'member' : 'admin'
+        setRoleSaving(memberId)
+        try {
+            const { error } = await supabase
+                .from('family_members')
+                .update({ role: newRole })
+                .eq('id', memberId)
+            if (error) throw error
+            setFamilyMembers((prev) =>
+                prev.map((m) => m.id === memberId ? { ...m, role: newRole } : m)
+            )
+            pushToast('success', newRole === 'admin' ? '已设为管理员' : '已取消管理员')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '角色更新失败'))
+        } finally {
+            setRoleSaving(null)
+        }
+    }
+
     const handleDeleteCat = async () => {
         if (!catId) return
         if (deleteStep < 2) {
@@ -541,13 +639,13 @@ export function SettingsPage() {
                                             />
                                         </div>
                                         <div className="form-group">
-                                            <label className="form-label" htmlFor="cat-family">家庭 {createMode ? '*' : ''}</label>
+                                            <label className="form-label" htmlFor="cat-family">家庭 *</label>
                                             <select
                                                 id="cat-family"
                                                 className="form-input"
                                                 value={selectedFamilyId}
                                                 onChange={(e) => setSelectedFamilyId(e.target.value)}
-                                                required={createMode}
+                                                required
                                             >
                                                 <option value="">{families.length > 0 ? '请选择家庭' : '暂无家庭，请先创建或加入'}</option>
                                                 {families.map((family) => (
@@ -636,9 +734,46 @@ export function SettingsPage() {
                                             </select>
                                         </div>
                                     )}
+                                    {/* Member list for owner/admin */}
+                                    {(myRole === 'owner' || myRole === 'admin') && (
+                                        <div className="member-list-section">
+                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>家庭成员</h3>
+                                            {membersLoading ? (
+                                                <p className="text-muted text-xs">加载中...</p>
+                                            ) : familyMembers.length === 0 ? (
+                                                <p className="text-muted text-xs">暂无成员数据</p>
+                                            ) : (
+                                                <div className="member-list">
+                                                    {familyMembers.map((member) => (
+                                                        <div key={member.id} className="member-row">
+                                                            <div className="member-info">
+                                                                <span className="member-email text-sm">{member.email}</span>
+                                                                <span className={`member-role-badge role-${member.role}`}>
+                                                                    {member.role === 'owner' ? '创建者' : member.role === 'admin' ? '管理员' : '成员'}
+                                                                </span>
+                                                            </div>
+                                                            {myRole === 'owner' && member.user_id !== user?.id && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleToggleAdmin(member.id, member.user_id, member.role)}
+                                                                    disabled={roleSaving === member.id}
+                                                                >
+                                                                    {roleSaving === member.id ? '...' : member.role === 'admin' ? '取消管理员' : '设为管理员'}
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         {myRole !== 'owner' && (
                                             <Button variant="ghost" onClick={handleLeaveFamily}>退出家庭</Button>
+                                        )}
+                                        {myRole === 'owner' && (
+                                            <Button variant="danger" size="sm" onClick={openDissolveFamilyModal}>解散家庭</Button>
                                         )}
                                     </div>
                                     {cat && cat.family_id !== currentFamily.id && (
@@ -790,6 +925,48 @@ export function SettingsPage() {
                                     />
                                     <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
                                         {deletingCat ? '删除中...' : '确认删除'}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={dissolveFamilyOpen} onClose={closeDissolveFamilyModal} title="⚠️ 解散家庭">
+                        <div className="settings-confirm">
+                            {dissolveStep === 1 && (
+                                <>
+                                    <p className="text-sm text-secondary">
+                                        解散家庭「{currentFamily?.name}」将<strong className="text-danger">永久删除</strong>该家庭下的所有猫咪和全部记录数据。此操作不可恢复。
+                                    </p>
+                                    <p className="text-sm text-secondary">所有家庭成员将被移出。</p>
+                                    <Button variant="danger" fullWidth onClick={handleDissolveFamily}>
+                                        我了解，继续
+                                    </Button>
+                                </>
+                            )}
+                            {dissolveStep === 2 && (
+                                <>
+                                    <p className="text-sm text-secondary">
+                                        请输入家庭名称「{currentFamily?.name}」以确认解散。
+                                    </p>
+                                    <input
+                                        className="form-input"
+                                        value={dissolveConfirmInput}
+                                        onChange={(e) => setDissolveConfirmInput(e.target.value)}
+                                        placeholder="输入家庭名称确认"
+                                    />
+                                    <Button variant="danger" fullWidth onClick={handleDissolveFamily}>
+                                        确认名称
+                                    </Button>
+                                </>
+                            )}
+                            {dissolveStep === 3 && (
+                                <>
+                                    <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
+                                        最终确认：点击后将立即解散家庭并删除所有数据！
+                                    </p>
+                                    <Button variant="danger" fullWidth onClick={handleDissolveFamily} disabled={dissolving}>
+                                        {dissolving ? '解散中...' : '确认解散家庭'}
                                     </Button>
                                 </>
                             )}

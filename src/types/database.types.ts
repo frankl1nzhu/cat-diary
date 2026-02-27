@@ -137,6 +137,14 @@ export interface PushSubscriptionRow {
     updated_at: string
 }
 
+export interface FamilyMemberWithEmail {
+    id: string
+    user_id: string
+    role: string
+    email: string
+    created_at: string
+}
+
 /* ─── Database type for Supabase client ──────────── */
 
 export interface Database {
