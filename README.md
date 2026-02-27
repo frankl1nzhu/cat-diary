@@ -27,6 +27,7 @@ npm install
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+VITE_VAPID_PUBLIC_KEY=your_vapid_public_key
 ```
 
 3. 启动开发环境
@@ -39,6 +40,35 @@ npm run dev
 
 - 迁移文件：`supabase/migrations/00001_initial_schema.sql`
 - 包含：枚举、表结构、RLS、Realtime 发布、Storage bucket 策略
+- 推送订阅表：`supabase/migrations/00002_push_subscriptions.sql`
+
+## Web Push（完整链路）
+
+1) 生成 VAPID 密钥（任意支持 web-push 的工具）
+
+2) 前端环境变量：
+
+```env
+VITE_VAPID_PUBLIC_KEY=...
+```
+
+3) Supabase Edge Function Secrets（发送端）
+
+```bash
+supabase secrets set VAPID_PUBLIC_KEY=...
+supabase secrets set VAPID_PRIVATE_KEY=...
+supabase secrets set SUPABASE_ANON_KEY=...
+```
+
+4) 部署推送函数：
+
+```bash
+supabase functions deploy send-reminders
+```
+
+5) 在应用设置页执行：
+- 开启通知权限
+- 发送测试推送
 
 ## 常用命令
 

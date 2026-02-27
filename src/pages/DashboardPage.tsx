@@ -11,6 +11,7 @@ import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
+import { sendReminderPush } from '../lib/pushServer'
 import { differenceInDays, format, addMonths } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
@@ -293,6 +294,24 @@ export function DashboardPage() {
             }
         }
     }, [daysToDeworming, lowInventory])
+
+    useEffect(() => {
+        const hasUrgentInventory = lowInventory.some((item) => item.status === 'urgent')
+        const hasDewormingReminder = daysToDeworming !== null && daysToDeworming <= 1
+        if (!hasUrgentInventory && !hasDewormingReminder) return
+
+        const todayKey = new Date().toISOString().split('T')[0]
+        const serverKey = `server_push_reminder_${todayKey}_${catId || 'none'}`
+        if (localStorage.getItem(serverKey)) return
+
+        sendReminderPush(catId || undefined)
+            .then(() => {
+                localStorage.setItem(serverKey, '1')
+            })
+            .catch(() => {
+                // no-op: frontend local notification fallback already exists
+            })
+    }, [catId, daysToDeworming, lowInventory])
 
     const openFeedModal = () => {
         const hour = new Date().getHours()

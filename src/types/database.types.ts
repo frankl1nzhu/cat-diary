@@ -110,6 +110,16 @@ export interface Countdown {
     created_at: string
 }
 
+export interface PushSubscriptionRow {
+    id: string
+    user_id: string
+    endpoint: string
+    p256dh: string
+    auth: string
+    created_at: string
+    updated_at: string
+}
+
 /* ─── Database type for Supabase client ──────────── */
 
 export interface Database {
@@ -167,6 +177,12 @@ export interface Database {
                 Row: Countdown
                 Insert: Omit<Countdown, 'id' | 'created_at'>
                 Update: Partial<Omit<Countdown, 'id'>>
+                Relationships: []
+            }
+            push_subscriptions: {
+                Row: PushSubscriptionRow
+                Insert: Omit<PushSubscriptionRow, 'id' | 'created_at' | 'updated_at'>
+                Update: Partial<Omit<PushSubscriptionRow, 'id' | 'created_at'>>
                 Relationships: []
             }
         }

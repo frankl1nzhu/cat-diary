@@ -30,11 +30,17 @@ export async function enablePushNotifications() {
         return { ok: true as const, subscribed: false as const, reason: 'no-vapid-key' as const }
     }
 
-    const registration = await navigator.serviceWorker.ready
+    const registration = await navigator.serviceWorker.register('/push-sw.js', { scope: '/push/' })
     const existing = await registration.pushManager.getSubscription()
     if (existing) {
-        localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(existing.toJSON()))
-        return { ok: true as const, subscribed: true as const, reason: 'already-subscribed' as const }
+        const subscriptionJson = existing.toJSON()
+        localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscriptionJson))
+        return {
+            ok: true as const,
+            subscribed: true as const,
+            reason: 'already-subscribed' as const,
+            subscription: subscriptionJson,
+        }
     }
 
     const subscription = await registration.pushManager.subscribe({
@@ -42,6 +48,12 @@ export async function enablePushNotifications() {
         applicationServerKey: base64UrlToUint8Array(vapidPublicKey),
     })
 
-    localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscription.toJSON()))
-    return { ok: true as const, subscribed: true as const, reason: 'subscribed' as const }
+    const subscriptionJson = subscription.toJSON()
+    localStorage.setItem(PUSH_SUB_KEY, JSON.stringify(subscriptionJson))
+    return {
+        ok: true as const,
+        subscribed: true as const,
+        reason: 'subscribed' as const,
+        subscription: subscriptionJson,
+    }
 }

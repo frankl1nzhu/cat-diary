@@ -10,6 +10,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications } from '../lib/pushNotifications'
+import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -151,12 +152,24 @@ export function SettingsPage() {
             }
 
             if (result.subscribed) {
+                if (user && result.subscription) {
+                    await savePushSubscription(user.id, result.subscription)
+                }
                 pushToast('success', '通知已开启（含 Web Push 订阅）')
             } else {
                 pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '开启通知失败，请稍后重试'))
+        }
+    }
+
+    const handleTestPush = async () => {
+        try {
+            await sendTestPush()
+            pushToast('success', '测试推送已发送，请稍候查看系统通知')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '测试推送发送失败'))
         }
     }
 
@@ -292,8 +305,9 @@ export function SettingsPage() {
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold mb-3">🔔 智能提醒</h2>
                     <p className="text-secondary text-sm">开启系统通知后，可接收库存告急和临近驱虫提醒。</p>
-                    <div style={{ marginTop: '12px' }}>
+                    <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <Button variant="secondary" onClick={handleEnableNotifications}>开启通知权限</Button>
+                        <Button variant="ghost" onClick={handleTestPush}>发送测试推送</Button>
                     </div>
                 </Card>
             </div>
