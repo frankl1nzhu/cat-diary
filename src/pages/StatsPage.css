@@ -194,11 +194,18 @@
     max-width: 100%;
     min-width: 0;
     display: block;
+    -webkit-min-logical-width: 0;
 }
 
 .health-form .form-group,
 .weight-form .form-group {
     min-width: 0;
+}
+
+.health-form .form-row,
+.weight-form .form-row {
+    flex-direction: column;
+    gap: var(--space-2);
 }
 
 /* ── Inventory Status ── */

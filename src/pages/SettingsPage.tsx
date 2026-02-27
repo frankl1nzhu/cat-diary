@@ -35,10 +35,11 @@ export function SettingsPage() {
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
     const [deleteStep, setDeleteStep] = useState(1)
     const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
-    const [profileLocked, setProfileLocked] = useState(false)
     const [createMode, setCreateMode] = useState(false)
     const [deletingCat, setDeletingCat] = useState(false)
     const [currentFamily, setCurrentFamily] = useState<Family | null>(null)
+    const [familyOptions, setFamilyOptions] = useState<Family[]>([])
+    const [selectedFamilyId, setSelectedFamilyId] = useState('')
     const [familyName, setFamilyName] = useState('')
     const [joinCode, setJoinCode] = useState('')
     const [familySaving, setFamilySaving] = useState(false)
@@ -60,6 +61,7 @@ export function SettingsPage() {
         const familyIds = (memberships || []).map((item) => item.family_id)
         if (familyIds.length === 0) {
             setCurrentFamily(null)
+            setFamilyOptions([])
             return
         }
 
@@ -70,7 +72,9 @@ export function SettingsPage() {
             .order('created_at', { ascending: true })
             .limit(1)
 
-        setCurrentFamily((families && families[0]) || null)
+        const options = families || []
+        setFamilyOptions(options)
+        setCurrentFamily(options[0] || null)
     }, [user])
 
     // Populate form when cat is loaded via shared hook
@@ -82,7 +86,7 @@ export function SettingsPage() {
         setBirthday(cat.birthday || '')
         setAdoptedAt(cat.adopted_at || '')
         setAvatarUrl(cat.avatar_url)
-        setProfileLocked(true)
+        setSelectedFamilyId(cat.family_id || '')
     }, [cat, createMode])
 
     useEffect(() => {
@@ -96,18 +100,24 @@ export function SettingsPage() {
         setBirthday('')
         setAdoptedAt('')
         setAvatarUrl(null)
-        setProfileLocked(false)
+        setSelectedFamilyId(currentFamily?.id || '')
 
         setSearchParams((prev) => {
             const next = new URLSearchParams(prev)
             next.delete('mode')
             return next
         }, { replace: true })
-    }, [searchParams, setCurrentCatId, setSearchParams])
+    }, [currentFamily?.id, searchParams, setCurrentCatId, setSearchParams])
 
     useEffect(() => {
         void loadFamily()
     }, [loadFamily])
+
+    useEffect(() => {
+        if (!selectedFamilyId && currentFamily?.id) {
+            setSelectedFamilyId(currentFamily.id)
+        }
+    }, [currentFamily, selectedFamilyId])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,11 +162,15 @@ export function SettingsPage() {
             pushToast('error', '请输入猫咪名字')
             return
         }
+        if (createMode && !selectedFamilyId) {
+            pushToast('error', '新增猫咪前请先选择家庭')
+            return
+        }
 
         setSaving(true)
 
         try {
-            const targetFamilyId = createMode ? (currentFamily?.id || null) : (cat?.family_id ?? currentFamily?.id ?? null)
+            const targetFamilyId = selectedFamilyId || null
             const catData = {
                 name: name.trim(),
                 breed: breed.trim() || null,
@@ -185,7 +199,6 @@ export function SettingsPage() {
                 if (data) setCurrentCatId(data.id)
             }
 
-            setProfileLocked(true)
             setCreateMode(false)
             pushToast('success', '档案保存成功！🎉')
         } catch (err) {
@@ -242,17 +255,6 @@ export function SettingsPage() {
             pushToast('success', '测试推送已发送，请稍候查看系统通知')
         } catch (err) {
             const message = getErrorMessage(err, '测试推送发送失败')
-            if (message.toLowerCase().includes('non-2xx')) {
-                if (Notification.permission === 'granted') {
-                    new Notification('喵记测试通知', {
-                        body: '已发送本地测试通知（Edge Function 未配置）',
-                    })
-                    pushToast('success', '本地测试通知已发送（Edge Function 未配置）')
-                } else {
-                    pushToast('info', '远程测试暂不可用，已开启通知权限后可先使用本地测试通知')
-                }
-                return
-            }
             pushToast('error', message)
         }
     }
@@ -296,6 +298,8 @@ export function SettingsPage() {
             }
 
             setCurrentFamily(newFamily)
+            setFamilyOptions((prev) => [newFamily, ...prev.filter((item) => item.id !== newFamily.id)])
+            setSelectedFamilyId(newFamily.id)
             setFamilyName('')
             pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
         } catch (err) {
@@ -337,6 +341,8 @@ export function SettingsPage() {
             }
 
             setCurrentFamily(family)
+            setFamilyOptions((prev) => [family, ...prev.filter((item) => item.id !== family.id)])
+            setSelectedFamilyId(family.id)
             setJoinCode('')
             pushToast('success', `已加入家庭：${family.name}`)
         } catch (err) {
@@ -354,6 +360,7 @@ export function SettingsPage() {
                 .update({ family_id: currentFamily.id })
                 .eq('id', catId)
             if (error) throw error
+            setSelectedFamilyId(currentFamily.id)
             pushToast('success', '当前猫咪已归属到家庭')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '猫咪归属家庭失败'))
@@ -376,12 +383,12 @@ export function SettingsPage() {
             if (error) throw error
             setCurrentCatId(null)
             closeDeleteCatModal()
-            setProfileLocked(false)
             setName('')
             setBreed('')
             setBirthday('')
             setAdoptedAt('')
             setAvatarUrl(null)
+            setSelectedFamilyId(currentFamily?.id || '')
             pushToast('success', '猫咪档案已删除')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '删除猫咪失败，请稍后重试'))
@@ -420,118 +427,106 @@ export function SettingsPage() {
                 <div className="p-4">
                     <Card variant="default" padding="md">
                         <h2 className="text-lg font-semibold mb-3">😺 猫咪档案</h2>
+                        <div className="form-group">
+                            <label className="form-label">头像</label>
+                            <label
+                                className="avatar-upload"
+                                htmlFor="cat-avatar"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                {avatarUrl ? (
+                                    <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" />
+                                ) : (
+                                    <span className="avatar-upload-icon">📷</span>
+                                )}
+                                <span className="text-sm text-secondary">
+                                    {uploading ? '上传中...' : '点击上传照片'}
+                                </span>
+                                <input
+                                    ref={fileInputRef}
+                                    id="cat-avatar"
+                                    type="file"
+                                    accept="image/*"
+                                    className="file-input-hidden"
+                                    onChange={handleAvatarUpload}
+                                />
+                            </label>
+                        </div>
 
-                        {profileLocked ? (
-                            <div className="profile-saved-view">
-                                <p className="text-sm text-secondary">档案已保存，基础信息已锁定不可修改。</p>
-                                <div className="saved-row">
-                                    <span className="text-secondary">头像</span>
-                                    {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" /> : <span>—</span>}
-                                </div>
-                                <div className="saved-row"><span className="text-secondary">名字</span><strong>{name || '—'}</strong></div>
-                                <div className="saved-row"><span className="text-secondary">品种</span><strong>{breed || '—'}</strong></div>
-                                <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
-                                <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
-                                <div className="cat-actions-row">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        fullWidth
-                                        onClick={() => setProfileLocked(false)}
-                                    >
-                                        编辑档案
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        fullWidth
-                                        onClick={openDeleteCatModal}
-                                        disabled={!catId || createMode}
-                                    >
-                                        删除猫咪
-                                    </Button>
-                                </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="cat-name">名字 *</label>
+                            <input
+                                id="cat-name"
+                                type="text"
+                                className="form-input"
+                                placeholder="输入猫咪名字"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="cat-family">家庭 {createMode ? '*' : ''}</label>
+                            <select
+                                id="cat-family"
+                                className="form-input"
+                                value={selectedFamilyId}
+                                onChange={(e) => setSelectedFamilyId(e.target.value)}
+                                required={createMode}
+                            >
+                                <option value="">{familyOptions.length > 0 ? '请选择家庭' : '暂无家庭，请先创建或加入'}</option>
+                                {familyOptions.map((family) => (
+                                    <option key={family.id} value={family.id}>{family.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="cat-breed">品种</label>
+                            <input
+                                id="cat-breed"
+                                type="text"
+                                className="form-input"
+                                placeholder="如：英短、美短、橘猫"
+                                value={breed}
+                                onChange={(e) => setBreed(e.target.value)}
+                            />
+                        </div>
+                        <div className="form-row">
+                            <div className="form-group flex-1">
+                                <label className="form-label" htmlFor="cat-birthday">生日</label>
+                                <input
+                                    id="cat-birthday"
+                                    type="date"
+                                    className="form-input"
+                                    value={birthday}
+                                    onChange={(e) => setBirthday(e.target.value)}
+                                />
                             </div>
-                        ) : (
-                            <>
-                                <div className="form-group">
-                                    <label className="form-label">头像</label>
-                                    <label
-                                        className="avatar-upload"
-                                        htmlFor="cat-avatar"
-                                        onClick={() => fileInputRef.current?.click()}
-                                    >
-                                        {avatarUrl ? (
-                                            <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" />
-                                        ) : (
-                                            <span className="avatar-upload-icon">📷</span>
-                                        )}
-                                        <span className="text-sm text-secondary">
-                                            {uploading ? '上传中...' : '点击上传照片'}
-                                        </span>
-                                        <input
-                                            ref={fileInputRef}
-                                            id="cat-avatar"
-                                            type="file"
-                                            accept="image/*"
-                                            className="file-input-hidden"
-                                            onChange={handleAvatarUpload}
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="cat-name">名字 *</label>
-                                    <input
-                                        id="cat-name"
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="输入猫咪名字"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                        required
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label" htmlFor="cat-breed">品种</label>
-                                    <input
-                                        id="cat-breed"
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="如：英短、美短、橘猫"
-                                        value={breed}
-                                        onChange={(e) => setBreed(e.target.value)}
-                                    />
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group flex-1">
-                                        <label className="form-label" htmlFor="cat-birthday">生日</label>
-                                        <input
-                                            id="cat-birthday"
-                                            type="date"
-                                            className="form-input"
-                                            value={birthday}
-                                            onChange={(e) => setBirthday(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="form-group flex-1">
-                                        <label className="form-label" htmlFor="cat-adopted">领养日</label>
-                                        <input
-                                            id="cat-adopted"
-                                            type="date"
-                                            className="form-input"
-                                            value={adoptedAt}
-                                            onChange={(e) => setAdoptedAt(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="cat-actions-row">
-                                    <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
-                                        {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
-                                    </Button>
-                                </div>
-                            </>
-                        )}
+                            <div className="form-group flex-1">
+                                <label className="form-label" htmlFor="cat-adopted">领养日</label>
+                                <input
+                                    id="cat-adopted"
+                                    type="date"
+                                    className="form-input"
+                                    value={adoptedAt}
+                                    onChange={(e) => setAdoptedAt(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="cat-actions-row">
+                            <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
+                                {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                fullWidth
+                                onClick={openDeleteCatModal}
+                                disabled={!catId || createMode}
+                            >
+                                删除猫咪
+                            </Button>
+                        </div>
                     </Card>
                 </div>
             </form>
