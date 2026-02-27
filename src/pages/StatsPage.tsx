@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -22,7 +21,6 @@ export function StatsPage() {
     const { user } = useSession()
     const { catId } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
-    const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
@@ -37,6 +35,8 @@ export function StatsPage() {
     const [healthName, setHealthName] = useState('')
     const [healthDate, setHealthDate] = useState(format(new Date(), 'yyyy-MM-dd'))
     const [healthNextDue, setHealthNextDue] = useState('')
+    const [healthMedicalPreset, setHealthMedicalPreset] = useState<'vomit' | 'cough' | 'fever' | 'other'>('vomit')
+    const [healthNotes, setHealthNotes] = useState('')
     const [editingHealthId, setEditingHealthId] = useState<string | null>(null)
     const [healthSaving, setHealthSaving] = useState(false)
 
@@ -55,7 +55,6 @@ export function StatsPage() {
     const [weightSaving, setWeightSaving] = useState(false)
     const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
-    const [vomitSaving, setVomitSaving] = useState(false)
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
@@ -134,6 +133,7 @@ export function StatsPage() {
                         name: healthName.trim(),
                         date: healthDate,
                         next_due: healthNextDue || null,
+                        notes: healthNotes.trim() || null,
                     })
                     .eq('id', editingHealthId)
             } else {
@@ -143,6 +143,7 @@ export function StatsPage() {
                     name: healthName.trim(),
                     date: healthDate,
                     next_due: healthNextDue || null,
+                    notes: healthNotes.trim() || null,
                     created_by: user.id,
                 })
             }
@@ -162,6 +163,8 @@ export function StatsPage() {
         setHealthName('')
         setHealthDate(format(new Date(), 'yyyy-MM-dd'))
         setHealthNextDue('')
+        setHealthMedicalPreset('vomit')
+        setHealthNotes('')
         setHealthType('vaccine')
         setEditingHealthId(null)
     }
@@ -220,6 +223,13 @@ export function StatsPage() {
         setHealthName(item.name)
         setHealthDate(item.date)
         setHealthNextDue(item.next_due || '')
+        setHealthNotes(item.notes || '')
+        if (item.type === 'medical') {
+            if (item.name.includes('呕吐')) setHealthMedicalPreset('vomit')
+            else if (item.name.includes('咳嗽')) setHealthMedicalPreset('cough')
+            else if (item.name.includes('发热')) setHealthMedicalPreset('fever')
+            else setHealthMedicalPreset('other')
+        }
         setHealthModalOpen(true)
     }
 
@@ -314,40 +324,6 @@ export function StatsPage() {
             setPendingDelete(null)
         }
     }
-
-    const addVomitRecord = useCallback(async () => {
-        if (!catId || !user) return
-        setVomitSaving(true)
-        try {
-            const today = format(new Date(), 'yyyy-MM-dd')
-            await supabase.from('health_records').insert({
-                cat_id: catId,
-                type: 'medical',
-                name: '呕吐',
-                date: today,
-                next_due: null,
-                created_by: user.id,
-            })
-            await loadData()
-            lightHaptic()
-            pushToast('success', '已记录呕吐 🤮')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '呕吐记录失败，请稍后重试'))
-        } finally {
-            setVomitSaving(false)
-        }
-    }, [catId, loadData, pushToast, user])
-
-    useEffect(() => {
-        const quick = searchParams.get('quick')
-        if (quick !== 'vomit') return
-        void addVomitRecord()
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev)
-            next.delete('quick')
-            return next
-        }, { replace: true })
-    }, [addVomitRecord, searchParams, setSearchParams])
 
     const exportVetReport = () => {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
@@ -552,14 +528,9 @@ export function StatsPage() {
                 <Card variant="default" padding="md">
                     <div className="section-row">
                         <h2 className="text-lg font-semibold">💉 健康记录</h2>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <Button variant="secondary" size="sm" onClick={addVomitRecord} disabled={vomitSaving || !online}>
-                                {vomitSaving ? '记录中...' : '🤮 记呕吐'}
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => setHealthModalOpen(true)}>
-                                + 添加
-                            </Button>
-                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => { resetHealthForm(); setHealthModalOpen(true) }}>
+                            + 添加
+                        </Button>
                     </div>
 
                     {healthRecords.length > 0 ? (
@@ -636,7 +607,14 @@ export function StatsPage() {
                                 <button
                                     key={t}
                                     className={`health-type-btn ${healthType === t ? 'health-type-active' : ''}`}
-                                    onClick={() => setHealthType(t)}
+                                    onClick={() => {
+                                        setHealthType(t)
+                                        if (t === 'medical') {
+                                            const map = { vomit: '呕吐', cough: '咳嗽', fever: '发热', other: '' }
+                                            setHealthName(map[healthMedicalPreset])
+                                            setHealthNextDue('')
+                                        }
+                                    }}
                                 >
                                     {healthTypeLabels[t].icon} {healthTypeLabels[t].label}
                                 </button>
@@ -644,16 +622,65 @@ export function StatsPage() {
                         </div>
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label" htmlFor="health-name">名称</label>
-                        <input
-                            id="health-name"
-                            className="form-input"
-                            placeholder="如：三联疫苗、大宠爱"
-                            value={healthName}
-                            onChange={(e) => setHealthName(e.target.value)}
-                        />
-                    </div>
+                    {healthType === 'medical' ? (
+                        <>
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="health-medical-preset">就医类型</label>
+                                <select
+                                    id="health-medical-preset"
+                                    className="form-input"
+                                    value={healthMedicalPreset}
+                                    onChange={(e) => {
+                                        const next = e.target.value as 'vomit' | 'cough' | 'fever' | 'other'
+                                        setHealthMedicalPreset(next)
+                                        if (next === 'vomit') setHealthName('呕吐')
+                                        if (next === 'cough') setHealthName('咳嗽')
+                                        if (next === 'fever') setHealthName('发热')
+                                        if (next === 'other') setHealthName('')
+                                    }}
+                                >
+                                    <option value="vomit">呕吐</option>
+                                    <option value="cough">咳嗽</option>
+                                    <option value="fever">发热</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            {healthMedicalPreset === 'other' && (
+                                <div className="form-group">
+                                    <label className="form-label" htmlFor="health-name">症状名称</label>
+                                    <input
+                                        id="health-name"
+                                        className="form-input"
+                                        placeholder="请输入症状"
+                                        value={healthName}
+                                        onChange={(e) => setHealthName(e.target.value)}
+                                    />
+                                </div>
+                            )}
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="health-notes">症状备注</label>
+                                <textarea
+                                    id="health-notes"
+                                    className="form-input"
+                                    placeholder="可填写频次、状态、触发情况"
+                                    rows={3}
+                                    value={healthNotes}
+                                    onChange={(e) => setHealthNotes(e.target.value)}
+                                />
+                            </div>
+                        </>
+                    ) : (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="health-name">名称</label>
+                            <input
+                                id="health-name"
+                                className="form-input"
+                                placeholder={healthType === 'vaccine' ? '如：三联疫苗' : '如：大宠爱'}
+                                value={healthName}
+                                onChange={(e) => setHealthName(e.target.value)}
+                            />
+                        </div>
+                    )}
 
                     <div className="form-row">
                         <div className="form-group flex-1">
@@ -666,16 +693,18 @@ export function StatsPage() {
                                 onChange={(e) => setHealthDate(e.target.value)}
                             />
                         </div>
-                        <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="health-next">下次到期</label>
-                            <input
-                                id="health-next"
-                                type="date"
-                                className="form-input"
-                                value={healthNextDue}
-                                onChange={(e) => setHealthNextDue(e.target.value)}
-                            />
-                        </div>
+                        {healthType !== 'medical' && (
+                            <div className="form-group flex-1">
+                                <label className="form-label" htmlFor="health-next">下次到期</label>
+                                <input
+                                    id="health-next"
+                                    type="date"
+                                    className="form-input"
+                                    value={healthNextDue}
+                                    onChange={(e) => setHealthNextDue(e.target.value)}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving || !online}>
