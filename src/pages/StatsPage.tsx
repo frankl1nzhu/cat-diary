@@ -325,7 +325,7 @@ export function StatsPage() {
         }
     }
 
-    const exportVetReport = () => {
+    const exportVetReport = (lang: 'zh' | 'en') => {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         const recentWeights = weights.filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
         const recentHealth = healthRecords.filter((h) => new Date(h.date).getTime() >= cutoff)
@@ -340,20 +340,55 @@ export function StatsPage() {
             return inRange && abnormal
         })
 
+        const isZh = lang === 'zh'
+        const t = isZh
+            ? {
+                reportTitle: '🐱 就医报告',
+                last30Days: '最近30天',
+                weightChange: '体重变化',
+                vomitRecords: '呕吐记录',
+                abnormalPoopRecords: '异常便便记录',
+                healthRecords: '健康记录',
+                noRecord: '暂无记录',
+                noAbnormalRecord: '暂无异常记录',
+                popupBlocked: '导出窗口被拦截，请允许弹窗后重试',
+                typeLabel: { vaccine: '疫苗', deworming: '驱虫', medical: '就医' } as const,
+                colorLabel: { red: '红色', black: '黑色', white: '白色' } as const,
+                medicalFormat: (type: string, color: string) => `布里斯托${type}型，颜色${color}`,
+                healthFormat: (name: string, type: string, notes?: string | null) => `${name}（${type}）${notes ? `：${notes}` : ''}`,
+            }
+            : {
+                reportTitle: '🐱 Vet Report',
+                last30Days: 'Last 30 Days',
+                weightChange: 'Weight Trend',
+                vomitRecords: 'Vomiting Records',
+                abnormalPoopRecords: 'Abnormal Stool Records',
+                healthRecords: 'Health Records',
+                noRecord: 'No records',
+                noAbnormalRecord: 'No abnormal records',
+                popupBlocked: 'Popup blocked. Please allow popups and try again.',
+                typeLabel: { vaccine: 'Vaccine', deworming: 'Deworming', medical: 'Medical' } as const,
+                colorLabel: { red: 'red', black: 'black', white: 'white' } as const,
+                medicalFormat: (type: string, color: string) => `Bristol type ${type}, color ${color}`,
+                healthFormat: (name: string, type: string, notes?: string | null) => `${name} (${type})${notes ? `: ${notes}` : ''}`,
+            }
+
+        const dateLocale = isZh ? 'zh-CN' : 'en-US'
+
         const html = `
         <html><head><meta charset="utf-8" /><title>Vet Report</title>
         <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
         </head><body>
-        <h1>🐱 就医报告</h1><div>最近30天</div>
-        <h2>体重变化</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString()}：${w.weight_kg} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>
-        <h2>呕吐记录</h2><ul>${recentVomit.map((v) => `<li>${new Date(v.date).toLocaleDateString()}：${v.name}</li>`).join('') || '<li>暂无记录</li>'}</ul>
-        <h2>异常便便记录</h2><ul>${recentAbnormalPoops.map((p) => `<li>${new Date(p.created_at).toLocaleDateString()}：布里斯托${p.bristol_type}型，颜色${p.color}</li>`).join('') || '<li>暂无异常记录</li>'}</ul>
-        <h2>健康记录</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString()}：${h.name}（${h.type}）</li>`).join('') || '<li>暂无记录</li>'}</ul>
+        <h1>${t.reportTitle}</h1><div>${t.last30Days}</div>
+        <h2>${t.weightChange}</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString(dateLocale)}: ${w.weight_kg} kg</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
+        <h2>${t.vomitRecords}</h2><ul>${recentVomit.map((v) => `<li>${new Date(v.date).toLocaleDateString(dateLocale)}: ${v.name}${v.notes ? (isZh ? `（${v.notes}）` : ` (${v.notes})`) : ''}</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
+        <h2>${t.abnormalPoopRecords}</h2><ul>${recentAbnormalPoops.map((p) => `<li>${new Date(p.created_at).toLocaleDateString(dateLocale)}: ${t.medicalFormat(String(p.bristol_type), t.colorLabel[p.color as 'red' | 'black' | 'white'] ?? p.color)}</li>`).join('') || `<li>${t.noAbnormalRecord}</li>`}</ul>
+        <h2>${t.healthRecords}</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString(dateLocale)}: ${t.healthFormat(h.name, t.typeLabel[h.type], h.notes)}</li>`).join('') || `<li>${t.noRecord}</li>`}</ul>
         </body></html>`
 
         const reportWindow = window.open('', '_blank')
         if (!reportWindow) {
-            pushToast('error', '导出窗口被拦截，请允许弹窗后重试')
+            pushToast('error', t.popupBlocked)
             return
         }
         reportWindow.document.write(html)
@@ -385,8 +420,9 @@ export function StatsPage() {
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">📊 统计</h1>
                 <p className="text-secondary text-sm">健康数据与库存管理</p>
-                <div style={{ marginTop: '10px' }}>
-                    <Button variant="secondary" size="sm" onClick={exportVetReport}>导出最近30天就医报告</Button>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>导出就医报告（中文）</Button>
+                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>Export Vet Report (EN)</Button>
                 </div>
             </div>
 
