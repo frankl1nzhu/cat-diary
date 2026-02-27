@@ -150,6 +150,14 @@
     display: flex;
     gap: var(--space-4);
     justify-content: center;
+    margin-bottom: var(--space-3);
+}
+
+.mood-head-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
 }
 
 .mood-btn {
@@ -178,6 +186,38 @@
 
 .current-mood {
     font-size: var(--font-size-lg);
+}
+
+.mood-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-1);
+}
+
+.mood-day {
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.mood-day-happy {
+    background: rgba(107, 203, 119, 0.26);
+    color: var(--color-success);
+}
+
+.mood-day-angry {
+    background: rgba(255, 107, 107, 0.2);
+    color: var(--color-danger);
+}
+
+.mood-day-sleepy {
+    background: rgba(168, 216, 234, 0.2);
+    color: var(--color-secondary);
 }
 
 .mb-2 {

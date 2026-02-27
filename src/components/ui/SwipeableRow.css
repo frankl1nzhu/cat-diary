@@ -2,6 +2,7 @@
     position: relative;
     overflow: hidden;
     border-radius: var(--radius-md);
+    min-height: 72px;
 }
 
 .swipe-delete {
@@ -13,10 +14,16 @@
     background: var(--color-danger);
     color: #fff;
     font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    font-weight: 600;
 }
 
 .swipe-content {
     position: relative;
     transition: transform var(--transition-fast);
     will-change: transform;
+    touch-action: pan-y;
 }

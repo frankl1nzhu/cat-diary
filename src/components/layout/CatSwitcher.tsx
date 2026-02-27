@@ -24,7 +24,7 @@ export function CatSwitcher() {
                     ))
                 )}
             </select>
-            <button className="cat-add-btn" onClick={() => navigate('/settings?mode=new')} aria-label="新增猫咪">
+            <button type="button" className="cat-add-btn" onClick={() => navigate('/settings?mode=new')} aria-label="新增猫咪">
                 ＋
             </button>
         </div>

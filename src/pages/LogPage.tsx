@@ -485,6 +485,27 @@ export function LogPage() {
         })
     }
 
+    const handleDateStartChange = (value: string) => {
+        setDateStart(value)
+        if (dateEnd && value && dateEnd < value) {
+            setDateEnd(value)
+        }
+    }
+
+    const handleDateEndChange = (value: string) => {
+        if (dateStart && value && value < dateStart) {
+            pushToast('error', '结束日期必须晚于或等于开始日期')
+            setDateEnd(dateStart)
+            return
+        }
+        setDateEnd(value)
+    }
+
+    const clearDateFilter = () => {
+        setDateStart('')
+        setDateEnd('')
+    }
+
     const moveMoodSelection = (direction: 1 | -1) => {
         const options: Array<'😸' | '😾' | '😴'> = ['😸', '😾', '😴']
         const currentIndex = options.findIndex((item) => item === moodValue)
@@ -693,7 +714,7 @@ export function LogPage() {
                             type="date"
                             className="form-input"
                             value={dateStart}
-                            onChange={(event) => setDateStart(event.target.value)}
+                            onChange={(event) => handleDateStartChange(event.target.value)}
                             aria-label="开始日期"
                         />
                         <span className="text-secondary text-sm">至</span>
@@ -701,9 +722,11 @@ export function LogPage() {
                             type="date"
                             className="form-input"
                             value={dateEnd}
-                            onChange={(event) => setDateEnd(event.target.value)}
+                            onChange={(event) => handleDateEndChange(event.target.value)}
+                            min={dateStart || undefined}
                             aria-label="结束日期"
                         />
+                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>全部日期</button>
                     </div>
                 </Card>
             </div>

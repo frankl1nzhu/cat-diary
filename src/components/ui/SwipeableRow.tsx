@@ -8,20 +8,21 @@ interface SwipeableRowProps {
 
 export function SwipeableRow({ onDelete, children }: SwipeableRowProps) {
     const startXRef = useRef<number | null>(null)
+    const startOffsetRef = useRef(0)
     const [offsetX, setOffsetX] = useState(0)
     const [open, setOpen] = useState(false)
 
     const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
         startXRef.current = e.touches[0].clientX
+        startOffsetRef.current = offsetX
     }
 
     const onTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
         if (startXRef.current === null) return
         const currentX = e.touches[0].clientX
         const delta = currentX - startXRef.current
-        if (delta < 0) {
-            setOffsetX(Math.max(delta, -88))
-        }
+        const next = Math.max(Math.min(startOffsetRef.current + delta, 0), -88)
+        setOffsetX(next)
     }
 
     const onTouchEnd = () => {

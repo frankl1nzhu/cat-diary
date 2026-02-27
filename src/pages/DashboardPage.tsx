@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
-import { StatusBadge } from '../components/ui/StatusBadge'
 import { Modal } from '../components/ui/Modal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
@@ -14,7 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { sendReminderPush } from '../lib/pushServer'
-import { differenceInDays, format, addMonths } from 'date-fns'
+import { differenceInDays, format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
 import './DashboardPage.css'
 
@@ -39,6 +38,7 @@ export function DashboardPage() {
     const [feedModalOpen, setFeedModalOpen] = useState(false)
     const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
     const [todayMood, setTodayMood] = useState<MoodType | null>(null)
+    const [monthMoodMap, setMonthMoodMap] = useState<Record<string, MoodType>>({})
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [nextDeworming, setNextDeworming] = useState<string | null>(null)
@@ -67,7 +67,10 @@ export function DashboardPage() {
 
     const particleIdRef = useRef(1)
 
-    const today = useMemo(() => new Date().toISOString().split('T')[0], [])
+    const [today, setToday] = useState(() => new Date().toISOString().split('T')[0])
+    const monthStart = useMemo(() => startOfMonth(new Date(today)), [today])
+    const monthEnd = useMemo(() => endOfMonth(new Date(today)), [today])
+    const monthDays = useMemo(() => eachDayOfInterval({ start: monthStart, end: monthEnd }), [monthEnd, monthStart])
 
     const pickDefaultMeal = useCallback(() => {
         const hour = new Date().getHours()
@@ -111,7 +114,7 @@ export function DashboardPage() {
         weekStart.setDate(weekStart.getDate() - 6)
         const weekStartIso = `${format(weekStart, 'yyyy-MM-dd')}T00:00:00`
 
-        const [feedRes, moodRes, diaryRes, invRes, healthRes, weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes] = await Promise.all([
+        const [feedRes, moodRes, diaryRes, invRes, healthRes, weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes, monthMoodsRes] = await Promise.all([
             supabase
                 .from('feed_status')
                 .select('*')
@@ -165,6 +168,12 @@ export function DashboardPage() {
                 .eq('cat_id', catId)
                 .gte('recorded_at', weekStartIso)
                 .order('recorded_at', { ascending: true }),
+            supabase
+                .from('mood_logs')
+                .select('*')
+                .eq('cat_id', catId)
+                .gte('date', format(monthStart, 'yyyy-MM-dd'))
+                .lte('date', format(monthEnd, 'yyyy-MM-dd')),
         ])
 
         if (feedRes.data) setTodayFeeds(feedRes.data)
@@ -200,12 +209,31 @@ export function DashboardPage() {
         } else {
             setWeekWeightDelta(null)
         }
+
+        if (monthMoodsRes.data) {
+            const map: Record<string, MoodType> = {}
+            monthMoodsRes.data.forEach((entry) => {
+                map[entry.date] = entry.mood
+            })
+            setMonthMoodMap(map)
+        }
         setLoading(false)
-    }, [catId, today])
+    }, [catId, monthEnd, monthStart, today])
 
     useEffect(() => {
         loadData()
     }, [loadData])
+
+    useEffect(() => {
+        const now = new Date()
+        const next = new Date(now)
+        next.setHours(24, 0, 2, 0)
+        const timer = window.setTimeout(() => {
+            setToday(new Date().toISOString().split('T')[0])
+        }, next.getTime() - now.getTime())
+
+        return () => window.clearTimeout(timer)
+    }, [today])
 
     useEffect(() => {
         const quick = searchParams.get('quick')
@@ -370,6 +398,12 @@ export function DashboardPage() {
         white: '⬜ 白色 ⚠️',
     }
 
+    const moodColorMap: Record<MoodType, string> = {
+        '😸': 'mood-day-happy',
+        '😾': 'mood-day-angry',
+        '😴': 'mood-day-sleepy',
+    }
+
     // ─── Inventory alerts ─────────────────────────
     const lowInventory = inventory.filter((i) => i.status !== 'plenty')
 
@@ -416,11 +450,6 @@ export function DashboardPage() {
                 // no-op: frontend local notification fallback already exists
             })
     }, [catId, daysToDeworming, lowInventory])
-
-    const openFeedModal = () => {
-        setSelectedMeal(pickDefaultMeal())
-        setFeedModalOpen(true)
-    }
 
     const handleOnboardingSave = async () => {
         if (!user || !onboardingName.trim()) {
@@ -583,34 +612,13 @@ export function DashboardPage() {
                 </div>
             )}
 
-            {/* ── Quick Actions Bento Grid ── */}
-            <div className="bento-grid">
-                {/* Feed Status */}
-                <Card variant="glass" className="bento-item" onClick={openFeedModal} aria-label="记录喂食">
-                    <div className="bento-icon">🍽️</div>
-                    <div className="bento-label">记录喂食</div>
-                    {todayFeeds.length > 0 ? (
-                        <>
-                            <StatusBadge status="fed" size="sm" label={`今日${todayFeeds.length}次`} />
-                            <span className="feed-time text-muted text-xs">
-                                最近 {format(new Date(todayFeeds[0].fed_at!), 'HH:mm')}
-                            </span>
-                        </>
-                    ) : (
-                        <StatusBadge status="not_fed" size="sm" />
-                    )}
-                </Card>
-
-                {/* Poop Button */}
-                <Card variant="glass" className="bento-item poop-card" onClick={() => setPoopModalOpen(true)} aria-label="记录便便">
-                    <div className="bento-icon poop-icon">💩</div>
-                    <div className="bento-label">一键铲屎</div>
-                </Card>
-
-                {/* Mood Picker */}
-                <Card variant="glass" className="bento-item span-2" aria-label="记录心情">
-                    <div className="bento-label mb-2">
-                        今日心情 {todayMood && <span className="current-mood">{todayMood}</span>}
+            <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+                <Card variant="glass" padding="md" aria-label="记录心情">
+                    <div className="mood-head-row">
+                        <div className="bento-label">今日心情</div>
+                        <span className="text-sm text-secondary">
+                            {todayMood ? `已记录：${todayMood}` : '未记录'}
+                        </span>
                     </div>
                     <div
                         className="mood-picker"
@@ -640,6 +648,21 @@ export function DashboardPage() {
                                 {mood}
                             </button>
                         ))}
+                    </div>
+                    <div className="mood-calendar">
+                        {monthDays.map((day) => {
+                            const key = format(day, 'yyyy-MM-dd')
+                            const mood = monthMoodMap[key]
+                            return (
+                                <div
+                                    key={key}
+                                    className={`mood-day ${mood ? moodColorMap[mood] : ''}`}
+                                    title={`${format(day, 'MM/dd')} ${mood || '无记录'}`}
+                                >
+                                    {getDate(day)}
+                                </div>
+                            )
+                        })}
                     </div>
                 </Card>
             </div>

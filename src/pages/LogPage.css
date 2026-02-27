@@ -43,6 +43,16 @@
     min-width: 0;
 }
 
+.timeline-date-reset {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+}
+
 /* ── Timeline ── */
 .timeline {
     display: flex;

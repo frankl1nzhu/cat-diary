@@ -47,6 +47,7 @@ export function StatsPage() {
     const [weightModalOpen, setWeightModalOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
     const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [weightWindowDays, setWeightWindowDays] = useState(30)
     const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
@@ -74,10 +75,15 @@ export function StatsPage() {
     useEffect(() => { loadData() }, [loadData])
 
     // ─── Weight chart data (memoized) ───────────────
-    const chartData = useMemo(() => weights.map((w) => ({
-        date: format(new Date(w.recorded_at), 'MM/dd'),
-        weight: w.weight_kg,
-    })), [weights])
+    const chartData = useMemo(() => {
+        const cutoff = Date.now() - (weightWindowDays - 1) * 24 * 60 * 60 * 1000
+        return weights
+            .filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
+            .map((w) => ({
+                date: format(new Date(w.recorded_at), 'MM/dd'),
+                weight: w.weight_kg,
+            }))
+    }, [weightWindowDays, weights])
 
     const poopFrequencyData = useMemo(() => {
         const dayMap = new Map<string, number>()
@@ -214,13 +220,6 @@ export function StatsPage() {
         setHealthModalOpen(true)
     }
 
-    const openEditWeight = (item: WeightRecord) => {
-        setEditingWeightId(item.id)
-        setWeightValue(String(item.weight_kg))
-        setWeightDate(format(new Date(item.recorded_at), 'yyyy-MM-dd'))
-        setWeightModalOpen(true)
-    }
-
     const deleteHealthRecord = async (id: string) => {
         try {
             await supabase.from('health_records').delete().eq('id', id)
@@ -351,10 +350,6 @@ export function StatsPage() {
         medical: { icon: '🏥', label: '就医' },
     }
 
-    const recentWeights = [...weights].sort(
-        (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
-    )
-
     if (loading) {
         return (
             <div className="stats-page fade-in">
@@ -371,6 +366,9 @@ export function StatsPage() {
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">📊 统计</h1>
                 <p className="text-secondary text-sm">健康数据与库存管理</p>
+                <div style={{ marginTop: '10px' }}>
+                    <Button variant="secondary" size="sm" onClick={exportVetReport}>导出最近30天就医报告</Button>
+                </div>
             </div>
 
             {/* ── Weight Chart ── */}
@@ -382,8 +380,16 @@ export function StatsPage() {
                             + 添加
                         </Button>
                     </div>
-                    <div className="mb-4">
-                        <Button variant="secondary" size="sm" onClick={exportVetReport}>导出最近30天就医报告</Button>
+                    <div className="weight-window-row">
+                        <label className="text-sm text-secondary" htmlFor="weight-window-range">趋势区间：近 {weightWindowDays} 天</label>
+                        <input
+                            id="weight-window-range"
+                            type="range"
+                            min="7"
+                            max="30"
+                            value={weightWindowDays}
+                            onChange={(event) => setWeightWindowDays(Number(event.target.value))}
+                        />
                     </div>
                     {chartData.length >= 2 ? (
                         <div className="chart-container">
@@ -495,18 +501,6 @@ export function StatsPage() {
                         </div>
                     </div>
 
-                    {recentWeights.length > 0 && (
-                        <div className="weight-list">
-                            {recentWeights.slice(0, 20).map((item) => (
-                                <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'weight' })}>
-                                    <div className="weight-item" onClick={() => openEditWeight(item)}>
-                                        <span className="text-sm font-semibold">{item.weight_kg} kg</span>
-                                        <span className="text-muted text-xs">{format(new Date(item.recorded_at), 'yyyy/MM/dd')}</span>
-                                    </div>
-                                </SwipeableRow>
-                            ))}
-                        </div>
-                    )}
                 </Card>
             </div>
 
@@ -707,7 +701,7 @@ export function StatsPage() {
                         <input
                             id="weight-date"
                             type="date"
-                            className="form-input"
+                            className="form-input weight-date-input"
                             value={weightDate}
                             onChange={(e) => setWeightDate(e.target.value)}
                         />

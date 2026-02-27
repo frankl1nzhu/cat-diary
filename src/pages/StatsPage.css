@@ -18,6 +18,17 @@
     gap: var(--space-2);
 }
 
+.weight-window-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.weight-window-row input[type='range'] {
+    width: 100%;
+}
+
 .empty-state-sm {
     padding: var(--space-4) 0;
     text-align: center;
@@ -192,4 +203,8 @@
 
 .inv-status-active {
     background: rgba(248, 165, 194, 0.1);
+}
+
+.weight-date-input {
+    max-width: 220px;
 }
