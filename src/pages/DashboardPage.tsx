@@ -55,6 +55,14 @@ export function DashboardPage() {
 
     const today = useMemo(() => new Date().toISOString().split('T')[0], [])
 
+    const pickDefaultMeal = useCallback(() => {
+        const hour = new Date().getHours()
+        if (hour >= 5 && hour <= 10) return 'breakfast' as const
+        if (hour >= 11 && hour <= 14) return 'lunch' as const
+        if (hour >= 20) return 'snack' as const
+        return 'dinner' as const
+    }, [])
+
     const triggerRewardBurst = (icon: '💖' | '🐾') => {
         setRewardEmoji(icon)
         window.setTimeout(() => setRewardEmoji(null), 1000)
@@ -135,11 +143,7 @@ export function DashboardPage() {
         if (!quick) return
 
         if (quick === 'feed') {
-            const hour = new Date().getHours()
-            if (hour >= 5 && hour <= 10) setSelectedMeal('breakfast')
-            else if (hour >= 11 && hour <= 14) setSelectedMeal('lunch')
-            else if (hour >= 18 && hour <= 21) setSelectedMeal('dinner')
-            else setSelectedMeal('snack')
+            setSelectedMeal(pickDefaultMeal())
             setFeedModalOpen(true)
         }
         if (quick === 'poop') {
@@ -151,7 +155,7 @@ export function DashboardPage() {
             next.delete('quick')
             return next
         }, { replace: true })
-    }, [searchParams, setSearchParams])
+    }, [pickDefaultMeal, searchParams, setSearchParams])
 
     // ─── Realtime subscriptions ───────────────────
     useRealtimeSubscription('feed_status', () => {
@@ -345,11 +349,7 @@ export function DashboardPage() {
     }, [catId, daysToDeworming, lowInventory])
 
     const openFeedModal = () => {
-        const hour = new Date().getHours()
-        if (hour >= 5 && hour <= 10) setSelectedMeal('breakfast')
-        else if (hour >= 11 && hour <= 14) setSelectedMeal('lunch')
-        else if (hour >= 18 && hour <= 21) setSelectedMeal('dinner')
-        else setSelectedMeal('snack')
+        setSelectedMeal(pickDefaultMeal())
         setFeedModalOpen(true)
     }
 
