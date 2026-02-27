@@ -48,9 +48,22 @@ export function LogPage() {
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
 
+    const [poopOpen, setPoopOpen] = useState(false)
+    const [poopBristol, setPoopBristol] = useState<'1' | '2' | '3' | '4' | '5' | '6' | '7'>('4')
+    const [poopColor, setPoopColor] = useState<'brown' | 'dark_brown' | 'yellow' | 'green' | 'red' | 'black' | 'white'>('brown')
+    const [editingPoopId, setEditingPoopId] = useState<string | null>(null)
+    const [poopSaving, setPoopSaving] = useState(false)
+
+    const [moodOpen, setMoodOpen] = useState(false)
+    const [moodValue, setMoodValue] = useState<'😸' | '😾' | '😴'>('😸')
+    const [editingMoodId, setEditingMoodId] = useState<string | null>(null)
+    const [moodSaving, setMoodSaving] = useState(false)
+
     const [imageLightbox, setImageLightbox] = useState<string | null>(null)
+    const [lightboxScale, setLightboxScale] = useState(1)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const pinchStartDistanceRef = useRef<number | null>(null)
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async () => {
@@ -103,6 +116,45 @@ export function LogPage() {
         if (!file) return
         setDiaryImage(file)
         setDiaryImagePreview(URL.createObjectURL(file))
+    }
+
+    const openLightbox = (url: string) => {
+        setImageLightbox(url)
+        setLightboxScale(1)
+    }
+
+    const closeLightbox = () => {
+        setImageLightbox(null)
+        setLightboxScale(1)
+        pinchStartDistanceRef.current = null
+    }
+
+    const updateLightboxScale = (nextScale: number) => {
+        setLightboxScale(Math.min(3, Math.max(1, nextScale)))
+    }
+
+    const getPinchDistance = (touches: React.TouchList) => {
+        const dx = touches[0].clientX - touches[1].clientX
+        const dy = touches[0].clientY - touches[1].clientY
+        return Math.hypot(dx, dy)
+    }
+
+    const onLightboxTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length === 2) {
+            pinchStartDistanceRef.current = getPinchDistance(event.touches)
+        }
+    }
+
+    const onLightboxTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+        if (event.touches.length !== 2 || pinchStartDistanceRef.current === null) return
+        const distance = getPinchDistance(event.touches)
+        const ratio = distance / pinchStartDistanceRef.current
+        setLightboxScale((prev) => Math.min(3, Math.max(1, prev * ratio)))
+        pinchStartDistanceRef.current = distance
+    }
+
+    const onLightboxTouchEnd = () => {
+        pinchStartDistanceRef.current = null
     }
 
     const toggleTag = (tag: string) => {
@@ -218,6 +270,61 @@ export function LogPage() {
         setWeightOpen(true)
     }
 
+    const openEditPoop = (entry: PoopLog) => {
+        setEditingPoopId(entry.id)
+        setPoopBristol(entry.bristol_type)
+        setPoopColor(entry.color)
+        setPoopOpen(true)
+    }
+
+    const openEditMood = (entry: MoodLog) => {
+        setEditingMoodId(entry.id)
+        setMoodValue(entry.mood)
+        setMoodOpen(true)
+    }
+
+    const handlePoopSave = async () => {
+        if (!editingPoopId) return
+        setPoopSaving(true)
+        try {
+            await supabase
+                .from('poop_logs')
+                .update({ bristol_type: poopBristol, color: poopColor })
+                .eq('id', editingPoopId)
+
+            setPoopOpen(false)
+            setEditingPoopId(null)
+            await loadTimeline()
+            lightHaptic()
+            pushToast('success', '便便记录已更新 💩')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '更新失败，请稍后重试'))
+        } finally {
+            setPoopSaving(false)
+        }
+    }
+
+    const handleMoodSave = async () => {
+        if (!editingMoodId) return
+        setMoodSaving(true)
+        try {
+            await supabase
+                .from('mood_logs')
+                .update({ mood: moodValue })
+                .eq('id', editingMoodId)
+
+            setMoodOpen(false)
+            setEditingMoodId(null)
+            await loadTimeline()
+            lightHaptic()
+            pushToast('success', '心情记录已更新')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '更新失败，请稍后重试'))
+        } finally {
+            setMoodSaving(false)
+        }
+    }
+
     const deleteTimelineItem = async (item: TimelineItem) => {
         try {
             if (item.type === 'diary') {
@@ -263,7 +370,7 @@ export function LogPage() {
                                     <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
                                 </div>
                                 {item.data.image_url && (
-                                    <button className="timeline-img-btn" onClick={() => setImageLightbox(item.data.image_url)}>
+                                    <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
                                         <img src={item.data.image_url} alt="" className="timeline-img" />
                                     </button>
                                 )}
@@ -285,6 +392,9 @@ export function LogPage() {
                         <Card variant="default" padding="md" className={`timeline-card ${isAbnormal ? 'timeline-warn' : ''}`}>
                             <div className="timeline-badge poop-badge">💩</div>
                             <div className="timeline-content">
+                                <div className="timeline-actions">
+                                    <button className="timeline-action-btn" onClick={() => openEditPoop(item.data)}>编辑</button>
+                                </div>
                                 <p className="text-sm">
                                     布里斯托 {item.data.bristol_type} 型 · {bristolLabels[String(item.data.bristol_type)]}
                                     {' '}{colorEmojis[item.data.color]}
@@ -317,6 +427,9 @@ export function LogPage() {
                         <Card variant="default" padding="md" className="timeline-card">
                             <div className="timeline-badge mood-badge">{item.data.mood}</div>
                             <div className="timeline-content">
+                                <div className="timeline-actions">
+                                    <button className="timeline-action-btn" onClick={() => openEditMood(item.data)}>编辑</button>
+                                </div>
                                 <p className="text-sm">今日心情 {item.data.mood}</p>
                                 <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd')}</span>
                             </div>
@@ -426,9 +539,90 @@ export function LogPage() {
                 </div>
             </Modal>
 
-            <Modal isOpen={Boolean(imageLightbox)} onClose={() => setImageLightbox(null)} title="📷 图片预览">
-                {imageLightbox && <img src={imageLightbox} alt="日记图片预览" className="lightbox-image" />}
+            <Modal isOpen={poopOpen} onClose={() => { setPoopOpen(false); setEditingPoopId(null) }} title="💩 编辑便便记录">
+                <div className="weight-form">
+                    <div className="form-group">
+                        <label className="form-label">布里斯托类型</label>
+                        <select
+                            className="form-input"
+                            value={poopBristol}
+                            onChange={(e) => setPoopBristol(e.target.value as '1' | '2' | '3' | '4' | '5' | '6' | '7')}
+                        >
+                            {(['1', '2', '3', '4', '5', '6', '7'] as const).map((type) => (
+                                <option key={type} value={type}>类型 {type} · {bristolLabels[type]}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">颜色</label>
+                        <select
+                            className="form-input"
+                            value={poopColor}
+                            onChange={(e) => setPoopColor(e.target.value as 'brown' | 'dark_brown' | 'yellow' | 'green' | 'red' | 'black' | 'white')}
+                        >
+                            {([
+                                { value: 'brown', label: '棕色' },
+                                { value: 'dark_brown', label: '深棕色' },
+                                { value: 'yellow', label: '黄色' },
+                                { value: 'green', label: '绿色' },
+                                { value: 'red', label: '红色' },
+                                { value: 'black', label: '黑色' },
+                                { value: 'white', label: '白色' },
+                            ] as const).map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving}>
+                        {poopSaving ? '保存中...' : '更新便便记录'}
+                    </Button>
+                </div>
             </Modal>
+
+            <Modal isOpen={moodOpen} onClose={() => { setMoodOpen(false); setEditingMoodId(null) }} title="😺 编辑心情记录">
+                <div className="weight-form">
+                    <div className="tag-picker">
+                        {(['😸', '😾', '😴'] as const).map((mood) => (
+                            <button
+                                key={mood}
+                                className={`tag-btn ${moodValue === mood ? 'tag-btn-active' : ''}`}
+                                onClick={() => setMoodValue(mood)}
+                            >
+                                {mood}
+                            </button>
+                        ))}
+                    </div>
+                    <Button variant="primary" fullWidth onClick={handleMoodSave} disabled={moodSaving}>
+                        {moodSaving ? '保存中...' : '更新心情'}
+                    </Button>
+                </div>
+            </Modal>
+
+            {imageLightbox && (
+                <div className="lightbox-overlay" onClick={closeLightbox}>
+                    <div className="lightbox-toolbar" onClick={(event) => event.stopPropagation()}>
+                        <button className="lightbox-btn" onClick={() => updateLightboxScale(lightboxScale - 0.2)}>-</button>
+                        <span className="lightbox-scale">{Math.round(lightboxScale * 100)}%</span>
+                        <button className="lightbox-btn" onClick={() => updateLightboxScale(lightboxScale + 0.2)}>+</button>
+                        <button className="lightbox-btn" onClick={() => updateLightboxScale(1)}>重置</button>
+                        <button className="lightbox-btn" onClick={closeLightbox}>关闭</button>
+                    </div>
+                    <div
+                        className="lightbox-stage"
+                        onClick={(event) => event.stopPropagation()}
+                        onTouchStart={onLightboxTouchStart}
+                        onTouchMove={onLightboxTouchMove}
+                        onTouchEnd={onLightboxTouchEnd}
+                    >
+                        <img
+                            src={imageLightbox}
+                            alt="日记图片预览"
+                            className="lightbox-image"
+                            style={{ transform: `scale(${lightboxScale})` }}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

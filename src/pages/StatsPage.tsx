@@ -42,6 +42,12 @@ export function StatsPage() {
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
     const [invSaving, setInvSaving] = useState(false)
 
+    const [weightModalOpen, setWeightModalOpen] = useState(false)
+    const [weightValue, setWeightValue] = useState('')
+    const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
+    const [weightSaving, setWeightSaving] = useState(false)
+
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
         if (!catId) { setLoading(false); return }
@@ -148,6 +154,12 @@ export function StatsPage() {
         setEditingInvId(null)
     }
 
+    const resetWeightForm = () => {
+        setWeightValue('')
+        setWeightDate(format(new Date(), 'yyyy-MM-dd'))
+        setEditingWeightId(null)
+    }
+
     const openEditInventory = (item: InventoryItem) => {
         setEditingInvId(item.id)
         setInvItemName(item.item_name)
@@ -162,6 +174,13 @@ export function StatsPage() {
         setHealthDate(item.date)
         setHealthNextDue(item.next_due || '')
         setHealthModalOpen(true)
+    }
+
+    const openEditWeight = (item: WeightRecord) => {
+        setEditingWeightId(item.id)
+        setWeightValue(String(item.weight_kg))
+        setWeightDate(format(new Date(item.recorded_at), 'yyyy-MM-dd'))
+        setWeightModalOpen(true)
     }
 
     const deleteHealthRecord = async (id: string) => {
@@ -180,6 +199,56 @@ export function StatsPage() {
             await supabase.from('inventory').delete().eq('id', id)
             lightHaptic()
             pushToast('success', '物资已删除')
+            await loadData()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+        }
+    }
+
+    const handleWeightSave = async () => {
+        if (!catId || !user) return
+        const kg = parseFloat(weightValue)
+        if (isNaN(kg) || kg <= 0) {
+            pushToast('error', '请输入有效体重')
+            return
+        }
+
+        setWeightSaving(true)
+        try {
+            if (editingWeightId) {
+                await supabase
+                    .from('weight_records')
+                    .update({
+                        weight_kg: kg,
+                        recorded_at: `${weightDate}T12:00:00.000Z`,
+                    })
+                    .eq('id', editingWeightId)
+            } else {
+                await supabase.from('weight_records').insert({
+                    cat_id: catId,
+                    weight_kg: kg,
+                    recorded_at: `${weightDate}T12:00:00.000Z`,
+                    created_by: user.id,
+                })
+            }
+
+            setWeightModalOpen(false)
+            resetWeightForm()
+            await loadData()
+            lightHaptic()
+            pushToast('success', editingWeightId ? '体重已更新' : '体重记录已保存')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '体重保存失败，请稍后重试'))
+        } finally {
+            setWeightSaving(false)
+        }
+    }
+
+    const deleteWeightRecord = async (id: string) => {
+        try {
+            await supabase.from('weight_records').delete().eq('id', id)
+            lightHaptic()
+            pushToast('success', '体重记录已删除')
             await loadData()
         } catch (err) {
             pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
@@ -224,6 +293,10 @@ export function StatsPage() {
         medical: { icon: '🏥', label: '就医' },
     }
 
+    const recentWeights = [...weights].sort(
+        (a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime()
+    )
+
     if (loading) {
         return (
             <div className="stats-page fade-in">
@@ -245,7 +318,12 @@ export function StatsPage() {
             {/* ── Weight Chart ── */}
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
-                    <h2 className="text-lg font-semibold mb-3">⚖️ 体重趋势</h2>
+                    <div className="section-row">
+                        <h2 className="text-lg font-semibold">⚖️ 体重趋势</h2>
+                        <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
+                            + 添加
+                        </Button>
+                    </div>
                     <div className="mb-4">
                         <Button variant="secondary" size="sm" onClick={exportVetReport}>导出最近30天就医报告</Button>
                     </div>
@@ -294,6 +372,19 @@ export function StatsPage() {
                                     ? `当前体重：${chartData[0].weight} kg，再记一次就能看趋势图了`
                                     : '还没有体重记录，去记录页添加吧'}
                             </p>
+                        </div>
+                    )}
+
+                    {recentWeights.length > 0 && (
+                        <div className="weight-list">
+                            {recentWeights.slice(0, 20).map((item) => (
+                                <SwipeableRow key={item.id} onDelete={() => deleteWeightRecord(item.id)}>
+                                    <div className="weight-item" onClick={() => openEditWeight(item)}>
+                                        <span className="text-sm font-semibold">{item.weight_kg} kg</span>
+                                        <span className="text-muted text-xs">{format(new Date(item.recorded_at), 'yyyy/MM/dd')}</span>
+                                    </div>
+                                </SwipeableRow>
+                            ))}
                         </div>
                     )}
                 </Card>
@@ -467,6 +558,37 @@ export function StatsPage() {
 
                     <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving}>
                         {invSaving ? '保存中...' : editingInvId ? '更新库存' : '添加物资'}
+                    </Button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={weightModalOpen} onClose={() => { setWeightModalOpen(false); resetWeightForm() }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 添加体重'}>
+                <div className="weight-form">
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="weight-value">体重 (kg)</label>
+                        <input
+                            id="weight-value"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="form-input"
+                            placeholder="4.50"
+                            value={weightValue}
+                            onChange={(e) => setWeightValue(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="weight-date">日期</label>
+                        <input
+                            id="weight-date"
+                            type="date"
+                            className="form-input"
+                            value={weightDate}
+                            onChange={(e) => setWeightDate(e.target.value)}
+                        />
+                    </div>
+                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving}>
+                        {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
                     </Button>
                 </div>
             </Modal>
