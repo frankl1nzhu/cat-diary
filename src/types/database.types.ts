@@ -113,6 +113,8 @@ export interface InventoryItem {
     cat_id: string
     item_name: string
     status: InventoryStatus
+    total_quantity: number | null
+    daily_consumption: number | null
     updated_by: string | null
     updated_at: string
 }
@@ -146,6 +148,22 @@ export interface FamilyMemberWithEmail {
 }
 
 /* ─── Database type for Supabase client ──────────── */
+
+/** Compute days remaining from total_quantity / daily_consumption. */
+export function computeDaysRemaining(item: InventoryItem): number | null {
+    if (item.total_quantity == null || item.daily_consumption == null || item.daily_consumption <= 0) return null
+    return item.total_quantity / item.daily_consumption
+}
+
+/** Derive status from days remaining: <3 = urgent, <7 = low, else plenty. */
+export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
+    const days = computeDaysRemaining(item)
+    if (days == null) return item.status // fallback to stored status
+    if (days < 3) return 'urgent'
+    if (days < 7) return 'low'
+    return 'plenty'
+}
+
 
 export interface Database {
     public: {

@@ -15,6 +15,7 @@ import { lightHaptic } from '../lib/haptics'
 import { sendReminderPush } from '../lib/pushServer'
 import { differenceInDays, format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
 import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
+import { computeInventoryStatus } from '../types/database.types'
 import './DashboardPage.css'
 
 type RewardParticle = {
@@ -415,14 +416,14 @@ export function DashboardPage() {
     }
 
     // ─── Inventory alerts ─────────────────────────
-    const lowInventory = inventory.filter((i) => i.status !== 'plenty')
+    const lowInventory = inventory.filter((i) => computeInventoryStatus(i) !== 'plenty')
 
     useEffect(() => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
 
         const todayKey = new Date().toISOString().split('T')[0]
 
-        if (lowInventory.some((item) => item.status === 'urgent')) {
+        if (lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')) {
             const key = `notify_inventory_${todayKey}`
             if (!localStorage.getItem(key)) {
                 new Notification('喵记库存提醒', {
@@ -444,7 +445,7 @@ export function DashboardPage() {
     }, [daysToDeworming, lowInventory])
 
     useEffect(() => {
-        const hasUrgentInventory = lowInventory.some((item) => item.status === 'urgent')
+        const hasUrgentInventory = lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')
         const hasDewormingReminder = daysToDeworming !== null && daysToDeworming <= 1
         if (!hasUrgentInventory && !hasDewormingReminder) return
 
@@ -712,7 +713,7 @@ export function DashboardPage() {
             {/* ── Inventory Alert Banner ── */}
             {lowInventory.length > 0 && (
                 <div className="inventory-alert mx-4">
-                    🛒 {lowInventory.map((i) => `${i.item_name}${i.status === 'urgent' ? '🔴' : '🟡'}`).join('、')} — 记得补货！
+                    🛒 {lowInventory.map((i) => `${i.item_name}${computeInventoryStatus(i) === 'urgent' ? '🔴' : '🟡'}`).join('、')} — 记得补货！
                 </div>
             )}
 

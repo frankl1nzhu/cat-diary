@@ -15,6 +15,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
+import { computeDaysRemaining, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
@@ -44,7 +45,8 @@ export function StatsPage() {
 
     const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
     const [invItemName, setInvItemName] = useState('')
-    const [invStatus, setInvStatus] = useState<InventoryStatus>('plenty')
+    const [invTotalQty, setInvTotalQty] = useState('')
+    const [invDailyConsumption, setInvDailyConsumption] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
     const [invSaving, setInvSaving] = useState(false)
 
@@ -180,17 +182,24 @@ export function StatsPage() {
     // ─── Save/update inventory ────────────────────
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
+        const totalQty = invTotalQty ? parseFloat(invTotalQty) : null
+        const dailyCons = invDailyConsumption ? parseFloat(invDailyConsumption) : null
+        // Compute status from quantity fields
+        const fakeItem = { total_quantity: totalQty, daily_consumption: dailyCons, status: 'plenty' as InventoryStatus } as InventoryItem
+        const status = computeInventoryStatus(fakeItem)
         setInvSaving(true)
         try {
             if (editingInvId) {
                 await supabase.from('inventory')
-                    .update({ item_name: invItemName.trim(), status: invStatus, updated_by: user.id })
+                    .update({ item_name: invItemName.trim(), status, total_quantity: totalQty, daily_consumption: dailyCons, updated_by: user.id })
                     .eq('id', editingInvId)
             } else {
                 await supabase.from('inventory').insert({
                     cat_id: catId,
                     item_name: invItemName.trim(),
-                    status: invStatus,
+                    status,
+                    total_quantity: totalQty,
+                    daily_consumption: dailyCons,
                     updated_by: user.id,
                 })
             }
@@ -208,7 +217,8 @@ export function StatsPage() {
 
     const resetInvForm = () => {
         setInvItemName('')
-        setInvStatus('plenty')
+        setInvTotalQty('')
+        setInvDailyConsumption('')
         setEditingInvId(null)
     }
 
@@ -221,7 +231,8 @@ export function StatsPage() {
     const openEditInventory = (item: InventoryItem) => {
         setEditingInvId(item.id)
         setInvItemName(item.item_name)
-        setInvStatus(item.status)
+        setInvTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
+        setInvDailyConsumption(item.daily_consumption != null ? String(item.daily_consumption) : '')
         setInventoryModalOpen(true)
     }
 
@@ -661,17 +672,26 @@ export function StatsPage() {
 
                     {inventory.length > 0 ? (
                         <div className="inventory-list">
-                            {inventory.map((item) => (
-                                <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'inventory' })}>
-                                    <div
-                                        className="inventory-item"
-                                        onClick={() => openEditInventory(item)}
-                                    >
-                                        <span className="text-sm">{item.item_name}</span>
-                                        <StatusBadge status={item.status} size="sm" />
-                                    </div>
-                                </SwipeableRow>
-                            ))}
+                            {inventory.map((item) => {
+                                const days = computeDaysRemaining(item)
+                                const derivedStatus = computeInventoryStatus(item)
+                                return (
+                                    <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'inventory' })}>
+                                        <div
+                                            className="inventory-item"
+                                            onClick={() => openEditInventory(item)}
+                                        >
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
+                                                <span className="text-sm">{item.item_name}</span>
+                                                {days != null && (
+                                                    <span className="text-xs text-muted">约剩 {Math.round(days)} 天</span>
+                                                )}
+                                            </div>
+                                            <StatusBadge status={derivedStatus} size="sm" />
+                                        </div>
+                                    </SwipeableRow>
+                                )
+                            })}
                         </div>
                     ) : (
                         <div className="empty-state-sm">
@@ -830,25 +850,49 @@ export function StatsPage() {
                         />
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label">库存状态</label>
-                        <div className="inv-status-grid">
-                            {([
-                                { value: 'plenty' as const, label: '🟢 充足', color: 'var(--color-success)' },
-                                { value: 'low' as const, label: '🟡 快没了', color: 'var(--color-warning)' },
-                                { value: 'urgent' as const, label: '🔴 紧急', color: 'var(--color-danger)' },
-                            ]).map((opt) => (
-                                <button
-                                    key={opt.value}
-                                    className={`inv-status-btn ${invStatus === opt.value ? 'inv-status-active' : ''}`}
-                                    style={invStatus === opt.value ? { borderColor: opt.color } : undefined}
-                                    onClick={() => setInvStatus(opt.value)}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
+                    <div className="form-row">
+                        <div className="form-group flex-1">
+                            <label className="form-label" htmlFor="inv-total-qty">总量</label>
+                            <input
+                                id="inv-total-qty"
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                className="form-input"
+                                placeholder="如：10"
+                                value={invTotalQty}
+                                onChange={(e) => setInvTotalQty(e.target.value)}
+                            />
+                        </div>
+                        <div className="form-group flex-1">
+                            <label className="form-label" htmlFor="inv-daily-consumption">每日消耗量</label>
+                            <input
+                                id="inv-daily-consumption"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="form-input"
+                                placeholder="如：0.5"
+                                value={invDailyConsumption}
+                                onChange={(e) => setInvDailyConsumption(e.target.value)}
+                            />
                         </div>
                     </div>
+
+                    {invTotalQty && invDailyConsumption && parseFloat(invDailyConsumption) > 0 && (
+                        <div className="inv-preview" style={{ marginBottom: '12px', padding: '8px 12px', borderRadius: '8px', background: 'var(--glass-bg)' }}>
+                            <p className="text-sm text-secondary">
+                                预计可用 <strong>{Math.round(parseFloat(invTotalQty) / parseFloat(invDailyConsumption))}</strong> 天
+                                {' · '}
+                                {(() => {
+                                    const days = parseFloat(invTotalQty) / parseFloat(invDailyConsumption)
+                                    if (days < 3) return <span style={{ color: 'var(--color-danger)' }}>🔴 紧急</span>
+                                    if (days < 7) return <span style={{ color: 'var(--color-warning)' }}>🟡 快没了</span>
+                                    return <span style={{ color: 'var(--color-success)' }}>🟢 充足</span>
+                                })()}
+                            </p>
+                        </div>
+                    )}
 
                     <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving || !online}>
                         {invSaving ? '保存中...' : editingInvId ? '更新库存' : '添加物资'}

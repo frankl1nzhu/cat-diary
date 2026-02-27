@@ -553,7 +553,7 @@ export function SettingsPage() {
                                         <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
                                         <div className="cat-actions-row">
-                                            <Button type="button" variant="ghost" fullWidth onClick={() => setProfileLocked(false)}>
+                                            <Button type="button" variant="ghost" fullWidth onClick={() => setProfileLocked(false)} disabled={myRole !== 'owner' && myRole !== 'admin'}>
                                                 编辑档案
                                             </Button>
                                             <Button
@@ -561,7 +561,7 @@ export function SettingsPage() {
                                                 variant="ghost"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
-                                                disabled={!catId || (myRole !== 'owner' && myRole !== 'admin' && cat?.created_by !== user?.id)}
+                                                disabled={!catId || (myRole !== 'owner' && myRole !== 'admin')}
                                             >
                                                 删除猫咪
                                             </Button>
@@ -664,7 +664,7 @@ export function SettingsPage() {
                                                 variant="ghost"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
-                                                disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin' && cat?.created_by !== user?.id)}
+                                                disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin')}
                                             >
                                                 删除猫咪
                                             </Button>
@@ -750,6 +750,20 @@ export function SettingsPage() {
                                             <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>将当前猫咪归属到该家庭</Button>
                                         </div>
                                     )}
+                                    {/* Create new family */}
+                                    <div className="form-group" style={{ marginTop: '16px' }}>
+                                        <label className="form-label" htmlFor="family-name">创建新家庭</label>
+                                        <input
+                                            id="family-name"
+                                            className="form-input"
+                                            placeholder="输入家庭名称"
+                                            value={familyName}
+                                            onChange={(e) => setFamilyName(e.target.value)}
+                                        />
+                                        <Button variant="secondary" onClick={handleCreateFamily} disabled={familySaving || !online} style={{ marginTop: '8px' }}>
+                                            {familySaving ? '处理中...' : '创建家庭'}
+                                        </Button>
+                                    </div>
                                     {/* Join another family */}
                                     <div className="form-group" style={{ marginTop: '16px' }}>
                                         <label className="form-label" htmlFor="family-invite-code">加入其他家庭</label>
