@@ -3,10 +3,13 @@
     flex-direction: column;
     min-height: 100dvh;
     position: relative;
+    overflow-x: hidden;
 }
 
 .app-main {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
 }

@@ -1,5 +1,7 @@
 .dashboard {
     padding-bottom: var(--space-8);
+    width: 100%;
+    overflow-x: hidden;
 }
 
 /* ── Cat Profile Card ── */

@@ -1,5 +1,7 @@
 .settings-page {
     padding-bottom: var(--space-8);
+    width: 100%;
+    overflow-x: hidden;
 }
 
 .page-header {

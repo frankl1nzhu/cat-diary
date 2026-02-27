@@ -5,8 +5,11 @@
     color: var(--color-text);
     max-width: min(90vw, 420px);
     width: 100%;
+    max-height: calc(100dvh - var(--space-8));
     padding: 0;
+    margin: auto;
     box-shadow: var(--shadow-lg);
+    overflow: hidden;
 }
 
 .modal::backdrop {
@@ -17,6 +20,8 @@
 
 .modal-content {
     padding: var(--space-6);
+    max-height: calc(100dvh - var(--space-8));
+    overflow-y: auto;
 }
 
 .modal-header {
