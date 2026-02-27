@@ -26,9 +26,26 @@ export interface Cat {
     breed: string | null
     avatar_url: string | null
     adopted_at: string | null
+    family_id: string | null
     created_by: string
     created_at: string
     updated_at: string
+}
+
+export interface Family {
+    id: string
+    name: string
+    invite_code: string
+    created_by: string | null
+    created_at: string
+}
+
+export interface FamilyMember {
+    id: string
+    family_id: string
+    user_id: string
+    role: string
+    created_at: string
 }
 
 export interface DiaryEntry {
@@ -129,6 +146,18 @@ export interface Database {
                 Row: Cat
                 Insert: Omit<Cat, 'id' | 'created_at' | 'updated_at'>
                 Update: Partial<Omit<Cat, 'id'>>
+                Relationships: []
+            }
+            families: {
+                Row: Family
+                Insert: Omit<Family, 'id' | 'created_at'>
+                Update: Partial<Omit<Family, 'id' | 'created_at'>>
+                Relationships: []
+            }
+            family_members: {
+                Row: FamilyMember
+                Insert: Omit<FamilyMember, 'id' | 'created_at'>
+                Update: Partial<Omit<FamilyMember, 'id' | 'created_at'>>
                 Relationships: []
             }
             diary_entries: {

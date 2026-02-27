@@ -188,6 +188,19 @@
     width: 100%;
 }
 
+.health-form input[type='date'],
+.weight-form input[type='date'] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    display: block;
+}
+
+.health-form .form-group,
+.weight-form .form-group {
+    min-width: 0;
+}
+
 /* ── Inventory Status ── */
 .inv-status-grid {
     display: flex;

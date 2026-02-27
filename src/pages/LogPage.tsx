@@ -14,14 +14,13 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
-import type { DiaryEntry, PoopLog, WeightRecord, MoodLog } from '../types/database.types'
+import type { DiaryEntry, PoopLog, WeightRecord } from '../types/database.types'
 import './LogPage.css'
 
 type TimelineItem =
     | { type: 'diary'; data: DiaryEntry; time: string }
     | { type: 'poop'; data: PoopLog; time: string }
     | { type: 'weight'; data: WeightRecord; time: string }
-    | { type: 'mood'; data: MoodLog; time: string }
 
 const TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇']
 
@@ -61,11 +60,6 @@ export function LogPage() {
     const [editingPoopId, setEditingPoopId] = useState<string | null>(null)
     const [poopSaving, setPoopSaving] = useState(false)
 
-    const [moodOpen, setMoodOpen] = useState(false)
-    const [moodValue, setMoodValue] = useState<'😸' | '😾' | '😴'>('😸')
-    const [editingMoodId, setEditingMoodId] = useState<string | null>(null)
-    const [moodSaving, setMoodSaving] = useState(false)
-
     const [imageLightbox, setImageLightbox] = useState<string | null>(null)
     const [lightboxScale, setLightboxScale] = useState(1)
     const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
@@ -75,7 +69,7 @@ export function LogPage() {
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
 
     const [keyword, setKeyword] = useState('')
-    const [filterTypes, setFilterTypes] = useState<Array<TimelineItem['type']>>(['diary', 'poop', 'weight', 'mood'])
+    const [filterTypes, setFilterTypes] = useState<Array<TimelineItem['type']>>(['diary'])
     const [dateStart, setDateStart] = useState('')
     const [dateEnd, setDateEnd] = useState('')
 
@@ -85,6 +79,7 @@ export function LogPage() {
     const lastTapAtRef = useRef(0)
     const dragStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null)
     const lightboxRef = useRef<HTMLDivElement>(null)
+    const dateRangeInitializedRef = useRef(false)
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async (nextLimit?: number) => {
@@ -92,18 +87,16 @@ export function LogPage() {
 
         const effectiveLimit = nextLimit ?? loadLimit
 
-        const [diaries, poops, weights, moods] = await Promise.all([
+        const [diaries, poops, weights] = await Promise.all([
             supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
             supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
             supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
-            supabase.from('mood_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
         ])
 
         const items: TimelineItem[] = []
         diaries.data?.forEach((d) => items.push({ type: 'diary', data: d, time: d.created_at }))
         poops.data?.forEach((p) => items.push({ type: 'poop', data: p, time: p.created_at }))
         weights.data?.forEach((w) => items.push({ type: 'weight', data: w, time: w.recorded_at }))
-        moods.data?.forEach((m) => items.push({ type: 'mood', data: m, time: m.created_at }))
 
         items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
         setTimeline(items)
@@ -111,7 +104,6 @@ export function LogPage() {
             (diaries.data?.length || 0) >= effectiveLimit
             || (poops.data?.length || 0) >= effectiveLimit
             || (weights.data?.length || 0) >= effectiveLimit
-            || (moods.data?.length || 0) >= effectiveLimit
         )
         setLoading(false)
     }, [catId, loadLimit])
@@ -120,6 +112,10 @@ export function LogPage() {
 
     useEffect(() => {
         setLoadLimit(50)
+        setFilterTypes(['diary'])
+        setDateStart('')
+        setDateEnd('')
+        dateRangeInitializedRef.current = false
     }, [catId])
 
     useEffect(() => {
@@ -146,8 +142,16 @@ export function LogPage() {
         catId ? `cat_id=eq.${catId}` : undefined)
     useRealtimeSubscription('weight_records', () => loadTimeline(),
         catId ? `cat_id=eq.${catId}` : undefined)
-    useRealtimeSubscription('mood_logs', () => loadTimeline(),
-        catId ? `cat_id=eq.${catId}` : undefined)
+
+    useEffect(() => {
+        if (dateRangeInitializedRef.current || timeline.length === 0) return
+        const sorted = [...timeline].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
+        const start = format(new Date(sorted[0].time), 'yyyy-MM-dd')
+        const end = format(new Date(sorted[sorted.length - 1].time), 'yyyy-MM-dd')
+        setDateStart(start)
+        setDateEnd(end)
+        dateRangeInitializedRef.current = true
+    }, [timeline])
 
     // ─── Add diary ────────────────────────────────
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -373,12 +377,6 @@ export function LogPage() {
         setPoopOpen(true)
     }
 
-    const openEditMood = (entry: MoodLog) => {
-        setEditingMoodId(entry.id)
-        setMoodValue(entry.mood)
-        setMoodOpen(true)
-    }
-
     const handlePoopSave = async () => {
         if (!editingPoopId) return
         setPoopSaving(true)
@@ -400,27 +398,6 @@ export function LogPage() {
         }
     }
 
-    const handleMoodSave = async () => {
-        if (!editingMoodId) return
-        setMoodSaving(true)
-        try {
-            await supabase
-                .from('mood_logs')
-                .update({ mood: moodValue })
-                .eq('id', editingMoodId)
-
-            setMoodOpen(false)
-            setEditingMoodId(null)
-            await loadTimeline()
-            lightHaptic()
-            pushToast('success', '心情记录已更新')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '更新失败，请稍后重试'))
-        } finally {
-            setMoodSaving(false)
-        }
-    }
-
     const deleteTimelineItem = async (item: TimelineItem) => {
         setDeleteSubmitting(true)
         try {
@@ -432,9 +409,6 @@ export function LogPage() {
             }
             if (item.type === 'weight') {
                 await supabase.from('weight_records').delete().eq('id', item.data.id)
-            }
-            if (item.type === 'mood') {
-                await supabase.from('mood_logs').delete().eq('id', item.data.id)
             }
             lightHaptic()
             pushToast('success', '记录已删除')
@@ -470,7 +444,7 @@ export function LogPage() {
             if (item.type === 'weight') {
                 return `体重 ${item.data.weight_kg}`.toLowerCase().includes(normalizedKeyword)
             }
-            return `心情 ${item.data.mood}`.toLowerCase().includes(normalizedKeyword)
+            return false
         })
     }, [dateEnd, dateStart, filterTypes, keyword, timeline])
 
@@ -503,13 +477,6 @@ export function LogPage() {
     const clearDateFilter = () => {
         setDateStart('')
         setDateEnd('')
-    }
-
-    const moveMoodSelection = (direction: 1 | -1) => {
-        const options: Array<'😸' | '😾' | '😴'> = ['😸', '😾', '😴']
-        const currentIndex = options.findIndex((item) => item === moodValue)
-        const nextIndex = (currentIndex + direction + options.length) % options.length
-        setMoodValue(options[nextIndex])
     }
 
     const handleLoadMore = async () => {
@@ -651,21 +618,6 @@ export function LogPage() {
                         </Card>
                     </SwipeableRow>
                 )
-            case 'mood':
-                return (
-                    <SwipeableRow key={`m-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
-                        <Card variant="default" padding="md" className="timeline-card">
-                            <div className="timeline-badge mood-badge">{item.data.mood}</div>
-                            <div className="timeline-content">
-                                <div className="timeline-actions">
-                                    <button className="timeline-action-btn" onClick={() => openEditMood(item.data)}>编辑</button>
-                                </div>
-                                <p className="text-sm">今日心情 {item.data.mood}</p>
-                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd')}</span>
-                            </div>
-                        </Card>
-                    </SwipeableRow>
-                )
         }
     }
 
@@ -691,7 +643,6 @@ export function LogPage() {
                             { key: 'diary' as const, label: '📝 日记' },
                             { key: 'poop' as const, label: '💩 便便' },
                             { key: 'weight' as const, label: '⚖️ 体重' },
-                            { key: 'mood' as const, label: '😺 心情' },
                         ]).map((item) => (
                             <button
                                 key={item.key}
@@ -867,41 +818,6 @@ export function LogPage() {
                     </div>
                     <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
                         {poopSaving ? '保存中...' : '更新便便记录'}
-                    </Button>
-                </div>
-            </Modal>
-
-            <Modal isOpen={moodOpen} onClose={() => { setMoodOpen(false); setEditingMoodId(null) }} title="😺 编辑心情记录">
-                <div className="weight-form">
-                    <div
-                        className="tag-picker"
-                        role="radiogroup"
-                        aria-label="心情选择"
-                        onKeyDown={(event) => {
-                            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                                event.preventDefault()
-                                moveMoodSelection(1)
-                            }
-                            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                                event.preventDefault()
-                                moveMoodSelection(-1)
-                            }
-                        }}
-                    >
-                        {(['😸', '😾', '😴'] as const).map((mood) => (
-                            <button
-                                key={mood}
-                                className={`tag-btn ${moodValue === mood ? 'tag-btn-active' : ''}`}
-                                onClick={() => setMoodValue(mood)}
-                                role="radio"
-                                aria-checked={moodValue === mood}
-                            >
-                                {mood}
-                            </button>
-                        ))}
-                    </div>
-                    <Button variant="primary" fullWidth onClick={handleMoodSave} disabled={moodSaving || !online}>
-                        {moodSaving ? '保存中...' : '更新心情'}
                     </Button>
                 </div>
             </Modal>

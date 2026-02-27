@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import { useAppStore } from '../stores/useAppStore'
+import { useSession } from './auth'
 import type { Cat } from '../types/database.types'
 
 /**
@@ -10,6 +11,7 @@ import type { Cat } from '../types/database.types'
  * Returns the full Cat row so pages don't need their own cat query.
  */
 export function useCat() {
+    const { user } = useSession()
     const currentCatId = useAppStore((s) => s.currentCatId)
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const [cats, setCats] = useState<Cat[]>([])
@@ -19,10 +21,31 @@ export function useCat() {
         let cancelled = false
 
         async function load() {
-            const { data } = await supabase
-                .from('cats')
-                .select('*')
-                .order('created_at', { ascending: true })
+            if (!user) {
+                setCats([])
+                setCurrentCatId(null)
+                setLoading(false)
+                return
+            }
+
+            const { data: memberships } = await supabase
+                .from('family_members')
+                .select('family_id')
+                .eq('user_id', user.id)
+
+            const familyIds = (memberships || []).map((item) => item.family_id)
+
+            const { data } = familyIds.length > 0
+                ? await supabase
+                    .from('cats')
+                    .select('*')
+                    .or(`family_id.in.(${familyIds.join(',')}),and(created_by.eq.${user.id},family_id.is.null)`)
+                    .order('created_at', { ascending: true })
+                : await supabase
+                    .from('cats')
+                    .select('*')
+                    .eq('created_by', user.id)
+                    .order('created_at', { ascending: true })
 
             if (cancelled) return
 
@@ -42,7 +65,7 @@ export function useCat() {
 
         load()
         return () => { cancelled = true }
-    }, [currentCatId, setCurrentCatId])
+    }, [currentCatId, setCurrentCatId, user])
 
     const cat = cats.find((item) => item.id === currentCatId) || null
 

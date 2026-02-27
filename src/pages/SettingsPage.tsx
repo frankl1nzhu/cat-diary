@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -13,6 +13,7 @@ import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme
 import { enablePushNotifications } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import type { Family } from '../types/database.types'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -37,8 +38,40 @@ export function SettingsPage() {
     const [profileLocked, setProfileLocked] = useState(false)
     const [createMode, setCreateMode] = useState(false)
     const [deletingCat, setDeletingCat] = useState(false)
+    const [currentFamily, setCurrentFamily] = useState<Family | null>(null)
+    const [familyName, setFamilyName] = useState('')
+    const [joinCode, setJoinCode] = useState('')
+    const [familySaving, setFamilySaving] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
+
+    const loadFamily = useCallback(async () => {
+        if (!user) {
+            setCurrentFamily(null)
+            return
+        }
+
+        const { data: memberships } = await supabase
+            .from('family_members')
+            .select('family_id')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: true })
+
+        const familyIds = (memberships || []).map((item) => item.family_id)
+        if (familyIds.length === 0) {
+            setCurrentFamily(null)
+            return
+        }
+
+        const { data: families } = await supabase
+            .from('families')
+            .select('*')
+            .in('id', familyIds)
+            .order('created_at', { ascending: true })
+            .limit(1)
+
+        setCurrentFamily((families && families[0]) || null)
+    }, [user])
 
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
@@ -71,6 +104,10 @@ export function SettingsPage() {
             return next
         }, { replace: true })
     }, [searchParams, setCurrentCatId, setSearchParams])
+
+    useEffect(() => {
+        void loadFamily()
+    }, [loadFamily])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,12 +156,14 @@ export function SettingsPage() {
         setSaving(true)
 
         try {
+            const targetFamilyId = createMode ? (currentFamily?.id || null) : (cat?.family_id ?? currentFamily?.id ?? null)
             const catData = {
                 name: name.trim(),
                 breed: breed.trim() || null,
                 birthday: birthday || null,
                 adopted_at: adoptedAt || null,
                 avatar_url: avatarUrl,
+                family_id: targetFamilyId,
                 created_by: user?.id || '',
             }
 
@@ -204,10 +243,120 @@ export function SettingsPage() {
         } catch (err) {
             const message = getErrorMessage(err, '测试推送发送失败')
             if (message.toLowerCase().includes('non-2xx')) {
-                pushToast('error', '测试推送暂不可用，请先配置 Edge Function')
+                if (Notification.permission === 'granted') {
+                    new Notification('喵记测试通知', {
+                        body: '已发送本地测试通知（Edge Function 未配置）',
+                    })
+                    pushToast('success', '本地测试通知已发送（Edge Function 未配置）')
+                } else {
+                    pushToast('info', '远程测试暂不可用，已开启通知权限后可先使用本地测试通知')
+                }
                 return
             }
             pushToast('error', message)
+        }
+    }
+
+    const generateInviteCode = () => Math.random().toString(36).slice(2, 8).toUpperCase()
+
+    const handleCreateFamily = async () => {
+        if (!user) return
+        const nameValue = familyName.trim()
+        if (!nameValue) {
+            pushToast('error', '请输入家庭名称')
+            return
+        }
+
+        setFamilySaving(true)
+        try {
+            const inviteCode = generateInviteCode()
+            const { data: newFamily, error: createErr } = await supabase
+                .from('families')
+                .insert({
+                    name: nameValue,
+                    invite_code: inviteCode,
+                    created_by: user.id,
+                })
+                .select('*')
+                .single()
+
+            if (createErr || !newFamily) throw createErr || new Error('家庭创建失败')
+
+            const { error: memberErr } = await supabase
+                .from('family_members')
+                .insert({
+                    family_id: newFamily.id,
+                    user_id: user.id,
+                    role: 'owner',
+                })
+            if (memberErr) throw memberErr
+
+            if (catId) {
+                await supabase.from('cats').update({ family_id: newFamily.id }).eq('id', catId)
+            }
+
+            setCurrentFamily(newFamily)
+            setFamilyName('')
+            pushToast('success', `家庭已创建，邀请码：${newFamily.invite_code}`)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '创建家庭失败，请稍后重试'))
+        } finally {
+            setFamilySaving(false)
+        }
+    }
+
+    const handleJoinFamily = async () => {
+        if (!user) return
+        const code = joinCode.trim().toUpperCase()
+        if (!code) {
+            pushToast('error', '请输入邀请码')
+            return
+        }
+
+        setFamilySaving(true)
+        try {
+            const { data: family, error: findErr } = await supabase
+                .from('families')
+                .select('*')
+                .eq('invite_code', code)
+                .single()
+
+            if (findErr || !family) throw findErr || new Error('家庭不存在')
+
+            const { error: joinErr } = await supabase
+                .from('family_members')
+                .upsert({
+                    family_id: family.id,
+                    user_id: user.id,
+                    role: 'member',
+                }, { onConflict: 'family_id,user_id' })
+            if (joinErr) throw joinErr
+
+            if (catId) {
+                await supabase.from('cats').update({ family_id: family.id }).eq('id', catId)
+            }
+
+            setCurrentFamily(family)
+            setJoinCode('')
+            pushToast('success', `已加入家庭：${family.name}`)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '加入家庭失败，请检查邀请码'))
+        } finally {
+            setFamilySaving(false)
+        }
+    }
+
+    const handleAssignCurrentCatToFamily = async () => {
+        if (!catId || !currentFamily) return
+        try {
+            const { error } = await supabase
+                .from('cats')
+                .update({ family_id: currentFamily.id })
+                .eq('id', catId)
+            if (error) throw error
+            pushToast('success', '当前猫咪已归属到家庭')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '猫咪归属家庭失败'))
         }
     }
 
@@ -391,9 +540,46 @@ export function SettingsPage() {
             <div className="p-4">
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold mb-3">👨‍👩‍👧 家庭成员</h2>
-                    <p className="text-secondary text-sm">
-                        当前为共享账号模式，两人使用同一账号登录即可实时同步所有数据。
-                    </p>
+                    {currentFamily ? (
+                        <>
+                            <p className="text-secondary text-sm">当前家庭：{currentFamily.name}</p>
+                            <p className="text-muted text-xs" style={{ marginTop: '8px' }}>邀请码：{currentFamily.invite_code}</p>
+                            {cat && cat.family_id !== currentFamily.id && (
+                                <div style={{ marginTop: '12px' }}>
+                                    <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>将当前猫咪归属到该家庭</Button>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="family-actions">
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="family-name">创建家庭</label>
+                                <input
+                                    id="family-name"
+                                    className="form-input"
+                                    placeholder="输入家庭名称"
+                                    value={familyName}
+                                    onChange={(e) => setFamilyName(e.target.value)}
+                                />
+                                <Button variant="secondary" onClick={handleCreateFamily} disabled={familySaving || !online}>
+                                    {familySaving ? '处理中...' : '创建家庭'}
+                                </Button>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="family-invite-code">加入家庭</label>
+                                <input
+                                    id="family-invite-code"
+                                    className="form-input"
+                                    placeholder="输入邀请码"
+                                    value={joinCode}
+                                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                />
+                                <Button variant="ghost" onClick={handleJoinFamily} disabled={familySaving || !online}>
+                                    {familySaving ? '处理中...' : '加入家庭'}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     {user && (
                         <p className="text-muted text-xs" style={{ marginTop: '8px' }}>
                             当前账号：{user.email}
