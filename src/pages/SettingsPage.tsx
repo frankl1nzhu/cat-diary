@@ -33,12 +33,14 @@ export function SettingsPage() {
     const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
     const [profileLocked, setProfileLocked] = useState(false)
+    const [createMode, setCreateMode] = useState(false)
     const [deletingCat, setDeletingCat] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
     // Populate form when cat is loaded via shared hook
     useEffect(() => {
+        if (createMode) return
         if (!cat) return
         setName(cat.name)
         setBreed(cat.breed || '')
@@ -46,12 +48,13 @@ export function SettingsPage() {
         setAdoptedAt(cat.adopted_at || '')
         setAvatarUrl(cat.avatar_url)
         setProfileLocked(true)
-    }, [cat])
+    }, [cat, createMode])
 
     useEffect(() => {
         const mode = searchParams.get('mode')
         if (mode !== 'new') return
 
+        setCreateMode(true)
         setCurrentCatId(null)
         setName('')
         setBreed('')
@@ -123,7 +126,7 @@ export function SettingsPage() {
                 created_by: user?.id || '',
             }
 
-            if (catId) {
+            if (catId && !createMode) {
                 // Update existing
                 const { error } = await supabase
                     .from('cats')
@@ -142,6 +145,7 @@ export function SettingsPage() {
             }
 
             setProfileLocked(true)
+            setCreateMode(false)
             pushToast('success', '档案保存成功！🎉')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '档案保存失败，请稍后重试'))
@@ -324,7 +328,7 @@ export function SettingsPage() {
                                     </div>
                                 </div>
                                 <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
-                                    {saving ? '保存中...' : '保存档案'}
+                                    {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
                                 </Button>
                             </>
                         )}

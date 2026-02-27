@@ -26,4 +26,10 @@
     transition: transform var(--transition-fast);
     will-change: transform;
     touch-action: pan-y;
+    width: 100%;
+    z-index: 1;
+}
+
+.swipe-content>* {
+    width: 100%;
 }

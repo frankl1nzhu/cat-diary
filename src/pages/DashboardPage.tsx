@@ -38,6 +38,7 @@ export function DashboardPage() {
     const [feedModalOpen, setFeedModalOpen] = useState(false)
     const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
     const [todayMood, setTodayMood] = useState<MoodType | null>(null)
+    const [moodEditing, setMoodEditing] = useState(false)
     const [monthMoodMap, setMonthMoodMap] = useState<Record<string, MoodType>>({})
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
     const [inventory, setInventory] = useState<InventoryItem[]>([])
@@ -341,6 +342,7 @@ export function DashboardPage() {
                     { onConflict: 'cat_id,date' }
                 )
             setTodayMood(mood)
+            setMoodEditing(false)
             lightHaptic()
             pushToast('success', '心情已记录')
         } catch (err) {
@@ -616,39 +618,48 @@ export function DashboardPage() {
                 <Card variant="glass" padding="md" aria-label="记录心情">
                     <div className="mood-head-row">
                         <div className="bento-label">今日心情</div>
-                        <span className="text-sm text-secondary">
-                            {todayMood ? `已记录：${todayMood}` : '未记录'}
-                        </span>
+                        <div className="mood-status-row">
+                            <span className="text-sm text-secondary">
+                                {todayMood ? `已记录：${todayMood}` : '未记录'}
+                            </span>
+                            {todayMood && !moodEditing && (
+                                <button type="button" className="mood-edit-btn" onClick={() => setMoodEditing(true)}>
+                                    修改
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <div
-                        className="mood-picker"
-                        role="radiogroup"
-                        aria-label="心情选择"
-                        onKeyDown={(event) => {
-                            if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-                                event.preventDefault()
-                                moveMoodSelection(1)
-                            }
-                            if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-                                event.preventDefault()
-                                moveMoodSelection(-1)
-                            }
-                        }}
-                    >
-                        {(['😸', '😾', '😴'] as MoodType[]).map((mood) => (
-                            <button
-                                key={mood}
-                                className={`mood-btn ${todayMood === mood ? 'mood-btn-active' : ''}`}
-                                onClick={() => handleMoodPick(mood)}
-                                disabled={moodSaving || !online}
-                                aria-label={mood}
-                                role="radio"
-                                aria-checked={todayMood === mood}
-                            >
-                                {mood}
-                            </button>
-                        ))}
-                    </div>
+                    {(!todayMood || moodEditing) && (
+                        <div
+                            className="mood-picker"
+                            role="radiogroup"
+                            aria-label="心情选择"
+                            onKeyDown={(event) => {
+                                if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+                                    event.preventDefault()
+                                    moveMoodSelection(1)
+                                }
+                                if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+                                    event.preventDefault()
+                                    moveMoodSelection(-1)
+                                }
+                            }}
+                        >
+                            {(['😸', '😾', '😴'] as MoodType[]).map((mood) => (
+                                <button
+                                    key={mood}
+                                    className={`mood-btn ${todayMood === mood ? 'mood-btn-active' : ''}`}
+                                    onClick={() => handleMoodPick(mood)}
+                                    disabled={moodSaving || !online}
+                                    aria-label={mood}
+                                    role="radio"
+                                    aria-checked={todayMood === mood}
+                                >
+                                    {mood}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <div className="mood-calendar">
                         {monthDays.map((day) => {
                             const key = format(day, 'yyyy-MM-dd')

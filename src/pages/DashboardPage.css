@@ -160,6 +160,21 @@
     margin-bottom: var(--space-2);
 }
 
+.mood-status-row {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.mood-edit-btn {
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-input);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    padding: 2px var(--space-2);
+}
+
 .mood-btn {
     font-size: 2rem;
     padding: var(--space-2);

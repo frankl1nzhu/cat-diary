@@ -36,10 +36,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-wrap: wrap;
 }
 
 .timeline-date-row .form-input {
-    flex: 1;
+    flex: 1 1 120px;
     min-width: 0;
 }
 
@@ -51,6 +52,12 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     white-space: nowrap;
+}
+
+@media (max-width: 380px) {
+    .timeline-date-reset {
+        width: 100%;
+    }
 }
 
 /* ── Timeline ── */
