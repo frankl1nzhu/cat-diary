@@ -470,18 +470,10 @@ export function DashboardPage() {
         }
         setObFamilySaving(true)
         try {
-            const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-            const { data: newFamily, error: createErr } = await supabase
-                .from('families')
-                .insert({ name: nameValue, invite_code: inviteCode, created_by: user.id })
-                .select('*')
-                .single()
-            if (createErr || !newFamily) throw createErr || new Error('家庭创建失败')
-
-            const { error: memberErr } = await supabase
-                .from('family_members')
-                .insert({ family_id: newFamily.id, user_id: user.id, role: 'owner' })
-            if (memberErr) throw memberErr
+            const { data, error } = await supabase.rpc('create_family_with_owner', { family_name: nameValue })
+            if (error) throw error
+            const newFamily = data as unknown as { id: string; name: string; invite_code: string }
+            if (!newFamily?.id) throw new Error('家庭创建失败')
 
             setActiveFamilyId(newFamily.id)
             setObFamilyName('')
@@ -502,17 +494,10 @@ export function DashboardPage() {
         }
         setObFamilySaving(true)
         try {
-            const { data: family, error: findErr } = await supabase
-                .from('families')
-                .select('*')
-                .eq('invite_code', code)
-                .single()
-            if (findErr || !family) throw findErr || new Error('家庭不存在')
-
-            const { error: joinErr } = await supabase
-                .from('family_members')
-                .upsert({ family_id: family.id, user_id: user.id, role: 'member' }, { onConflict: 'family_id,user_id' })
-            if (joinErr) throw joinErr
+            const { data, error } = await supabase.rpc('join_family_by_code', { code })
+            if (error) throw error
+            const family = data as unknown as { id: string; name: string }
+            if (!family?.id) throw new Error('家庭不存在')
 
             setActiveFamilyId(family.id)
             setObJoinCode('')
