@@ -9,6 +9,7 @@ import { useAppStore } from '../stores/useAppStore'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
+import { enablePushNotifications } from '../lib/pushNotifications'
 import './SettingsPage.css'
 
 export function SettingsPage() {
@@ -142,18 +143,21 @@ export function SettingsPage() {
     }
 
     const handleEnableNotifications = async () => {
-        if (typeof Notification === 'undefined') {
-            pushToast('error', '当前浏览器不支持系统通知')
-            return
-        }
+        try {
+            const result = await enablePushNotifications()
+            if (!result.ok) {
+                pushToast('error', result.reason === 'unsupported' ? '当前浏览器不支持系统通知' : '通知权限未开启')
+                return
+            }
 
-        const permission = await Notification.requestPermission()
-        if (permission === 'granted') {
-            pushToast('success', '通知权限已开启')
-            new Notification('喵记提醒已开启', { body: '库存告急与驱虫提醒将优先发送系统通知。' })
-            return
+            if (result.subscribed) {
+                pushToast('success', '通知已开启（含 Web Push 订阅）')
+            } else {
+                pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
+            }
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '开启通知失败，请稍后重试'))
         }
-        pushToast('error', '通知权限未开启')
     }
 
     const onThemeChange = (preset: ThemePreset) => {

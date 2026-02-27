@@ -13,7 +13,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus } from '../types/database.types'
+import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
 import './StatsPage.css'
 
 export function StatsPage() {
@@ -24,6 +24,7 @@ export function StatsPage() {
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
     const [inventory, setInventory] = useState<InventoryItem[]>([])
+    const [poops, setPoops] = useState<PoopLog[]>([])
     const [loading, setLoading] = useState(true)
 
     // Modals
@@ -45,15 +46,17 @@ export function StatsPage() {
     const loadData = useCallback(async () => {
         if (!catId) { setLoading(false); return }
 
-        const [w, h, inv] = await Promise.all([
+        const [w, h, inv, poopData] = await Promise.all([
             supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
             supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
             supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
+            supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
         ])
 
         if (w.data) setWeights(w.data)
         if (h.data) setHealthRecords(h.data)
         if (inv.data) setInventory(inv.data)
+        if (poopData.data) setPoops(poopData.data)
         setLoading(false)
     }, [catId])
 
@@ -187,6 +190,11 @@ export function StatsPage() {
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         const recentWeights = weights.filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
         const recentHealth = healthRecords.filter((h) => new Date(h.date).getTime() >= cutoff)
+        const recentAbnormalPoops = poops.filter((p) => {
+            const inRange = new Date(p.created_at).getTime() >= cutoff
+            const abnormal = Number(p.bristol_type) >= 6 || ['red', 'black', 'white'].includes(p.color)
+            return inRange && abnormal
+        })
 
         const html = `
         <html><head><meta charset="utf-8" /><title>Vet Report</title>
@@ -194,6 +202,7 @@ export function StatsPage() {
         </head><body>
         <h1>🐱 就医报告</h1><div>最近30天</div>
         <h2>体重变化</h2><ul>${recentWeights.map((w) => `<li>${new Date(w.recorded_at).toLocaleDateString()}：${w.weight_kg} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>
+        <h2>异常便便记录</h2><ul>${recentAbnormalPoops.map((p) => `<li>${new Date(p.created_at).toLocaleDateString()}：布里斯托${p.bristol_type}型，颜色${p.color}</li>`).join('') || '<li>暂无异常记录</li>'}</ul>
         <h2>健康记录</h2><ul>${recentHealth.map((h) => `<li>${new Date(h.date).toLocaleDateString()}：${h.name}（${h.type}）</li>`).join('') || '<li>暂无记录</li>'}</ul>
         </body></html>`
 
