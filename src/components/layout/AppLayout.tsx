@@ -47,7 +47,7 @@ export function AppLayout() {
         <div className="app-layout">
             <CatSwitcher />
             {!online && <div className="offline-banner">📡 当前离线，暂不可提交新记录</div>}
-            <main className="app-main safe-area-padding safe-area-padding-bottom scroll-area">
+            <main className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
                 <Outlet />
             </main>
             <BottomNav />

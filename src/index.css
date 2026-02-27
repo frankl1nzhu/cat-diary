@@ -197,6 +197,11 @@ a {
   padding-right: var(--safe-right);
 }
 
+.safe-area-inline {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
 .safe-area-padding-bottom {
   padding-bottom: calc(var(--nav-height) + var(--safe-bottom));
 }
