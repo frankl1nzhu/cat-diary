@@ -13,7 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
-import { sendReminderPush, sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendWeeklySummary } from '../lib/pushServer'
+import { sendReminderPush, sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendWeeklySummary, sendMissNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
@@ -449,6 +449,7 @@ export function DashboardPage() {
             lightHaptic()
             triggerRewardBurst('💖')
             pushToast('success', '想咪 +1 🥹')
+            sendMissNotification(cat.id, cat.name).catch(() => { })
         } catch (err) {
             pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
         } finally {

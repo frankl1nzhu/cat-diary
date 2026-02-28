@@ -4,7 +4,7 @@ import webpush from 'npm:web-push@3.6.7'
 type ActionType =
   | 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
   | 'feed' | 'health' | 'inventory' | 'weight' | 'cat-profile' | 'family-member' | 'new-cat'
-  | 'abnormal-poop' | 'weekly-summary'
+  | 'abnormal-poop' | 'weekly-summary' | 'miss'
 
 interface PushSubRow {
   id: string
@@ -553,6 +553,26 @@ Deno.serve(async (req) => {
         title: `新猫咪加入 🐾`,
         body: `${catName} 来到了这个家！`,
         url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── miss: notify OTHER family members when someone misses the cat ── */
+    if (action === 'miss') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 被想啦 🥹`,
+        body: '快去看看它吧~',
+        url: '/',
       })
       return new Response(JSON.stringify(result), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -137,3 +137,7 @@ export async function sendNewCatNotification(catId: string, catName: string) {
 export async function sendWeeklySummary(catId: string, catName: string) {
     await invokeSendReminders({ action: 'weekly-summary', catId, catName })
 }
+
+export async function sendMissNotification(catId: string, catName: string) {
+    await invokeSendReminders({ action: 'miss', catId, catName })
+}

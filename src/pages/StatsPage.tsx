@@ -89,6 +89,7 @@ export function StatsPage() {
     const [weightValue, setWeightValue] = useState('')
     const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
     const [weightWindowDays, setWeightWindowDays] = useState(30)
+    const [missWindowDays, setMissWindowDays] = useState(30)
     const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
@@ -168,10 +169,24 @@ export function StatsPage() {
             .filter((item) => item.value > 0)
     }, [poops])
 
-    const missCount30Days = useMemo(() => {
-        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
-        return missLogs.filter((item) => new Date(item.created_at).getTime() >= cutoff).length
-    }, [missLogs])
+    const missTrendData = useMemo(() => {
+        const dayMap = new Map<string, number>()
+        for (let i = missWindowDays - 1; i >= 0; i -= 1) {
+            const d = new Date()
+            d.setDate(d.getDate() - i)
+            const key = format(d, 'MM/dd')
+            dayMap.set(key, 0)
+        }
+
+        missLogs.forEach((item) => {
+            const key = format(new Date(item.created_at), 'MM/dd')
+            if (dayMap.has(key)) {
+                dayMap.set(key, (dayMap.get(key) || 0) + 1)
+            }
+        })
+
+        return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
+    }, [missLogs, missWindowDays])
 
     // ─── Save health record ───────────────────────
     const handleHealthSave = async () => {
@@ -688,9 +703,43 @@ export function StatsPage() {
                             )}
                         </div>
 
-                        <h3 className="text-base font-semibold">🥹 想咪次数（近30天）</h3>
-                        <div className="empty-state-sm">
-                            <p className="text-secondary text-sm">🥹 {missCount30Days} 次</p>
+                        <h3 className="text-base font-semibold">🥹 咪被想次数</h3>
+                        <div className="weight-window-row">
+                            <label className="text-sm text-secondary" htmlFor="miss-window-range">趋势区间：近 {missWindowDays} 天</label>
+                            <input
+                                id="miss-window-range"
+                                type="range"
+                                min="7"
+                                max="90"
+                                value={missWindowDays}
+                                onChange={(event) => setMissWindowDays(Number(event.target.value))}
+                            />
+                        </div>
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={missTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
+                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: 'var(--color-bg-card)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: '8px',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="count"
+                                        stroke="var(--color-accent)"
+                                        strokeWidth={2.5}
+                                        dot={{ fill: 'var(--color-accent)', r: 3 }}
+                                        activeDot={{ r: 5 }}
+                                        name="咪被想次数"
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
 
