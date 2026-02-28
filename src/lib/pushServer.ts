@@ -77,3 +77,9 @@ export async function sendCommentNotification(diaryAuthorId: string, catName: st
 
     if (error) throw error
 }
+
+export async function sendScoopNotification(catId: string, catName: string) {
+    const { error } = await invokeSendReminders({ action: 'scoop', catId, catName })
+
+    if (error) throw error
+}

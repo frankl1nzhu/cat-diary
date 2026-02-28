@@ -13,7 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
-import { sendReminderPush } from '../lib/pushServer'
+import { sendReminderPush, sendScoopNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
@@ -417,6 +417,9 @@ export function DashboardPage() {
                 triggerRewardBurst('💖')
             }
             pushToast('success', '铲屎记录成功 💩')
+            sendScoopNotification(cat.id, cat.name).catch(() => {
+                pushToast('info', '铲屎记录已保存，但家庭通知发送失败')
+            })
         } catch (err) {
             pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
         } finally {
@@ -503,9 +506,9 @@ export function DashboardPage() {
     }, [urgentHealthReminders, lowInventory])
 
     useEffect(() => {
-        const hasUrgentInventory = lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')
+        const hasLowOrUrgentInventory = lowInventory.length > 0
         const hasHealthReminder = urgentHealthReminders.length > 0
-        if (!hasUrgentInventory && !hasHealthReminder) return
+        if (!hasLowOrUrgentInventory && !hasHealthReminder) return
 
         const todayKey = new Date().toISOString().split('T')[0]
         const serverKey = `server_push_reminder_${todayKey}_${catId || 'none'}`

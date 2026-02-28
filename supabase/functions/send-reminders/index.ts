@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
-type ActionType = 'test' | 'reminder' | 'diary' | 'comment' | 'vapid-public-key'
+type ActionType = 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
 
 interface PushSubRow {
   id: string
@@ -265,6 +265,29 @@ Deno.serve(async (req) => {
         title: `${catName} 的日记有新评论 💬`,
         body: '快来看看吧~',
         url: '/log',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── scoop: notify OTHER family members when someone logged poop ── */
+    if (action === 'scoop') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 刚刚铲屎了 💩`,
+        body: '快去看看今日记录吧~',
+        url: '/dashboard?quick=poop',
       })
       return new Response(JSON.stringify(result), {
         status: 200,
