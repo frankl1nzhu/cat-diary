@@ -18,6 +18,21 @@ interface ReqBody {
   diaryAuthorId?: string
 }
 
+function getUserIdFromJwt(accessToken: string): string | null {
+  try {
+    const parts = accessToken.split('.')
+    if (parts.length < 2) return null
+    const payloadRaw = parts[1]
+    const payloadBase64 = payloadRaw.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = payloadBase64 + '='.repeat((4 - (payloadBase64.length % 4)) % 4)
+    const payloadJson = atob(padded)
+    const payload = JSON.parse(payloadJson) as { sub?: string }
+    return payload.sub || null
+  } catch {
+    return null
+  }
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -189,6 +204,14 @@ Deno.serve(async (req) => {
           userErrorMessage = null
         } else {
           userErrorMessage = `${userErrorMessage}; anon-client getUser failed: ${anonUserErr?.message || 'unknown'}`
+        }
+      }
+
+      if (!userId) {
+        const jwtUserId = getUserIdFromJwt(accessToken)
+        if (jwtUserId) {
+          userId = jwtUserId
+          userErrorMessage = null
         }
       }
     }
