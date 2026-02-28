@@ -67,6 +67,12 @@ async function invokeSendReminders(body: Record<string, unknown>) {
     }
 
     if (!response.ok) {
+        if (response.status === 401) {
+            const { data, error } = await supabase.functions.invoke('send-reminders', { body })
+            if (!error) {
+                return data
+            }
+        }
         const message = typeof payload === 'object' && payload && 'error' in payload
             ? String((payload as { error?: unknown }).error)
             : `HTTP ${response.status}`
