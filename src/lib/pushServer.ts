@@ -39,101 +39,95 @@ async function invokeSendReminders(body: Record<string, unknown>) {
         data: { session },
     } = await supabase.auth.getSession()
 
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
     const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-    const headers: Record<string, string> = {}
-    if (anonKey) {
-        headers.apikey = anonKey
+    if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase env missing for push function invoke')
+    }
+
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
     }
     if (session?.access_token) {
         headers.Authorization = `Bearer ${session.access_token}`
     }
 
-    return supabase.functions.invoke('send-reminders', {
-        body,
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-reminders`, {
+        method: 'POST',
         headers,
+        body: JSON.stringify(body),
     })
+
+    let payload: unknown = null
+    try {
+        payload = await response.json()
+    } catch {
+        payload = null
+    }
+
+    if (!response.ok) {
+        const message = typeof payload === 'object' && payload && 'error' in payload
+            ? String((payload as { error?: unknown }).error)
+            : `HTTP ${response.status}`
+        throw new Error(`send-reminders failed: ${message}`)
+    }
+
+    return payload
 }
 
 export async function sendTestPush() {
-    const { error } = await invokeSendReminders({ action: 'test' })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'test' })
 }
 
 export async function sendReminderPush(catId?: string) {
-    const { error } = await invokeSendReminders({ action: 'reminder', catId })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'reminder', catId })
 }
 
 export async function sendDiaryNotification(catId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'diary', catId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'diary', catId, catName })
 }
 
 export async function sendCommentNotification(diaryAuthorId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'comment', diaryAuthorId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'comment', diaryAuthorId, catName })
 }
 
 export async function sendScoopNotification(catId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'scoop', catId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'scoop', catId, catName })
 }
 
 export async function sendFeedNotification(catId: string, catName: string, mealType: string) {
-    const { error } = await invokeSendReminders({ action: 'feed', catId, catName, mealType })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'feed', catId, catName, mealType })
 }
 
 export async function sendAbnormalPoopNotification(catId: string, catName: string, bristolType: string, poopColor: string) {
-    const { error } = await invokeSendReminders({ action: 'abnormal-poop', catId, catName, bristolType, poopColor })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'abnormal-poop', catId, catName, bristolType, poopColor })
 }
 
 export async function sendHealthNotification(catId: string, catName: string, healthType: string, healthName: string) {
-    const { error } = await invokeSendReminders({ action: 'health', catId, catName, healthType, healthName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'health', catId, catName, healthType, healthName })
 }
 
 export async function sendInventoryNotification(catId: string, catName: string, itemName: string) {
-    const { error } = await invokeSendReminders({ action: 'inventory', catId, catName, itemName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'inventory', catId, catName, itemName })
 }
 
 export async function sendWeightNotification(catId: string, catName: string, weightKg: number) {
-    const { error } = await invokeSendReminders({ action: 'weight', catId, catName, weightKg })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'weight', catId, catName, weightKg })
 }
 
 export async function sendCatProfileNotification(catId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'cat-profile', catId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'cat-profile', catId, catName })
 }
 
 export async function sendFamilyMemberNotification(familyId: string, memberName: string) {
-    const { error } = await invokeSendReminders({ action: 'family-member', familyId, memberName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'family-member', familyId, memberName })
 }
 
 export async function sendNewCatNotification(catId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'new-cat', catId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'new-cat', catId, catName })
 }
 
 export async function sendWeeklySummary(catId: string, catName: string) {
-    const { error } = await invokeSendReminders({ action: 'weekly-summary', catId, catName })
-
-    if (error) throw error
+    await invokeSendReminders({ action: 'weekly-summary', catId, catName })
 }
