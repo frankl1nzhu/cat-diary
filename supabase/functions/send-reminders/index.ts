@@ -571,7 +571,7 @@ Deno.serve(async (req) => {
       const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
       const result = await sendPushToUsers(admin, memberIds, {
         title: `${catName} 被想啦 🥹`,
-        body: '快去看看它吧~',
+        body: '速速发咪照，不要不识好歹',
         url: '/',
       })
       return new Response(JSON.stringify(result), {
