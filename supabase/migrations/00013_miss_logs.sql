@@ -1,7 +1,7 @@
 -- Add miss logs: each press records one "miss cat" event
 
 create table if not exists public.miss_logs (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   cat_id uuid not null references public.cats(id) on delete cascade,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
