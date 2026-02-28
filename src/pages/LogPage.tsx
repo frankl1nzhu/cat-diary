@@ -266,7 +266,7 @@ export function LogPage() {
             // Notify diary author
             const diaryItem = timeline.find((t) => t.type === 'diary' && t.data.id === diaryId)
             if (diaryItem && diaryItem.type === 'diary' && diaryItem.data.created_by !== user.id && cat) {
-                sendCommentNotification(diaryItem.data.created_by, cat.name).catch(() => {/* silent */})
+                sendCommentNotification(diaryItem.data.created_by, cat.name).catch(() => {/* silent */ })
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '评论失败'))
@@ -835,6 +835,7 @@ export function LogPage() {
                                                 value={commentInputs[item.data.id] || ''}
                                                 onChange={(e) => setCommentInputs((prev) => ({ ...prev, [item.data.id]: e.target.value }))}
                                                 onKeyDown={(e) => {
+                                                    e.stopPropagation()
                                                     if (e.key === 'Enter') {
                                                         e.preventDefault()
                                                         handleAddComment(item.data.id)

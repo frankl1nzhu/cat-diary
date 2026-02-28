@@ -38,6 +38,8 @@ export function SwipeableRow({ onDelete, children }: SwipeableRowProps) {
     }
 
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        const tag = (e.target as HTMLElement).tagName
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
         if (e.key === 'Delete' || e.key === 'Backspace') {
             e.preventDefault()
             onDelete()
