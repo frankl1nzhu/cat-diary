@@ -34,34 +34,42 @@ export async function savePushSubscription(userId: string, subscriptionJson: Pus
     if (error) throw error
 }
 
-export async function sendTestPush() {
-    const { error } = await supabase.functions.invoke('send-reminders', {
-        body: { action: 'test' },
+async function invokeSendReminders(body: Record<string, unknown>) {
+    const {
+        data: { session },
+    } = await supabase.auth.getSession()
+
+    const headers: Record<string, string> = {}
+    if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`
+    }
+
+    return supabase.functions.invoke('send-reminders', {
+        body,
+        headers,
     })
+}
+
+export async function sendTestPush() {
+    const { error } = await invokeSendReminders({ action: 'test' })
 
     if (error) throw error
 }
 
 export async function sendReminderPush(catId?: string) {
-    const { error } = await supabase.functions.invoke('send-reminders', {
-        body: { action: 'reminder', catId },
-    })
+    const { error } = await invokeSendReminders({ action: 'reminder', catId })
 
     if (error) throw error
 }
 
 export async function sendDiaryNotification(catId: string, catName: string) {
-    const { error } = await supabase.functions.invoke('send-reminders', {
-        body: { action: 'diary', catId, catName },
-    })
+    const { error } = await invokeSendReminders({ action: 'diary', catId, catName })
 
     if (error) throw error
 }
 
 export async function sendCommentNotification(diaryAuthorId: string, catName: string) {
-    const { error } = await supabase.functions.invoke('send-reminders', {
-        body: { action: 'comment', diaryAuthorId, catName },
-    })
+    const { error } = await invokeSendReminders({ action: 'comment', diaryAuthorId, catName })
 
     if (error) throw error
 }
