@@ -147,36 +147,21 @@ export function StatsPage() {
             }))
     }, [weightWindowDays, weights])
 
-    const poopFrequencyData = useMemo(() => {
-        const dayMap = new Map<string, number>()
-        for (let i = 29; i >= 0; i -= 1) {
-            const d = new Date()
-            d.setDate(d.getDate() - i)
-            const key = format(d, 'MM/dd')
-            dayMap.set(key, 0)
-        }
-
-        poops.forEach((item) => {
-            const key = format(new Date(item.created_at), 'MM/dd')
-            if (dayMap.has(key)) {
-                dayMap.set(key, (dayMap.get(key) || 0) + 1)
-            }
-        })
-
-        return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
-    }, [poops])
-
     const bristolDistributionData = useMemo(() => {
-        const counts: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0 }
+        const counts = { 正常: 0, 异常: 0 }
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         poops.forEach((item) => {
             if (new Date(item.created_at).getTime() >= cutoff) {
-                counts[item.bristol_type] += 1
+                if (isAbnormalPoop(item.bristol_type, item.color)) {
+                    counts.异常 += 1
+                } else {
+                    counts.正常 += 1
+                }
             }
         })
 
         return Object.entries(counts)
-            .map(([type, value]) => ({ name: `类型${type}`, value }))
+            .map(([name, value]) => ({ name, value }))
             .filter((item) => item.value > 0)
     }, [poops])
 
@@ -655,27 +640,7 @@ export function StatsPage() {
                     )}
 
                     <div className="poop-charts-wrap">
-                        <h3 className="text-base font-semibold">💩 近 30 天便便频率</h3>
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={180}>
-                                <BarChart data={poopFrequencyData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={4} />
-                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: 'var(--color-bg-card)',
-                                            border: '1px solid var(--color-border)',
-                                            borderRadius: '8px',
-                                            fontSize: '13px',
-                                        }}
-                                    />
-                                    <Bar dataKey="count" fill="var(--color-secondary)" radius={[6, 6, 0, 0]} name="次数" />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-
-                        <h3 className="text-base font-semibold">🧻 Bristol 分型分布（近30天）</h3>
+                        <h3 className="text-base font-semibold">🧻 便便分布（近30天）</h3>
                         <div className="chart-container">
                             {bristolDistributionData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={220}>
