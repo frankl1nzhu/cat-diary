@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { useSession } from '../../lib/auth'
-import { useCat } from '../../lib/useCat'
-import { useToastStore } from '../../stores/useToastStore'
-import { getErrorMessage } from '../../lib/errorMessage'
 import './BottomNav.css'
 
 const leftItems = [
@@ -20,48 +15,18 @@ const rightItems = [
 const quickActions = [
     { label: '📝 写日记', path: '/log?quick=diary' as const, type: 'path' as const },
     { label: '💩 记便便', path: '/?quick=poop' as const, type: 'path' as const },
-    { label: '🤮 记呕吐', path: '/stats' as const, type: 'vomit' as const },
     { label: '🍽️ 记喂食', path: '/?quick=feed' as const, type: 'path' as const },
     { label: '⚖️ 记体重', path: '/log?quick=weight' as const, type: 'path' as const },
+    { label: '🛒 新增库存', path: '/stats?quick=inventory' as const, type: 'path' as const },
+    { label: '🩺 健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
 ] as const
 
 export function BottomNav() {
     const navigate = useNavigate()
-    const { user } = useSession()
-    const { catId } = useCat()
-    const pushToast = useToastStore((s) => s.pushToast)
     const [quickOpen, setQuickOpen] = useState(false)
-    const [vomitSaving, setVomitSaving] = useState(false)
     const quickSheetRef = useRef<HTMLDivElement>(null)
 
-    const onQuickAction = async (action: { path: string; type: 'path' | 'vomit' }) => {
-        if (action.type === 'vomit') {
-            if (!catId || !user) {
-                pushToast('error', '请先创建猫咪档案后再记录')
-                return
-            }
-
-            setVomitSaving(true)
-            try {
-                const { error } = await supabase.from('health_records').insert({
-                    cat_id: catId,
-                    type: 'medical',
-                    name: '呕吐',
-                    date: new Date().toISOString().split('T')[0],
-                    next_due: null,
-                    created_by: user.id,
-                })
-                if (error) throw error
-                setQuickOpen(false)
-                pushToast('success', '已快速记录呕吐 🤮')
-            } catch (err) {
-                pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
-            } finally {
-                setVomitSaving(false)
-            }
-            return
-        }
-
+    const onQuickAction = (action: { path: string; type: 'path' }) => {
         setQuickOpen(false)
         navigate(action.path)
     }
@@ -111,8 +76,7 @@ export function BottomNav() {
                             <button
                                 key={action.path}
                                 className="quick-item"
-                                onClick={() => void onQuickAction(action)}
-                                disabled={action.type === 'vomit' && vomitSaving}
+                                onClick={() => onQuickAction(action)}
                             >
                                 {action.label}
                             </button>

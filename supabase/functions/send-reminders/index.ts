@@ -1,7 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
-type ActionType = 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
+type ActionType =
+  | 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
+  | 'feed' | 'health' | 'inventory' | 'weight' | 'cat-profile' | 'family-member' | 'new-cat'
+  | 'abnormal-poop' | 'weekly-summary'
 
 interface PushSubRow {
   id: string
@@ -16,6 +19,15 @@ interface ReqBody {
   catId?: string
   catName?: string
   diaryAuthorId?: string
+  mealType?: string
+  healthType?: string
+  healthName?: string
+  itemName?: string
+  weightKg?: number
+  memberName?: string
+  bristolType?: string
+  poopColor?: string
+  familyId?: string
 }
 
 function getUserIdFromJwt(accessToken: string): string | null {
@@ -62,6 +74,23 @@ async function getFamilyMemberIds(
     .from('family_members')
     .select('user_id')
     .eq('family_id', catRow.family_id)
+
+  if (!members) return []
+
+  const ids = members.map((m: { user_id: string }) => m.user_id)
+  return excludeUserId ? ids.filter((id: string) => id !== excludeUserId) : ids
+}
+
+/** Get all user IDs in a family by familyId, optionally excluding one user */
+async function getFamilyMemberIdsByFamilyId(
+  admin: ReturnType<typeof createClient>,
+  familyId: string,
+  excludeUserId?: string
+): Promise<string[]> {
+  const { data: members } = await admin
+    .from('family_members')
+    .select('user_id')
+    .eq('family_id', familyId)
 
   if (!members) return []
 
@@ -217,7 +246,7 @@ Deno.serve(async (req) => {
         })
       }
       const result = await sendPushToUsers(admin, [userId], {
-        title: '喵记测试推送',
+        title: '测试推送 🔔',
         body: '推送链路正常 ✅',
         url: '/',
       })
@@ -346,13 +375,225 @@ Deno.serve(async (req) => {
 
       const memberIds = await getFamilyMemberIds(admin, catId)
       const result = await sendPushToUsers(admin, memberIds, {
-        title: '喵记提醒 🔔',
+        title: '提醒 🔔',
         body: parts.join('；'),
         url: '/',
       })
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── feed: notify OTHER family members when someone logged feeding ── */
+    if (action === 'feed') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      const mealLabel = body.mealType || '喂食'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 已喂食 🍽️`,
+        body: `${mealLabel}已记录~`,
+        url: '/',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── abnormal-poop: notify OTHER family members about abnormal poop ── */
+    if (action === 'abnormal-poop') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      const bristolType = body.bristolType || '?'
+      const poopColor = body.poopColor || '?'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `⚠️ ${catName} 便便异常`,
+        body: `类型${bristolType}，颜色${poopColor}，请关注`,
+        url: '/?quick=poop',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── health: notify OTHER family members about new health record ── */
+    if (action === 'health') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      const healthType = body.healthType || '健康'
+      const healthName = body.healthName || ''
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 新${healthType}记录 🩺`,
+        body: healthName ? `${healthName}` : `已记录${healthType}`,
+        url: '/stats',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── inventory: notify OTHER family members about new/updated inventory ── */
+    if (action === 'inventory') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      const itemName = body.itemName || '物资'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 库存更新 🛒`,
+        body: `${itemName} 已更新`,
+        url: '/stats',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── weight: notify OTHER family members about weight record ── */
+    if (action === 'weight') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      const weightKg = body.weightKg
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 体重记录 ⚖️`,
+        body: weightKg ? `最新体重 ${weightKg}kg` : '体重已更新',
+        url: '/stats',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── cat-profile: notify OTHER family members about cat profile change ── */
+    if (action === 'cat-profile') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 档案已更新 🐱`,
+        body: '猫咪档案有变动，快来看看~',
+        url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── family-member: notify OTHER family members when someone joins ── */
+    if (action === 'family-member') {
+      const familyId = body.familyId
+      const memberName = body.memberName || '新成员'
+      if (!familyId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing familyId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIdsByFamilyId(admin, familyId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: '新成员加入啦 🎉',
+        body: `${memberName} 加入了家庭`,
+        url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── new-cat: notify OTHER family members when a cat is added ── */
+    if (action === 'new-cat') {
+      const catId = body.catId
+      const catName = body.catName || '新猫咪'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `新猫咪加入 🐾`,
+        body: `${catName} 来到了这个家！`,
+        url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── weekly-summary: send weekly summary to all family members of a cat ── */
+    if (action === 'weekly-summary') {
+      const catId = body.catId
+      const catName = body.catName || '猫咪'
+      if (!catId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing catId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      // Gather weekly data
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - 7)
+      const weekAgoStr = weekAgo.toISOString()
+
+      const [{ data: feeds }, { data: poops }, { data: weights }] = await Promise.all([
+        admin.from('feed_status').select('id').eq('cat_id', catId).gte('fed_at', weekAgoStr),
+        admin.from('poop_logs').select('id,bristol_type,color').eq('cat_id', catId).gte('created_at', weekAgoStr),
+        admin.from('weight_records').select('weight_kg').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(1),
+      ])
+
+      const feedCount = feeds?.length || 0
+      const poopCount = poops?.length || 0
+      const abnormalCount = poops?.filter((p: { bristol_type: string; color: string }) =>
+        Number(p.bristol_type) >= 6 || ['red', 'black', 'white'].includes(p.color)
+      ).length || 0
+      const latestWeight = weights?.[0]?.weight_kg
+
+      const parts: string[] = []
+      parts.push(`喂食${feedCount}次`)
+      parts.push(`铲屎${poopCount}次`)
+      if (abnormalCount > 0) parts.push(`异常便便${abnormalCount}次⚠️`)
+      if (latestWeight) parts.push(`体重${latestWeight}kg`)
+
+      const memberIds = await getFamilyMemberIds(admin, catId)
+      const result = await sendPushToUsers(admin, memberIds, {
+        title: `${catName} 每周总结 📊`,
+        body: parts.join('，'),
+        url: '/',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 

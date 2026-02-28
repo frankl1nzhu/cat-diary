@@ -14,7 +14,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
-import { sendDiaryNotification, sendCommentNotification } from '../lib/pushServer'
+import { sendDiaryNotification, sendCommentNotification, sendWeightNotification, sendScoopNotification, sendAbnormalPoopNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
@@ -542,6 +542,9 @@ export function LogPage() {
             await loadTimeline()
             lightHaptic()
             pushToast('success', editingWeightId ? '体重已更新 ⚖️' : '体重记录成功 ⚖️')
+            if (!editingWeightId && catId) {
+                sendWeightNotification(catId, cat?.name || '猫咪', kg).catch(() => { })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '体重记录失败，请稍后重试'))
         } finally {

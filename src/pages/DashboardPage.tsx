@@ -13,7 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
-import { sendReminderPush, sendScoopNotification } from '../lib/pushServer'
+import { sendReminderPush, sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendWeeklySummary } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
@@ -357,6 +357,7 @@ export function DashboardPage() {
                 lightHaptic()
                 triggerRewardBurst('🐾')
                 pushToast('success', '喂食记录成功 🐾')
+                sendFeedNotification(cat.id, cat.name, MEAL_LABELS[selectedMeal]).catch(() => { })
             } catch (err) {
                 pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
             } finally {
@@ -420,6 +421,9 @@ export function DashboardPage() {
             sendScoopNotification(cat.id, cat.name).catch(() => {
                 pushToast('info', '铲屎记录已保存，但家庭通知发送失败')
             })
+            if (isAbnormalPoop(selectedBristol, selectedColor)) {
+                sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => { })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
         } finally {
@@ -485,7 +489,7 @@ export function DashboardPage() {
         if (lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')) {
             const key = `notify_inventory_${todayKey}`
             if (!localStorage.getItem(key)) {
-                new Notification('喵记库存提醒', {
+                new Notification('库存提醒', {
                     body: '有物资已到紧急状态，记得补货。',
                 })
                 localStorage.setItem(key, '1')
@@ -499,7 +503,7 @@ export function DashboardPage() {
                 const body = r.daysLeft <= 0
                     ? `「${r.name}」${typeLabel}已过期，请尽快处理。`
                     : `「${r.name}」${typeLabel}将在 ${r.daysLeft} 天后到期。`
-                new Notification(`喵记${typeLabel}提醒`, { body })
+                new Notification(`${typeLabel}提醒`, { body })
                 localStorage.setItem(key, '1')
             }
         }
@@ -522,6 +526,20 @@ export function DashboardPage() {
                 // no-op: frontend local notification fallback already exists
             })
     }, [catId, urgentHealthReminders, lowInventory])
+
+    // ─── Weekly summary (Sunday) ─────────────────
+    useEffect(() => {
+        if (!catId || !cat) return
+        const now = new Date()
+        if (now.getDay() !== 0) return // only on Sunday
+
+        const weekKey = `weekly_summary_${catId}_${now.toISOString().split('T')[0]}`
+        if (localStorage.getItem(weekKey)) return
+
+        sendWeeklySummary(catId, cat.name)
+            .then(() => localStorage.setItem(weekKey, '1'))
+            .catch(() => { })
+    }, [catId, cat])
 
     const handleObCreateFamily = async () => {
         await createFamily(obFamilyName, {

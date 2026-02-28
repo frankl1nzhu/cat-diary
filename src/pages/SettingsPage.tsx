@@ -13,7 +13,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications, getVapidPublicKey } from '../lib/pushNotifications'
-import { savePushSubscription, sendTestPush } from '../lib/pushServer'
+import { savePushSubscription, sendTestPush, sendCatProfileNotification, sendNewCatNotification, sendFamilyMemberNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import type { Family, FamilyMemberWithEmail } from '../types/database.types'
@@ -237,6 +237,7 @@ export function SettingsPage() {
                     .update(catData)
                     .eq('id', catId)
                 if (error) throw error
+                sendCatProfileNotification(catId, name.trim()).catch(() => { })
             } else {
                 // Insert new
                 const { data, error } = await supabase
@@ -245,7 +246,10 @@ export function SettingsPage() {
                     .select()
                     .single()
                 if (error) throw error
-                if (data) setCurrentCatId(data.id)
+                if (data) {
+                    setCurrentCatId(data.id)
+                    sendNewCatNotification(data.id, name.trim()).catch(() => { })
+                }
             }
 
             setCreateMode(false)
@@ -322,7 +326,7 @@ export function SettingsPage() {
             const message = getErrorMessage(err, '测试推送发送失败')
             if (message.toLowerCase().includes('non-2xx') && Notification.permission === 'granted') {
                 try {
-                    new Notification('喵记测试通知', {
+                    new Notification('测试通知', {
                         body: '这是一条本地测试通知。',
                     })
                 } catch {
@@ -352,6 +356,7 @@ export function SettingsPage() {
             onSuccess: (family) => {
                 setCurrentFamily(family as Family)
                 setJoinCode('')
+                sendFamilyMemberNotification(family.id, user?.email || '新成员').catch(() => { })
             },
         })
     }

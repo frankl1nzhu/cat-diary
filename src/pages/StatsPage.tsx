@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
@@ -12,6 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { sendHealthNotification, sendInventoryNotification, sendWeightNotification } from '../lib/pushServer'
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
@@ -44,9 +46,10 @@ const PIE_COLORS = ['var(--color-primary)', 'var(--color-secondary)', 'var(--col
 
 export function StatsPage() {
     const { user } = useSession()
-    const { catId, loading: catLoading } = useCat()
+    const { cat, catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
@@ -90,6 +93,19 @@ export function StatsPage() {
     const [weightSaving, setWeightSaving] = useState(false)
     const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
+    // ─── Quick-open from URL params ───────────────
+    useEffect(() => {
+        const quick = searchParams.get('quick')
+        if (!quick || loading) return
+        if (quick === 'inventory') {
+            setInventoryModalOpen(true)
+            setSearchParams({}, { replace: true })
+        } else if (quick === 'health') {
+            setHealthModalOpen(true)
+            setSearchParams({}, { replace: true })
+        }
+    }, [searchParams, setSearchParams, loading])
 
     // ─── Load data ────────────────────────────────
     const loadData = useCallback(async () => {
@@ -199,6 +215,10 @@ export function StatsPage() {
             await loadData()
             lightHaptic()
             pushToast('success', editingHealthId ? '健康记录已更新' : '健康记录已保存')
+            if (!editingHealthId && catId) {
+                const typeLabel = healthType === 'vomit' ? '呕吐' : healthType === 'vaccine' ? '疖苗' : healthType === 'deworming' ? '驱虫' : '就医'
+                sendHealthNotification(catId, cat?.name || '猫咪', typeLabel, payloadName).catch(() => { })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '健康记录保存失败，请稍后重试'))
         } finally {
@@ -287,6 +307,9 @@ export function StatsPage() {
             await loadData()
             lightHaptic()
             pushToast('success', '库存已更新')
+            if (!editingInvId && catId) {
+                sendInventoryNotification(catId, cat?.name || '猫咪', invItemName.trim()).catch(() => { })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '库存保存失败，请稍后重试'))
         } finally {
@@ -392,6 +415,9 @@ export function StatsPage() {
             await loadData()
             lightHaptic()
             pushToast('success', editingWeightId ? '体重已更新' : '体重记录已保存')
+            if (!editingWeightId && catId) {
+                sendWeightNotification(catId, cat?.name || '猫咪', kg).catch(() => { })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '体重保存失败，请稍后重试'))
         } finally {

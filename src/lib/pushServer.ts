@@ -83,3 +83,57 @@ export async function sendScoopNotification(catId: string, catName: string) {
 
     if (error) throw error
 }
+
+export async function sendFeedNotification(catId: string, catName: string, mealType: string) {
+    const { error } = await invokeSendReminders({ action: 'feed', catId, catName, mealType })
+
+    if (error) throw error
+}
+
+export async function sendAbnormalPoopNotification(catId: string, catName: string, bristolType: string, poopColor: string) {
+    const { error } = await invokeSendReminders({ action: 'abnormal-poop', catId, catName, bristolType, poopColor })
+
+    if (error) throw error
+}
+
+export async function sendHealthNotification(catId: string, catName: string, healthType: string, healthName: string) {
+    const { error } = await invokeSendReminders({ action: 'health', catId, catName, healthType, healthName })
+
+    if (error) throw error
+}
+
+export async function sendInventoryNotification(catId: string, catName: string, itemName: string) {
+    const { error } = await invokeSendReminders({ action: 'inventory', catId, catName, itemName })
+
+    if (error) throw error
+}
+
+export async function sendWeightNotification(catId: string, catName: string, weightKg: number) {
+    const { error } = await invokeSendReminders({ action: 'weight', catId, catName, weightKg })
+
+    if (error) throw error
+}
+
+export async function sendCatProfileNotification(catId: string, catName: string) {
+    const { error } = await invokeSendReminders({ action: 'cat-profile', catId, catName })
+
+    if (error) throw error
+}
+
+export async function sendFamilyMemberNotification(familyId: string, memberName: string) {
+    const { error } = await invokeSendReminders({ action: 'family-member', familyId, memberName })
+
+    if (error) throw error
+}
+
+export async function sendNewCatNotification(catId: string, catName: string) {
+    const { error } = await invokeSendReminders({ action: 'new-cat', catId, catName })
+
+    if (error) throw error
+}
+
+export async function sendWeeklySummary(catId: string, catName: string) {
+    const { error } = await invokeSendReminders({ action: 'weekly-summary', catId, catName })
+
+    if (error) throw error
+}

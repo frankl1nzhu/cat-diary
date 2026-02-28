@@ -5,10 +5,10 @@ self.addEventListener('push', (event) => {
   try {
     payload = event.data.json()
   } catch {
-    payload = { title: '喵记提醒', body: event.data.text() }
+    payload = { title: '提醒', body: event.data.text() }
   }
 
-  const title = payload.title || '喵记提醒'
+  const title = payload.title || '提醒'
   const body = payload.body || '你有一条新的提醒'
   const url = payload.url || '/'
 
