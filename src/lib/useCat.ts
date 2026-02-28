@@ -1,3 +1,4 @@
+import { useShallow } from 'zustand/react/shallow'
 import { useAppStore } from '../stores/useAppStore'
 import { useCatStore } from '../stores/useCatStore'
 
@@ -12,12 +13,12 @@ export function useCat() {
     const activeFamilyId = useAppStore((s) => s.activeFamilyId)
     const setActiveFamilyId = useAppStore((s) => s.setActiveFamilyId)
 
-    const { cats, families, myRole, loading } = useCatStore((s) => ({
+    const { cats, families, myRole, loading } = useCatStore(useShallow((s) => ({
         cats: s.cats,
         families: s.families,
         myRole: s.myRole,
         loading: s.loading,
-    }))
+    })))
 
     const resolvedCatId = currentCatId && cats.some((item) => item.id === currentCatId)
         ? currentCatId
