@@ -166,6 +166,13 @@ export interface DiaryReaction {
     created_at: string
 }
 
+export interface MissLog {
+    id: string
+    cat_id: string
+    created_by: string
+    created_at: string
+}
+
 /* ─── Inventory helpers ───────────────────────────── */
 
 /** Compute days remaining from total_quantity / daily_consumption, accounting for elapsed time since last update. */
@@ -227,6 +234,12 @@ export interface Database {
                 Row: PoopLog
                 Insert: Omit<PoopLog, 'id' | 'created_at'>
                 Update: Partial<Omit<PoopLog, 'id'>>
+                Relationships: []
+            }
+            miss_logs: {
+                Row: MissLog
+                Insert: Omit<MissLog, 'id' | 'created_at'>
+                Update: Partial<Omit<MissLog, 'id'>>
                 Relationships: []
             }
             weight_records: {

@@ -17,7 +17,7 @@ import { sendHealthNotification, sendInventoryNotification, sendWeightNotificati
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
-import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
+import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog } from '../types/database.types'
 import { computeDaysRemaining, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
@@ -55,6 +55,7 @@ export function StatsPage() {
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [poops, setPoops] = useState<PoopLog[]>([])
+    const [missLogs, setMissLogs] = useState<MissLog[]>([])
     const [loading, setLoading] = useState(true)
 
     // Modals
@@ -115,17 +116,19 @@ export function StatsPage() {
         }
 
         try {
-            const [w, h, inv, poopData] = await Promise.all([
+            const [w, h, inv, poopData, missData] = await Promise.all([
                 supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
                 supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
                 supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
+                supabase.from('miss_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(200),
             ])
 
             if (w.data) setWeights(w.data)
             if (h.data) setHealthRecords(h.data)
             if (inv.data) setInventory(inv.data)
             if (poopData.data) setPoops(poopData.data)
+            if (missData.data) setMissLogs(missData.data)
         } catch (err) {
             console.error('Failed to load stats data:', err)
             pushToast('error', getErrorMessage(err, '统计数据加载失败，请稍后重试'))
@@ -164,6 +167,11 @@ export function StatsPage() {
             .map(([name, value]) => ({ name, value }))
             .filter((item) => item.value > 0)
     }, [poops])
+
+    const missCount30Days = useMemo(() => {
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+        return missLogs.filter((item) => new Date(item.created_at).getTime() >= cutoff).length
+    }, [missLogs])
 
     // ─── Save health record ───────────────────────
     const handleHealthSave = async () => {
@@ -678,6 +686,11 @@ export function StatsPage() {
                                     <p className="text-secondary text-sm">近30天暂无便便记录</p>
                                 </div>
                             )}
+                        </div>
+
+                        <h3 className="text-base font-semibold">🥹 想咪次数（近30天）</h3>
+                        <div className="empty-state-sm">
+                            <p className="text-secondary text-sm">🥹 {missCount30Days} 次</p>
                         </div>
                     </div>
 

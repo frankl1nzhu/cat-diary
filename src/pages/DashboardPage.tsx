@@ -86,6 +86,7 @@ export function DashboardPage() {
     const [selectedBristol, setSelectedBristol] = useState<BristolType>('4')
     const [selectedColor, setSelectedColor] = useState<PoopColor>('brown')
     const [poopSaving, setPoopSaving] = useState(false)
+    const [missSaving, setMissSaving] = useState(false)
 
     const [feedLoading, setFeedLoading] = useState(false)
     const [moodSaving, setMoodSaving] = useState(false)
@@ -437,6 +438,24 @@ export function DashboardPage() {
         '😴': 'mood-day-sleepy',
     }
 
+    const handleMissCat = async () => {
+        if (!cat || !user || missSaving) return
+        setMissSaving(true)
+        try {
+            await supabase.from('miss_logs').insert({
+                cat_id: cat.id,
+                created_by: user.id,
+            })
+            lightHaptic()
+            triggerRewardBurst('💖')
+            pushToast('success', '想咪 +1 🥹')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
+        } finally {
+            setMissSaving(false)
+        }
+    }
+
     // ─── Renew vaccine / deworming ──────────────────
     const openRenewModal = (record: HealthRecord) => {
         setRenewRecord(record)
@@ -782,19 +801,30 @@ export function DashboardPage() {
                 </div>
             )}
 
-            {/* ── Quick Scoop Button ── */}
+            {/* ── Quick Action Buttons ── */}
             <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
-                <button
-                    className="quick-scoop-btn"
-                    onClick={() => {
-                        lightHaptic()
-                        setPoopModalOpen(true)
-                    }}
-                    disabled={!cat || !online}
-                >
-                    <span className="quick-scoop-icon">🧹</span>
-                    <span className="quick-scoop-text">一键铲屎</span>
-                </button>
+                <div className="quick-action-row">
+                    <button
+                        className="quick-scoop-btn"
+                        onClick={() => {
+                            lightHaptic()
+                            setPoopModalOpen(true)
+                        }}
+                        disabled={!cat || !online}
+                    >
+                        <span className="quick-scoop-icon">🧹</span>
+                        <span className="quick-scoop-text">一键铲屎</span>
+                    </button>
+
+                    <button
+                        className="quick-scoop-btn quick-miss-btn"
+                        onClick={() => { void handleMissCat() }}
+                        disabled={!cat || !online || missSaving}
+                    >
+                        <span className="quick-scoop-icon">🥹</span>
+                        <span className="quick-scoop-text">想咪了</span>
+                    </button>
+                </div>
             </div>
 
             {/* ── Inventory Alert Banner ── */}

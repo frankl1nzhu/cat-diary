@@ -206,6 +206,20 @@
     letter-spacing: 0.05em;
 }
 
+.quick-action-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.quick-action-row .quick-scoop-btn {
+    flex: 1;
+}
+
+.quick-miss-btn {
+    background: linear-gradient(135deg, var(--color-primary-light), rgba(248, 165, 194, 0.2));
+    border-color: var(--color-primary);
+}
+
 /* ── Inventory Alert ── */
 .inventory-alert {
     padding: var(--space-3) var(--space-4);
