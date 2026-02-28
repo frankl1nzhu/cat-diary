@@ -489,7 +489,9 @@ export function LogPage() {
 
             // Notify family members on new diary (not edits)
             if (!editingDiaryId && cat) {
-                sendDiaryNotification(catId, cat.name).catch(() => {/* silent */ })
+                sendDiaryNotification(catId, cat.name).catch(() => {
+                    pushToast('info', '日记已发布，但通知发送失败，请稍后重试')
+                })
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))

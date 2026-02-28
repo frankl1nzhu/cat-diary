@@ -1,3 +1,5 @@
+import { supabase } from './supabase'
+
 const PUSH_SUB_KEY = 'cat_diary_push_subscription'
 
 function isIosSafariBrowser() {
@@ -28,6 +30,23 @@ function base64UrlToUint8Array(base64String: string) {
     return outputArray
 }
 
+export async function getVapidPublicKey() {
+    const envKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
+    if (envKey) return envKey
+
+    try {
+        const { data, error } = await supabase.functions.invoke('send-reminders', {
+            body: { action: 'vapid-public-key' },
+        })
+
+        if (error) return undefined
+        const key = (data as { vapidPublicKey?: string } | null)?.vapidPublicKey
+        return key || undefined
+    } catch {
+        return undefined
+    }
+}
+
 export async function enablePushNotifications() {
     if (typeof window === 'undefined' || typeof Notification === 'undefined') {
         return { ok: false as const, reason: 'unsupported' as const }
@@ -45,7 +64,7 @@ export async function enablePushNotifications() {
         return { ok: false as const, reason: 'denied' as const }
     }
 
-    const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
+    const vapidPublicKey = await getVapidPublicKey()
     if (!vapidPublicKey) {
         return { ok: true as const, subscribed: false as const, reason: 'no-vapid-key' as const }
     }

@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
-type ActionType = 'test' | 'reminder' | 'diary' | 'comment'
+type ActionType = 'test' | 'reminder' | 'diary' | 'comment' | 'vapid-public-key'
 
 interface PushSubRow {
   id: string
@@ -110,13 +110,35 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const body: ReqBody = await req.json().catch(() => ({}))
+    const action: ActionType = body.action || 'test'
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')
     const vapidPublic = Deno.env.get('VAPID_PUBLIC_KEY')
     const vapidPrivate = Deno.env.get('VAPID_PRIVATE_KEY')
 
-    if (!supabaseUrl || !serviceRoleKey || !anonKey || !vapidPublic || !vapidPrivate) {
+    if (!supabaseUrl || !serviceRoleKey) {
+      return new Response(JSON.stringify({ error: 'Missing required secrets for push delivery' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (action === 'vapid-public-key') {
+      if (!vapidPublic) {
+        return new Response(JSON.stringify({ error: 'VAPID public key is missing' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({ vapidPublicKey: vapidPublic }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!vapidPublic || !vapidPrivate) {
       return new Response(JSON.stringify({ error: 'Missing required secrets for push delivery' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -131,13 +153,12 @@ Deno.serve(async (req) => {
       })
     }
 
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
+    const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const admin = createClient(supabaseUrl, serviceRoleKey)
     const {
       data: { user },
       error: userErr,
-    } = await userClient.auth.getUser()
+    } = await admin.auth.getUser(accessToken)
 
     if (userErr || !user) {
       return new Response(JSON.stringify({ error: 'Invalid user context' }), {
@@ -146,10 +167,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body: ReqBody = await req.json().catch(() => ({}))
-    const action: ActionType = body.action || 'test'
-
-    const admin = createClient(supabaseUrl, serviceRoleKey)
     webpush.setVapidDetails('mailto:cat-diary@example.com', vapidPublic, vapidPrivate)
 
     /* ── test: send to requesting user only ── */

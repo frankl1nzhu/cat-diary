@@ -12,7 +12,7 @@ import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
-import { enablePushNotifications } from '../lib/pushNotifications'
+import { enablePushNotifications, getVapidPublicKey } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
@@ -139,19 +139,22 @@ export function SettingsPage() {
     useEffect(() => {
         if (typeof Notification === 'undefined') return
         setNotificationPermission(Notification.permission)
+
         if (Notification.permission === 'granted') {
-            const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
-            if (vapidKey) {
-                // Auto-subscribe if permission granted but subscription might be missing
-                enablePushNotifications().then(async (result) => {
-                    if (result.ok && 'subscribed' in result && result.subscribed && 'subscription' in result && result.subscription && user) {
-                        await savePushSubscription(user.id, result.subscription).catch(() => { })
-                    }
-                }).catch(() => { })
-                setNotificationHint('Web Push 已启用。')
-            } else {
+            getVapidPublicKey().then((vapidKey) => {
+                if (vapidKey) {
+                    enablePushNotifications().then(async (result) => {
+                        if (result.ok && 'subscribed' in result && result.subscribed && 'subscription' in result && result.subscription && user) {
+                            await savePushSubscription(user.id, result.subscription).catch(() => { })
+                        }
+                    }).catch(() => { })
+                    setNotificationHint('Web Push 已启用。')
+                } else {
+                    setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+                }
+            }).catch(() => {
                 setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
-            }
+            })
         }
     }, [user])
 
@@ -276,6 +279,10 @@ export function SettingsPage() {
                     pushToast('error', '当前浏览器不支持 Web Push 通知')
                     return
                 }
+                if (result.reason === 'push-subscribe-failed') {
+                    pushToast('error', 'Web Push 订阅失败，请稍后重试')
+                    return
+                }
                 pushToast('error', '通知权限未开启')
                 return
             }
@@ -289,7 +296,7 @@ export function SettingsPage() {
                 setNotificationHint('Web Push 已启用。')
                 pushToast('success', '通知已开启（含 Web Push 订阅）')
             } else {
-                const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
+                const vapidKey = await getVapidPublicKey()
                 if (vapidKey) {
                     setNotificationHint('通知权限已开启，Web Push 订阅失败，请重试。')
                     pushToast('error', 'Web Push 订阅失败，请重试')
