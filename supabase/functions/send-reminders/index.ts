@@ -235,6 +235,13 @@ Deno.serve(async (req) => {
       userErrorMessage = 'missing authorization header'
     }
 
+    if (action !== 'vapid-public-key' && !userId) {
+      return new Response(JSON.stringify({ error: `Unauthorized: ${userErrorMessage || 'missing user context'}` }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     webpush.setVapidDetails('mailto:cat-diary@example.com', vapidPublic, vapidPrivate)
 
     /* ── test: send to requesting user only ── */
