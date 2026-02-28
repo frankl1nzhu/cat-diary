@@ -219,7 +219,7 @@ export function StatsPage() {
     // ─── Renew vaccine / deworming ────────────────
     const openRenewModal = (record: HealthRecord) => {
         setRenewRecord(record)
-        setRenewDate(format(new Date(), 'yyyy-MM-dd'))
+        setRenewDate(record.next_due || format(new Date(), 'yyyy-MM-dd'))
         setRenewNextDue('')
         setRenewNotes('')
         setRenewModalOpen(true)
@@ -1066,28 +1066,29 @@ export function StatsPage() {
                                 </p>
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label" htmlFor="renew-date">本次日期</label>
-                                <input
-                                    id="renew-date"
-                                    type="date"
-                                    className="form-input"
-                                    value={renewDate}
-                                    max={format(new Date(), 'yyyy-MM-dd')}
-                                    onChange={(e) => setRenewDate(e.target.value)}
-                                />
-                            </div>
+                            <div className="form-row">
+                                <div className="form-group flex-1">
+                                    <label className="form-label" htmlFor="renew-date">本次日期</label>
+                                    <input
+                                        id="renew-date"
+                                        type="date"
+                                        className="form-input"
+                                        value={renewDate}
+                                        onChange={(e) => setRenewDate(e.target.value)}
+                                    />
+                                </div>
 
-                            <div className="form-group">
-                                <label className="form-label" htmlFor="renew-next-due">下次到期日</label>
-                                <input
-                                    id="renew-next-due"
-                                    type="date"
-                                    className="form-input"
-                                    value={renewNextDue}
-                                    min={renewDate || undefined}
-                                    onChange={(e) => setRenewNextDue(e.target.value)}
-                                />
+                                <div className="form-group flex-1">
+                                    <label className="form-label" htmlFor="renew-next-due">下次到期日</label>
+                                    <input
+                                        id="renew-next-due"
+                                        type="date"
+                                        className="form-input"
+                                        value={renewNextDue}
+                                        min={renewDate || undefined}
+                                        onChange={(e) => setRenewNextDue(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
                             <div className="form-group">

@@ -59,6 +59,12 @@
     gap: var(--space-3);
 }
 
+.timeline-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
 .timeline-card {
     display: flex;
     gap: var(--space-3);
@@ -116,6 +122,12 @@
     -webkit-box-orient: vertical;
 }
 
+.timeline-content>.diary-text-content {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+}
+
 .timeline-actions {
     position: absolute;
     top: 0;
@@ -167,6 +179,11 @@
 /* ── Diary Expand / Collapse ── */
 .diary-card-full .timeline-content {
     padding-right: 2.5rem;
+}
+
+.diary-author {
+    font-weight: 600;
+    color: var(--color-primary);
 }
 
 .diary-text-content {
@@ -253,6 +270,13 @@
     font-size: var(--font-size-sm);
 }
 
+.diary-comment-author {
+    font-weight: 600;
+    color: var(--color-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .diary-comment-delete {
     margin-left: auto;
     background: none;
@@ -278,7 +302,7 @@
     flex: 1;
     min-width: 0;
     padding: var(--space-1) var(--space-2) !important;
-    font-size: var(--font-size-sm) !important;
+    font-size: 16px !important;
 }
 
 .diary-comment-send {

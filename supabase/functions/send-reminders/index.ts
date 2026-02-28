@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 
-type ActionType = 'test' | 'reminder' | 'diary'
+type ActionType = 'test' | 'reminder' | 'diary' | 'comment'
 
 interface PushSubRow {
   id: string
@@ -15,6 +15,7 @@ interface ReqBody {
   action?: ActionType
   catId?: string
   catName?: string
+  diaryAuthorId?: string
 }
 
 const corsHeaders = {
@@ -178,6 +179,28 @@ Deno.serve(async (req) => {
       const memberIds = await getFamilyMemberIds(admin, catId, user.id)
       const result = await sendPushToUsers(admin, memberIds, {
         title: `${catName} 有新日记啦 📝`,
+        body: '快来看看吧~',
+        url: '/log',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── comment: notify diary AUTHOR when someone else comments ── */
+    if (action === 'comment') {
+      const authorId = body.diaryAuthorId
+      const catName = body.catName || '猫咪'
+      if (!authorId || authorId === user.id) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'No notification needed' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const result = await sendPushToUsers(admin, [authorId], {
+        title: `${catName} 的日记有新评论 💬`,
         body: '快来看看吧~',
         url: '/log',
       })

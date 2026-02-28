@@ -57,3 +57,11 @@ export async function sendDiaryNotification(catId: string, catName: string) {
 
     if (error) throw error
 }
+
+export async function sendCommentNotification(diaryAuthorId: string, catName: string) {
+    const { error } = await supabase.functions.invoke('send-reminders', {
+        body: { action: 'comment', diaryAuthorId, catName },
+    })
+
+    if (error) throw error
+}

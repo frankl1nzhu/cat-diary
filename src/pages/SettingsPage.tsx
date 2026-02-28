@@ -335,10 +335,9 @@ export function SettingsPage() {
 
     const handleJoinFamily = async () => {
         await joinFamily(joinCode, {
-            assignCat: true,
+            assignCat: false,
             onSuccess: (family) => {
                 setCurrentFamily(family as Family)
-                setSelectedFamilyId(family.id)
                 setJoinCode('')
             },
         })
@@ -604,9 +603,12 @@ export function SettingsPage() {
                                     <>
                                         <div className="form-group">
                                             <label className="form-label">头像</label>
-                                            <label
+                                            <div
                                                 className="avatar-upload"
-                                                onClick={(e) => { e.preventDefault(); fileInputRef.current?.click() }}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => fileInputRef.current?.click()}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
                                             >
                                                 {avatarUrl ? (
                                                     <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" />
@@ -616,15 +618,15 @@ export function SettingsPage() {
                                                 <span className="text-sm text-secondary">
                                                     {uploading ? '上传中...' : '点击上传照片'}
                                                 </span>
-                                                <input
-                                                    ref={fileInputRef}
-                                                    id="cat-avatar"
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="file-input-hidden"
-                                                    onChange={handleAvatarUpload}
-                                                />
-                                            </label>
+                                            </div>
+                                            <input
+                                                ref={fileInputRef}
+                                                id="cat-avatar"
+                                                type="file"
+                                                accept="image/*"
+                                                className="file-input-hidden"
+                                                onChange={handleAvatarUpload}
+                                            />
                                         </div>
 
                                         <div className="form-group">

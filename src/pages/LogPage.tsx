@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -15,7 +14,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
-import { sendDiaryNotification } from '../lib/pushServer'
+import { sendDiaryNotification, sendCommentNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
@@ -83,6 +82,9 @@ export function LogPage() {
     const [commentSaving, setCommentSaving] = useState<string | null>(null)
     const [showComments, setShowComments] = useState<Set<string>>(new Set())
     const REACTION_EMOJIS = ['❤️', '😂', '😍', '👍', '🐱', '🐾']
+
+    // User profile cache for displaying usernames
+    const [userProfiles, setUserProfiles] = useState<Record<string, string>>({})
 
     const [keyword, setKeyword] = useState('')
     const deferredKeyword = useDeferredValue(keyword)
@@ -168,6 +170,31 @@ export function LogPage() {
         loadDiaryMeta(diaryIds)
     }, [timeline, loadDiaryMeta])
 
+    // Load user profiles for diary authors and commenters
+    useEffect(() => {
+        const userIds = new Set<string>()
+        timeline.forEach((t) => {
+            if (t.type === 'diary') userIds.add(t.data.created_by)
+        })
+        Object.values(diaryComments).flat().forEach((c) => userIds.add(c.user_id))
+        // Remove already-loaded profiles
+        const missing = [...userIds].filter((id) => !userProfiles[id])
+        if (missing.length === 0) return
+
+        supabase
+            .from('profiles')
+            .select('id,username')
+            .in('id', missing)
+            .then(({ data }) => {
+                if (!data) return
+                const map: Record<string, string> = {}
+                data.forEach((p: { id: string; username: string }) => { map[p.id] = p.username })
+                setUserProfiles((prev) => ({ ...prev, ...map }))
+            })
+    }, [timeline, diaryComments]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    const getUserName = (userId: string) => userProfiles[userId] || '匿名'
+
     const toggleDiaryExpand = (id: string) => {
         setExpandedDiaries((prev) => {
             const next = new Set(prev)
@@ -235,6 +262,12 @@ export function LogPage() {
             setCommentInputs((prev) => ({ ...prev, [diaryId]: '' }))
             lightHaptic()
             pushToast('success', '评论已发布')
+
+            // Notify diary author
+            const diaryItem = timeline.find((t) => t.type === 'diary' && t.data.id === diaryId)
+            if (diaryItem && diaryItem.type === 'diary' && diaryItem.data.created_by !== user.id && cat) {
+                sendCommentNotification(diaryItem.data.created_by, cat.name).catch(() => {/* silent */})
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '评论失败'))
         } finally {
@@ -651,14 +684,8 @@ export function LogPage() {
         await loadTimeline()
     }
 
-    // ─── Virtual list ─────────────────────────────
+    // ─── Scroll ref (for pull-to-refresh only) ─────
     const timelineParentRef = useRef<HTMLDivElement>(null)
-    const virtualizer = useVirtualizer({
-        count: filteredTimeline.length,
-        getScrollElement: () => timelineParentRef.current,
-        estimateSize: () => 120,
-        overscan: 5,
-    })
 
     const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
         if (window.scrollY > 0) return
@@ -747,12 +774,13 @@ export function LogPage() {
                                         <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
                                     </div>
                                 )}
+                                <span className="diary-author text-xs text-secondary">{getUserName(item.data.created_by)}</span>
                                 {item.data.image_url && (
                                     <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
                                         <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
                                     </button>
                                 )}
-                                <p className="text-sm diary-text-content">{displayText}</p>
+                                <div className="text-sm diary-text-content">{displayText}</div>
                                 {isLong && (
                                     <button className="diary-expand-btn" onClick={() => toggleDiaryExpand(item.data.id)}>
                                         {isExpanded ? '收起 ▲' : '展开全文 ▼'}
@@ -791,8 +819,9 @@ export function LogPage() {
                                     <div className="diary-comments-section">
                                         {comments.map((c) => (
                                             <div key={c.id} className="diary-comment-item">
-                                                <span className="text-xs text-muted">{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
+                                                <span className="diary-comment-author text-xs">{getUserName(c.user_id)}</span>
                                                 <span className="text-sm">{c.text}</span>
+                                                <span className="text-xs text-muted" style={{ marginLeft: 'auto', flexShrink: 0 }}>{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
                                                 {c.user_id === user?.id && (
                                                     <button className="diary-comment-delete" onClick={() => handleDeleteComment(c.id, item.data.id)}>✕</button>
                                                 )}
@@ -921,7 +950,7 @@ export function LogPage() {
                 </Card>
             </div>
 
-            <div className="timeline px-4" ref={timelineParentRef} style={{ overflowY: 'auto', maxHeight: '70vh' }}>
+            <div className="timeline px-4" ref={timelineParentRef}>
                 {loading || catLoading ? (
                     <div className="empty-state">
                         <span className="empty-icon">⏳</span>
@@ -933,32 +962,12 @@ export function LogPage() {
                         <p className="text-secondary text-sm">没有符合筛选条件的记录</p>
                     </div>
                 ) : (
-                    <div
-                        style={{
-                            height: `${virtualizer.getTotalSize()}px`,
-                            width: '100%',
-                            position: 'relative',
-                        }}
-                    >
-                        {virtualizer.getVirtualItems().map((virtualRow) => {
-                            const item = filteredTimeline[virtualRow.index]
-                            return (
-                                <div
-                                    key={virtualRow.key}
-                                    data-index={virtualRow.index}
-                                    ref={virtualizer.measureElement}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualRow.start}px)`,
-                                    }}
-                                >
-                                    {renderItem(item)}
-                                </div>
-                            )
-                        })}
+                    <div className="timeline-list">
+                        {filteredTimeline.map((item) => (
+                            <div key={`${item.type}-${item.data.id}`}>
+                                {renderItem(item)}
+                            </div>
+                        ))}
                     </div>
                 )}
 
