@@ -764,11 +764,10 @@ export function LogPage() {
                     if (r.user_id === user?.id) reactionCounts[r.emoji].userReacted = true
                 })
 
-                return (
-                    <SwipeableRow key={`d-${item.data.id}`} onDelete={isAuthor ? () => setPendingDeleteItem(item) : undefined}>
-                        <Card variant="default" padding="md" className="timeline-card diary-card-full">
-                            <div className="timeline-badge diary-badge">📝</div>
-                            <div className="timeline-content">
+                const diaryCard = (
+                    <Card key={`d-${item.data.id}`} variant="default" padding="md" className="timeline-card diary-card-full">
+                        <div className="timeline-badge diary-badge">📝</div>
+                        <div className="timeline-content">
                                 {isAuthor && (
                                     <div className="timeline-actions">
                                         <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
@@ -852,10 +851,18 @@ export function LogPage() {
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        </Card>
-                    </SwipeableRow>
+                        </div>
+                    </Card>
                 )
+
+                if (isAuthor) {
+                    return (
+                        <SwipeableRow key={`d-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
+                            {diaryCard}
+                        </SwipeableRow>
+                    )
+                }
+                return diaryCard
             }
             case 'poop': {
                 const abnormal = isAbnormalPoop(item.data.bristol_type, item.data.color)

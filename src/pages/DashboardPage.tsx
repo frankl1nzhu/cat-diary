@@ -740,7 +740,6 @@ export function DashboardPage() {
                                         <div className="health-reminder-info">
                                             <span className="text-sm font-semibold">{r.name}</span>
                                             <span className="text-xs text-muted">{typeLabel} · 到期：{format(new Date(r.next_due!), 'yyyy/MM/dd')}</span>
-                                            {r.notes && <span className="text-xs text-muted">📝 {r.notes}</span>}
                                         </div>
                                         <span className={`health-reminder-days ${isPastDue ? 'text-danger' : isUrgent ? 'text-warning' : 'text-secondary'}`}>
                                             {isPastDue ? `过期${Math.abs(r.daysLeft)}天` : `${r.daysLeft}天`}

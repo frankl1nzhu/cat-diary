@@ -716,7 +716,6 @@ export function StatsPage() {
                                             <div className="health-info">
                                                 <span className="text-sm font-semibold">{r.name}</span>
                                                 <span className="text-muted text-xs">{config.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
-                                                {r.notes && <span className="text-muted text-xs">📝 {r.notes}</span>}
                                                 {r.next_due && (
                                                     <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
                                                         下次：{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? '⚠️ 已过期' : ''}

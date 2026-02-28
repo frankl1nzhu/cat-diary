@@ -142,12 +142,18 @@ export function SettingsPage() {
         if (Notification.permission === 'granted') {
             const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
             if (vapidKey) {
+                // Auto-subscribe if permission granted but subscription might be missing
+                enablePushNotifications().then(async (result) => {
+                    if (result.ok && 'subscribed' in result && result.subscribed && 'subscription' in result && result.subscription && user) {
+                        await savePushSubscription(user.id, result.subscription).catch(() => {})
+                    }
+                }).catch(() => {})
                 setNotificationHint('Web Push 已启用。')
             } else {
                 setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
             }
         }
-    }, [])
+    }, [user])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
