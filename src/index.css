@@ -165,6 +165,8 @@ select {
 
 .form-input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 42px;
   padding: var(--space-3) var(--space-4);
   background: var(--color-bg-input);
@@ -172,6 +174,11 @@ select {
   border-radius: var(--radius-md);
   color: var(--color-text);
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+input[type='date'].form-input {
+  -webkit-min-logical-width: 0;
+  overflow: hidden;
 }
 
 .form-input:focus {
@@ -186,6 +193,8 @@ select {
 
 .form-group {
   margin-bottom: var(--space-4);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .form-label {
