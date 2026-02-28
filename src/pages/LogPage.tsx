@@ -768,89 +768,91 @@ export function LogPage() {
                     <Card key={`d-${item.data.id}`} variant="default" padding="md" className="timeline-card diary-card-full">
                         <div className="timeline-badge diary-badge">📝</div>
                         <div className="timeline-content">
-                                {isAuthor && (
-                                    <div className="timeline-actions">
-                                        <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
-                                    </div>
-                                )}
-                                <span className="diary-author text-xs text-secondary">{getUserName(item.data.created_by)}</span>
-                                {item.data.image_url && (
-                                    <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
-                                        <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
-                                    </button>
-                                )}
-                                <div className="text-sm diary-text-content">{displayText}</div>
-                                {isLong && (
-                                    <button className="diary-expand-btn" onClick={() => toggleDiaryExpand(item.data.id)}>
-                                        {isExpanded ? '收起 ▲' : '展开全文 ▼'}
-                                    </button>
-                                )}
-                                {item.data.tags.length > 0 && (
-                                    <div className="timeline-tags">
-                                        {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
-                                    </div>
-                                )}
-                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
-
-                                {/* Reactions */}
-                                <div className="diary-reactions-row">
-                                    {REACTION_EMOJIS.map((emoji) => {
-                                        const info = reactionCounts[emoji]
-                                        return (
-                                            <button
-                                                key={emoji}
-                                                className={`diary-reaction-btn ${info?.userReacted ? 'diary-reaction-active' : ''}`}
-                                                onClick={() => handleToggleReaction(item.data.id, emoji)}
-                                            >
-                                                {emoji}{info?.count ? ` ${info.count}` : ''}
-                                            </button>
-                                        )
-                                    })}
+                            {isAuthor && (
+                                <div className="timeline-actions">
+                                    <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
                                 </div>
-
-                                {/* Comments toggle */}
-                                <button className="diary-comment-toggle" onClick={() => toggleShowComments(item.data.id)}>
-                                    💬 {comments.length > 0 ? `${comments.length} 条评论` : '评论'}
-                                    {commentsVisible ? ' ▲' : ' ▼'}
+                            )}
+                            <span className="diary-author text-xs text-secondary">{getUserName(item.data.created_by)}</span>
+                            {item.data.image_url && (
+                                <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
+                                    <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
                                 </button>
+                            )}
+                            <div className="text-sm diary-text-content">{displayText}</div>
+                            {isLong && (
+                                <button className="diary-expand-btn" onClick={() => toggleDiaryExpand(item.data.id)}>
+                                    {isExpanded ? '收起 ▲' : '展开全文 ▼'}
+                                </button>
+                            )}
+                            {item.data.tags.length > 0 && (
+                                <div className="timeline-tags">
+                                    {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
+                                </div>
+                            )}
+                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
 
-                                {commentsVisible && (
-                                    <div className="diary-comments-section">
-                                        {comments.map((c) => (
-                                            <div key={c.id} className="diary-comment-item">
-                                                <span className="diary-comment-author text-xs">{getUserName(c.user_id)}</span>
-                                                <span className="text-sm">{c.text}</span>
-                                                <span className="text-xs text-muted" style={{ marginLeft: 'auto', flexShrink: 0 }}>{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
-                                                {c.user_id === user?.id && (
-                                                    <button className="diary-comment-delete" onClick={() => handleDeleteComment(c.id, item.data.id)}>✕</button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        <div className="diary-comment-input-row">
-                                            <input
-                                                type="text"
-                                                className="form-input diary-comment-input"
-                                                placeholder="写评论..."
-                                                value={commentInputs[item.data.id] || ''}
-                                                onChange={(e) => setCommentInputs((prev) => ({ ...prev, [item.data.id]: e.target.value }))}
-                                                onKeyDown={(e) => {
-                                                    e.stopPropagation()
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault()
-                                                        handleAddComment(item.data.id)
-                                                    }
-                                                }}
-                                            />
-                                            <button
-                                                className="diary-comment-send"
-                                                onClick={() => handleAddComment(item.data.id)}
-                                                disabled={commentSaving === item.data.id}
-                                            >
-                                                {commentSaving === item.data.id ? '...' : '发送'}
-                                            </button>
+                            {/* Reactions */}
+                            <div className="diary-reactions-row">
+                                {REACTION_EMOJIS.map((emoji) => {
+                                    const info = reactionCounts[emoji]
+                                    return (
+                                        <button
+                                            key={emoji}
+                                            className={`diary-reaction-btn ${info?.userReacted ? 'diary-reaction-active' : ''}`}
+                                            onClick={() => handleToggleReaction(item.data.id, emoji)}
+                                        >
+                                            {emoji}{info?.count ? ` ${info.count}` : ''}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Comments toggle */}
+                            <button className="diary-comment-toggle" onClick={() => toggleShowComments(item.data.id)}>
+                                💬 {comments.length > 0 ? `${comments.length} 条评论` : '评论'}
+                                {commentsVisible ? ' ▲' : ' ▼'}
+                            </button>
+
+                            {commentsVisible && (
+                                <div className="diary-comments-section">
+                                    {comments.map((c) => (
+                                        <div key={c.id} className="diary-comment-item">
+                                            <span className="diary-comment-author text-xs">{getUserName(c.user_id)}</span>
+                                            <span className="text-sm diary-comment-text">{c.text}</span>
+                                            <span className="text-xs text-muted diary-comment-time">{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
+                                            {c.user_id === user?.id ? (
+                                                <button className="diary-comment-delete" onClick={() => handleDeleteComment(c.id, item.data.id)}>✕</button>
+                                            ) : (
+                                                <span className="diary-comment-delete-placeholder" />
+                                            )}
                                         </div>
+                                    ))}
+                                    <div className="diary-comment-input-row">
+                                        <input
+                                            type="text"
+                                            className="form-input diary-comment-input"
+                                            placeholder="写评论..."
+                                            value={commentInputs[item.data.id] || ''}
+                                            onChange={(e) => setCommentInputs((prev) => ({ ...prev, [item.data.id]: e.target.value }))}
+                                            onKeyDown={(e) => {
+                                                e.stopPropagation()
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault()
+                                                    handleAddComment(item.data.id)
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            className="diary-comment-send"
+                                            onClick={() => handleAddComment(item.data.id)}
+                                            disabled={commentSaving === item.data.id}
+                                        >
+                                            {commentSaving === item.data.id ? '...' : '发送'}
+                                        </button>
                                     </div>
-                                )}
+                                </div>
+                            )}
                         </div>
                     </Card>
                 )

@@ -145,9 +145,9 @@ export function SettingsPage() {
                 // Auto-subscribe if permission granted but subscription might be missing
                 enablePushNotifications().then(async (result) => {
                     if (result.ok && 'subscribed' in result && result.subscribed && 'subscription' in result && result.subscription && user) {
-                        await savePushSubscription(user.id, result.subscription).catch(() => {})
+                        await savePushSubscription(user.id, result.subscription).catch(() => { })
                     }
-                }).catch(() => {})
+                }).catch(() => { })
                 setNotificationHint('Web Push 已启用。')
             } else {
                 setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')

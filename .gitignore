@@ -30,7 +30,6 @@ test-results/
 # Supabase local temp files
 supabase/.temp/
 
-# Environment variables
-.env
+# Environment variables (keep .env committed for public keys like VAPID)
 .env.local
 .env.*.local

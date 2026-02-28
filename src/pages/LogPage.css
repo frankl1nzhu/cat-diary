@@ -270,6 +270,22 @@
     font-size: var(--font-size-sm);
 }
 
+.diary-comment-text {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+}
+
+.diary-comment-time {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.diary-comment-delete-placeholder {
+    width: 20px;
+    flex-shrink: 0;
+}
+
 .diary-comment-author {
     font-weight: 600;
     color: var(--color-primary);
@@ -278,7 +294,6 @@
 }
 
 .diary-comment-delete {
-    margin-left: auto;
     background: none;
     border: none;
     color: var(--color-text-muted);
@@ -286,6 +301,8 @@
     cursor: pointer;
     padding: 2px 4px;
     flex-shrink: 0;
+    width: 20px;
+    text-align: center;
 }
 
 .diary-comment-delete:hover {
