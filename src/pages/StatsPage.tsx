@@ -216,7 +216,7 @@ export function StatsPage() {
             lightHaptic()
             pushToast('success', editingHealthId ? '健康记录已更新' : '健康记录已保存')
             if (!editingHealthId && catId) {
-                const typeLabel = healthType === 'vomit' ? '呕吐' : healthType === 'vaccine' ? '疖苗' : healthType === 'deworming' ? '驱虫' : '就医'
+                const typeLabel = healthType === 'vomit' ? '呕吐' : healthType === 'vaccine' ? '疫苗' : healthType === 'deworming' ? '驱虫' : '就医'
                 sendHealthNotification(catId, cat?.name || '猫咪', typeLabel, payloadName).catch(() => { })
             }
         } catch (err) {
