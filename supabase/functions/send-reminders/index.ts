@@ -154,14 +154,47 @@ Deno.serve(async (req) => {
     }
 
     const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!accessToken) {
+      return new Response(JSON.stringify({ error: 'Empty access token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const admin = createClient(supabaseUrl, serviceRoleKey)
+    let userId: string | null = null
+    let userErrorMessage: string | null = null
+
     const {
-      data: { user },
-      error: userErr,
+      data: serviceUserData,
+      error: serviceUserErr,
     } = await admin.auth.getUser(accessToken)
 
-    if (userErr || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid user context' }), {
+    if (serviceUserData?.user?.id) {
+      userId = serviceUserData.user.id
+    } else {
+      userErrorMessage = serviceUserErr?.message || 'service-role getUser failed'
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')
+      if (anonKey) {
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: `Bearer ${accessToken}` } },
+        })
+        const {
+          data: anonUserData,
+          error: anonUserErr,
+        } = await userClient.auth.getUser()
+
+        if (anonUserData?.user?.id) {
+          userId = anonUserData.user.id
+          userErrorMessage = null
+        } else {
+          userErrorMessage = `${userErrorMessage}; anon-client getUser failed: ${anonUserErr?.message || 'unknown'}`
+        }
+      }
+    }
+
+    if (!userId) {
+      return new Response(JSON.stringify({ error: `Invalid user context (${userErrorMessage || 'unknown'})` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -171,7 +204,7 @@ Deno.serve(async (req) => {
 
     /* ── test: send to requesting user only ── */
     if (action === 'test') {
-      const result = await sendPushToUsers(admin, [user.id], {
+      const result = await sendPushToUsers(admin, [userId], {
         title: '喵记测试推送',
         body: '推送链路正常 ✅',
         url: '/',
@@ -193,7 +226,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      const memberIds = await getFamilyMemberIds(admin, catId, user.id)
+      const memberIds = await getFamilyMemberIds(admin, catId, userId)
       const result = await sendPushToUsers(admin, memberIds, {
         title: `${catName} 有新日记啦 📝`,
         body: '快来看看吧~',
@@ -209,7 +242,7 @@ Deno.serve(async (req) => {
     if (action === 'comment') {
       const authorId = body.diaryAuthorId
       const catName = body.catName || '猫咪'
-      if (!authorId || authorId === user.id) {
+      if (!authorId || authorId === userId) {
         return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'No notification needed' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
