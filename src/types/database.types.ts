@@ -114,6 +114,7 @@ export interface InventoryItem {
     id: string
     cat_id: string
     item_name: string
+    icon: string | null
     status: InventoryStatus
     total_quantity: number | null
     daily_consumption: number | null
@@ -149,12 +150,32 @@ export interface FamilyMemberWithEmail {
     created_at: string
 }
 
+export interface DiaryComment {
+    id: string
+    diary_id: string
+    user_id: string
+    text: string
+    created_at: string
+}
+
+export interface DiaryReaction {
+    id: string
+    diary_id: string
+    user_id: string
+    emoji: string
+    created_at: string
+}
+
 /* ─── Inventory helpers ───────────────────────────── */
 
-/** Compute days remaining from total_quantity / daily_consumption. */
+/** Compute days remaining from total_quantity / daily_consumption, accounting for elapsed time since last update. */
 export function computeDaysRemaining(item: InventoryItem): number | null {
     if (item.total_quantity == null || item.daily_consumption == null || item.daily_consumption <= 0) return null
-    return item.total_quantity / item.daily_consumption
+    const totalDays = item.total_quantity / item.daily_consumption
+    // Subtract days elapsed since last inventory update
+    const elapsed = (Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24)
+    const remaining = totalDays - elapsed
+    return Math.max(0, remaining)
 }
 
 /** Derive status from days remaining: <7 = urgent, <14 = low, else plenty. */
@@ -242,6 +263,18 @@ export interface Database {
                 Row: PushSubscriptionRow
                 Insert: Omit<PushSubscriptionRow, 'id' | 'created_at' | 'updated_at'>
                 Update: Partial<Omit<PushSubscriptionRow, 'id' | 'created_at'>>
+                Relationships: []
+            }
+            diary_comments: {
+                Row: DiaryComment
+                Insert: Omit<DiaryComment, 'id' | 'created_at'>
+                Update: Partial<Omit<DiaryComment, 'id'>>
+                Relationships: []
+            }
+            diary_reactions: {
+                Row: DiaryReaction
+                Insert: Omit<DiaryReaction, 'id' | 'created_at'>
+                Update: Partial<Omit<DiaryReaction, 'id'>>
                 Relationships: []
             }
         }

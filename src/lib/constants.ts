@@ -48,6 +48,23 @@ export const MEAL_LABELS: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', str
 /** Pre-defined diary tags. */
 export const DIARY_TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇'] as const
 
+/** Inventory icon options for different food / supply types. */
+export const INVENTORY_ICONS = [
+    { value: '🐟', label: '鱼' },
+    { value: '🍗', label: '鸡肉' },
+    { value: '🥩', label: '牛肉' },
+    { value: '🫙', label: '罐头' },
+    { value: '🍚', label: '猫粮' },
+    { value: '🧊', label: '冻干' },
+    { value: '🥣', label: '主食罐' },
+    { value: '🍬', label: '零食' },
+    { value: '🪣', label: '猫砂' },
+    { value: '💊', label: '药品' },
+    { value: '🧴', label: '清洁' },
+    { value: '🧶', label: '玩具' },
+    { value: '📦', label: '其他' },
+] as const
+
 /** Check if a poop record indicates abnormal health. */
 export function isAbnormalPoop(bristolType: BristolType | string, color: PoopColor | string): boolean {
     return Number(bristolType) >= 6 || ['red', 'black', 'white'].includes(color)

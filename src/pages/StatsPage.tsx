@@ -12,7 +12,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
-import { isAbnormalPoop } from '../lib/constants'
+import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog } from '../types/database.types'
@@ -65,8 +65,17 @@ export function StatsPage() {
     const [editingHealthId, setEditingHealthId] = useState<string | null>(null)
     const [healthSaving, setHealthSaving] = useState(false)
 
+    // Renew modal (vaccine / deworming)
+    const [renewModalOpen, setRenewModalOpen] = useState(false)
+    const [renewRecord, setRenewRecord] = useState<HealthRecord | null>(null)
+    const [renewDate, setRenewDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [renewNextDue, setRenewNextDue] = useState('')
+    const [renewNotes, setRenewNotes] = useState('')
+    const [renewSaving, setRenewSaving] = useState(false)
+
     const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
     const [invItemName, setInvItemName] = useState('')
+    const [invIcon, setInvIcon] = useState<string | null>(null)
     const [invTotalQty, setInvTotalQty] = useState('')
     const [invDailyConsumption, setInvDailyConsumption] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
@@ -207,6 +216,47 @@ export function StatsPage() {
         setEditingHealthId(null)
     }
 
+    // ─── Renew vaccine / deworming ────────────────
+    const openRenewModal = (record: HealthRecord) => {
+        setRenewRecord(record)
+        setRenewDate(format(new Date(), 'yyyy-MM-dd'))
+        setRenewNextDue('')
+        setRenewNotes('')
+        setRenewModalOpen(true)
+    }
+
+    const handleRenewSave = async () => {
+        if (!catId || !user || !renewRecord || !renewNextDue) return
+        setRenewSaving(true)
+        try {
+            // Insert a new record (old one stays as history)
+            await supabase.from('health_records').insert({
+                cat_id: catId,
+                type: renewRecord.type,
+                name: renewRecord.name,
+                date: renewDate,
+                next_due: renewNextDue,
+                notes: renewNotes.trim() || `续期自 ${format(new Date(renewRecord.date), 'yyyy/MM/dd')} 记录`,
+                created_by: user.id,
+            })
+            // Clear the old record's next_due so it becomes pure history
+            await supabase
+                .from('health_records')
+                .update({ next_due: null })
+                .eq('id', renewRecord.id)
+
+            setRenewModalOpen(false)
+            setRenewRecord(null)
+            await loadData()
+            lightHaptic()
+            pushToast('success', '续期成功，旧记录已归档 ✅')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '续期失败，请稍后重试'))
+        } finally {
+            setRenewSaving(false)
+        }
+    }
+
     // ─── Save/update inventory ────────────────────
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
@@ -219,12 +269,13 @@ export function StatsPage() {
         try {
             if (editingInvId) {
                 await supabase.from('inventory')
-                    .update({ item_name: invItemName.trim(), status, total_quantity: totalQty, daily_consumption: dailyCons, updated_by: user.id })
+                    .update({ item_name: invItemName.trim(), icon: invIcon, status, total_quantity: totalQty, daily_consumption: dailyCons, updated_by: user.id })
                     .eq('id', editingInvId)
             } else {
                 await supabase.from('inventory').insert({
                     cat_id: catId,
                     item_name: invItemName.trim(),
+                    icon: invIcon,
                     status,
                     total_quantity: totalQty,
                     daily_consumption: dailyCons,
@@ -245,6 +296,7 @@ export function StatsPage() {
 
     const resetInvForm = () => {
         setInvItemName('')
+        setInvIcon(null)
         setInvTotalQty('')
         setInvDailyConsumption('')
         setEditingInvId(null)
@@ -259,6 +311,7 @@ export function StatsPage() {
     const openEditInventory = (item: InventoryItem) => {
         setEditingInvId(item.id)
         setInvItemName(item.item_name)
+        setInvIcon(item.icon || null)
         setInvTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
         setInvDailyConsumption(item.daily_consumption != null ? String(item.daily_consumption) : '')
         setInventoryModalOpen(true)
@@ -669,6 +722,15 @@ export function StatsPage() {
                                                     </span>
                                                 )}
                                             </div>
+                                            {isPastDue && (r.type === 'vaccine' || r.type === 'deworming') && (
+                                                <button
+                                                    type="button"
+                                                    className="health-renew-btn"
+                                                    onClick={(e) => { e.stopPropagation(); openRenewModal(r) }}
+                                                >
+                                                    🔄 续期
+                                                </button>
+                                            )}
                                         </button>
                                     </SwipeableRow>
                                 )
@@ -705,7 +767,7 @@ export function StatsPage() {
                                             onClick={() => openEditInventory(item)}
                                         >
                                             <div className="inventory-item-info">
-                                                <span className="text-sm">{item.item_name}</span>
+                                                <span className="text-sm">{item.icon ? `${item.icon} ` : ''}{item.item_name}</span>
                                                 {days != null && (
                                                     <span className="text-xs text-muted">约剩 {Math.round(days)} 天</span>
                                                 )}
@@ -873,6 +935,23 @@ export function StatsPage() {
                         />
                     </div>
 
+                    <div className="form-group">
+                        <label className="form-label">图标</label>
+                        <div className="inv-icon-grid">
+                            {INVENTORY_ICONS.map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`inv-icon-btn ${invIcon === opt.value ? 'inv-icon-active' : ''}`}
+                                    onClick={() => setInvIcon(invIcon === opt.value ? null : opt.value)}
+                                    title={opt.label}
+                                >
+                                    {opt.value}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="form-row">
                         <div className="form-group flex-1">
                             <label className="form-label" htmlFor="inv-total-qty">总量</label>
@@ -969,6 +1048,65 @@ export function StatsPage() {
                     <Button variant="primary" fullWidth onClick={confirmDelete} disabled={deleteSubmitting}>
                         {deleteSubmitting ? '删除中...' : '确认删除'}
                     </Button>
+                </div>
+            </Modal>
+
+            {/* ── Renew Modal ── */}
+            <Modal isOpen={renewModalOpen} onClose={() => { setRenewModalOpen(false); setRenewRecord(null) }} title={`🔄 ${renewRecord?.type === 'vaccine' ? '疫苗' : '驱虫'}续期`}>
+                <div className="health-form">
+                    {renewRecord && (
+                        <>
+                            <div className="renew-old-info" style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+                                <p className="text-sm text-secondary" style={{ margin: 0 }}>
+                                    📋 上次记录：<strong>{renewRecord.name}</strong>
+                                </p>
+                                <p className="text-xs text-muted" style={{ margin: '4px 0 0' }}>
+                                    日期：{format(new Date(renewRecord.date), 'yyyy/MM/dd')}
+                                    {renewRecord.next_due && ` → 到期：${format(new Date(renewRecord.next_due), 'yyyy/MM/dd')}`}
+                                </p>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-date">本次日期</label>
+                                <input
+                                    id="renew-date"
+                                    type="date"
+                                    className="form-input"
+                                    value={renewDate}
+                                    max={format(new Date(), 'yyyy-MM-dd')}
+                                    onChange={(e) => setRenewDate(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-next-due">下次到期日</label>
+                                <input
+                                    id="renew-next-due"
+                                    type="date"
+                                    className="form-input"
+                                    value={renewNextDue}
+                                    min={renewDate || undefined}
+                                    onChange={(e) => setRenewNextDue(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-notes">备注（可选）</label>
+                                <textarea
+                                    id="renew-notes"
+                                    className="form-input"
+                                    rows={2}
+                                    placeholder="如：使用的品牌、剂量等"
+                                    value={renewNotes}
+                                    onChange={(e) => setRenewNotes(e.target.value)}
+                                />
+                            </div>
+
+                            <Button variant="primary" fullWidth onClick={handleRenewSave} disabled={renewSaving || !renewNextDue || !online}>
+                                {renewSaving ? '续期中...' : '确认续期'}
+                            </Button>
+                        </>
+                    )}
                 </div>
             </Modal>
         </div>

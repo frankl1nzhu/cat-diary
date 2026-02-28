@@ -136,8 +136,74 @@
     white-space: nowrap;
 }
 
+.health-reminder-item {
+    flex-wrap: wrap;
+}
+
+.health-renew-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-primary-light, rgba(99, 102, 241, 0.1));
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.health-renew-btn:active {
+    background: var(--color-primary);
+    color: #fff;
+}
+
 .text-warning {
     color: var(--color-warning);
+}
+
+/* ── Quick Scoop Button ── */
+.quick-scoop-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.2), rgba(210, 105, 30, 0.15));
+    border: 1.5px solid rgba(210, 105, 30, 0.3);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all var(--transition-spring);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.quick-scoop-btn:hover {
+    background: linear-gradient(135deg, rgba(139, 69, 19, 0.3), rgba(210, 105, 30, 0.25));
+    transform: scale(1.02);
+}
+
+.quick-scoop-btn:active {
+    transform: scale(0.97);
+}
+
+.quick-scoop-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.quick-scoop-icon {
+    font-size: 1.4rem;
+}
+
+.quick-scoop-text {
+    letter-spacing: 0.05em;
 }
 
 /* ── Inventory Alert ── */
@@ -307,9 +373,23 @@
 .diary-snippet-text {
     overflow: hidden;
     text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.diary-expand-btn {
+    background: none;
+    border: none;
+    color: var(--color-primary);
+    font-size: var(--font-size-xs);
+    padding: 2px 0;
+    cursor: pointer;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.diary-expand-btn:hover {
+    text-decoration: underline;
 }
 
 .diary-img {

@@ -15,9 +15,10 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
+import { sendDiaryNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
-import type { DiaryEntry, PoopLog, WeightRecord } from '../types/database.types'
+import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
 import './LogPage.css'
 
 type TimelineItem =
@@ -29,7 +30,7 @@ const TAGS = DIARY_TAGS
 
 export function LogPage() {
     const { user } = useSession()
-    const { catId, loading: catLoading } = useCat()
+    const { cat, catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
@@ -70,6 +71,18 @@ export function LogPage() {
 
     const [pendingDeleteItem, setPendingDeleteItem] = useState<TimelineItem | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
+    // Diary expand/collapse state
+    const [expandedDiaries, setExpandedDiaries] = useState<Set<string>>(new Set())
+    const DIARY_CHAR_LIMIT = 100
+
+    // Diary comments & reactions
+    const [diaryComments, setDiaryComments] = useState<Record<string, DiaryComment[]>>({})
+    const [diaryReactions, setDiaryReactions] = useState<Record<string, DiaryReaction[]>>({})
+    const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
+    const [commentSaving, setCommentSaving] = useState<string | null>(null)
+    const [showComments, setShowComments] = useState<Set<string>>(new Set())
+    const REACTION_EMOJIS = ['❤️', '😂', '😍', '👍', '🐱', '🐾']
 
     const [keyword, setKeyword] = useState('')
     const deferredKeyword = useDeferredValue(keyword)
@@ -122,6 +135,126 @@ export function LogPage() {
     }, [catId, catLoading, loadLimit, pushToast])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
+
+    // Load comments & reactions for visible diary entries
+    const loadDiaryMeta = useCallback(async (diaryIds: string[]) => {
+        if (diaryIds.length === 0) return
+        try {
+            const [commentsRes, reactionsRes] = await Promise.all([
+                supabase.from('diary_comments').select('*').in('diary_id', diaryIds).order('created_at', { ascending: true }),
+                supabase.from('diary_reactions').select('*').in('diary_id', diaryIds),
+            ])
+            if (commentsRes.data) {
+                const map: Record<string, DiaryComment[]> = {}
+                commentsRes.data.forEach((c) => {
+                    if (!map[c.diary_id]) map[c.diary_id] = []
+                    map[c.diary_id].push(c)
+                })
+                setDiaryComments((prev) => ({ ...prev, ...map }))
+            }
+            if (reactionsRes.data) {
+                const map: Record<string, DiaryReaction[]> = {}
+                reactionsRes.data.forEach((r) => {
+                    if (!map[r.diary_id]) map[r.diary_id] = []
+                    map[r.diary_id].push(r)
+                })
+                setDiaryReactions((prev) => ({ ...prev, ...map }))
+            }
+        } catch { /* silent */ }
+    }, [])
+
+    useEffect(() => {
+        const diaryIds = timeline.filter((t) => t.type === 'diary').map((t) => t.data.id)
+        loadDiaryMeta(diaryIds)
+    }, [timeline, loadDiaryMeta])
+
+    const toggleDiaryExpand = (id: string) => {
+        setExpandedDiaries((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
+    const toggleShowComments = (id: string) => {
+        setShowComments((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+    }
+
+    const handleToggleReaction = async (diaryId: string, emoji: string) => {
+        if (!user) return
+        const existing = (diaryReactions[diaryId] || []).find((r) => r.user_id === user.id && r.emoji === emoji)
+        try {
+            if (existing) {
+                await supabase.from('diary_reactions').delete().eq('id', existing.id)
+                setDiaryReactions((prev) => ({
+                    ...prev,
+                    [diaryId]: (prev[diaryId] || []).filter((r) => r.id !== existing.id),
+                }))
+            } else {
+                const { data, error } = await supabase.from('diary_reactions')
+                    .insert({ diary_id: diaryId, user_id: user.id, emoji })
+                    .select()
+                    .single()
+                if (error) throw error
+                if (data) {
+                    setDiaryReactions((prev) => ({
+                        ...prev,
+                        [diaryId]: [...(prev[diaryId] || []), data],
+                    }))
+                }
+            }
+            lightHaptic()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '操作失败'))
+        }
+    }
+
+    const handleAddComment = async (diaryId: string) => {
+        if (!user) return
+        const text = (commentInputs[diaryId] || '').trim()
+        if (!text) return
+        setCommentSaving(diaryId)
+        try {
+            const { data, error } = await supabase.from('diary_comments')
+                .insert({ diary_id: diaryId, user_id: user.id, text })
+                .select()
+                .single()
+            if (error) throw error
+            if (data) {
+                setDiaryComments((prev) => ({
+                    ...prev,
+                    [diaryId]: [...(prev[diaryId] || []), data],
+                }))
+            }
+            setCommentInputs((prev) => ({ ...prev, [diaryId]: '' }))
+            lightHaptic()
+            pushToast('success', '评论已发布')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '评论失败'))
+        } finally {
+            setCommentSaving(null)
+        }
+    }
+
+    const handleDeleteComment = async (commentId: string, diaryId: string) => {
+        try {
+            await supabase.from('diary_comments').delete().eq('id', commentId)
+            setDiaryComments((prev) => ({
+                ...prev,
+                [diaryId]: (prev[diaryId] || []).filter((c) => c.id !== commentId),
+            }))
+            lightHaptic()
+            pushToast('success', '评论已删除')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '删除失败'))
+        }
+    }
 
     useEffect(() => {
         setLoadLimit(50)
@@ -320,6 +453,11 @@ export function LogPage() {
             await loadTimeline()
             lightHaptic()
             pushToast('success', editingDiaryId ? '日记已更新 📝' : '日记发布成功 📝')
+
+            // Notify family members on new diary (not edits)
+            if (!editingDiaryId && cat) {
+                sendDiaryNotification(catId, cat.name).catch(() => {/* silent */ })
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))
         } finally {
@@ -581,31 +719,114 @@ export function LogPage() {
 
     const renderItem = (item: TimelineItem) => {
         switch (item.type) {
-            case 'diary':
+            case 'diary': {
+                const diaryText = item.data.text || ''
+                const isLong = diaryText.length > DIARY_CHAR_LIMIT
+                const isExpanded = expandedDiaries.has(item.data.id)
+                const displayText = isLong && !isExpanded ? diaryText.slice(0, DIARY_CHAR_LIMIT) + '...' : diaryText
+                const isAuthor = user?.id === item.data.created_by
+                const reactions = diaryReactions[item.data.id] || []
+                const comments = diaryComments[item.data.id] || []
+                const commentsVisible = showComments.has(item.data.id)
+
+                // Group reactions by emoji
+                const reactionCounts: Record<string, { count: number; userReacted: boolean }> = {}
+                reactions.forEach((r) => {
+                    if (!reactionCounts[r.emoji]) reactionCounts[r.emoji] = { count: 0, userReacted: false }
+                    reactionCounts[r.emoji].count += 1
+                    if (r.user_id === user?.id) reactionCounts[r.emoji].userReacted = true
+                })
+
                 return (
-                    <SwipeableRow key={`d-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
-                        <Card variant="default" padding="md" className="timeline-card">
+                    <SwipeableRow key={`d-${item.data.id}`} onDelete={isAuthor ? () => setPendingDeleteItem(item) : undefined}>
+                        <Card variant="default" padding="md" className="timeline-card diary-card-full">
                             <div className="timeline-badge diary-badge">📝</div>
                             <div className="timeline-content">
-                                <div className="timeline-actions">
-                                    <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
-                                </div>
+                                {isAuthor && (
+                                    <div className="timeline-actions">
+                                        <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
+                                    </div>
+                                )}
                                 {item.data.image_url && (
                                     <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
                                         <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
                                     </button>
                                 )}
-                                <p className="text-sm">{item.data.text || ''}</p>
+                                <p className="text-sm diary-text-content">{displayText}</p>
+                                {isLong && (
+                                    <button className="diary-expand-btn" onClick={() => toggleDiaryExpand(item.data.id)}>
+                                        {isExpanded ? '收起 ▲' : '展开全文 ▼'}
+                                    </button>
+                                )}
                                 {item.data.tags.length > 0 && (
                                     <div className="timeline-tags">
                                         {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
                                     </div>
                                 )}
                                 <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+
+                                {/* Reactions */}
+                                <div className="diary-reactions-row">
+                                    {REACTION_EMOJIS.map((emoji) => {
+                                        const info = reactionCounts[emoji]
+                                        return (
+                                            <button
+                                                key={emoji}
+                                                className={`diary-reaction-btn ${info?.userReacted ? 'diary-reaction-active' : ''}`}
+                                                onClick={() => handleToggleReaction(item.data.id, emoji)}
+                                            >
+                                                {emoji}{info?.count ? ` ${info.count}` : ''}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+
+                                {/* Comments toggle */}
+                                <button className="diary-comment-toggle" onClick={() => toggleShowComments(item.data.id)}>
+                                    💬 {comments.length > 0 ? `${comments.length} 条评论` : '评论'}
+                                    {commentsVisible ? ' ▲' : ' ▼'}
+                                </button>
+
+                                {commentsVisible && (
+                                    <div className="diary-comments-section">
+                                        {comments.map((c) => (
+                                            <div key={c.id} className="diary-comment-item">
+                                                <span className="text-xs text-muted">{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
+                                                <span className="text-sm">{c.text}</span>
+                                                {c.user_id === user?.id && (
+                                                    <button className="diary-comment-delete" onClick={() => handleDeleteComment(c.id, item.data.id)}>✕</button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <div className="diary-comment-input-row">
+                                            <input
+                                                type="text"
+                                                className="form-input diary-comment-input"
+                                                placeholder="写评论..."
+                                                value={commentInputs[item.data.id] || ''}
+                                                onChange={(e) => setCommentInputs((prev) => ({ ...prev, [item.data.id]: e.target.value }))}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault()
+                                                        handleAddComment(item.data.id)
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                className="diary-comment-send"
+                                                onClick={() => handleAddComment(item.data.id)}
+                                                disabled={commentSaving === item.data.id}
+                                            >
+                                                {commentSaving === item.data.id ? '...' : '发送'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </Card>
                     </SwipeableRow>
                 )
+            }
             case 'poop': {
                 const abnormal = isAbnormalPoop(item.data.bristol_type, item.data.color)
                 return (

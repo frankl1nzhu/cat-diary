@@ -55,6 +55,10 @@ export function SettingsPage() {
     const [familyMembers, setFamilyMembers] = useState<FamilyMemberWithEmail[]>([])
     const [membersLoading, setMembersLoading] = useState(false)
     const [roleSaving, setRoleSaving] = useState<string | null>(null)
+    const [kickTarget, setKickTarget] = useState<FamilyMemberWithEmail | null>(null)
+    const [kickStep, setKickStep] = useState(1)
+    const [kickConfirmInput, setKickConfirmInput] = useState('')
+    const [kicking, setKicking] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
@@ -172,7 +176,17 @@ export function SettingsPage() {
                 .from('cat-photos')
                 .getPublicUrl(filePath)
 
-            setAvatarUrl(urlData.publicUrl)
+            const newUrl = urlData.publicUrl
+            setAvatarUrl(newUrl)
+
+            // Auto-save avatar to DB for existing cats
+            if (catId && !createMode) {
+                try {
+                    await supabase.from('cats').update({ avatar_url: newUrl }).eq('id', catId)
+                    reloadCatData()
+                } catch { /* save with form later */ }
+            }
+
             pushToast('success', '头像上传成功！')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '头像上传失败，请稍后重试'))
@@ -437,6 +451,59 @@ export function SettingsPage() {
         }
     }
 
+    const openKickModal = (member: FamilyMemberWithEmail) => {
+        setKickTarget(member)
+        setKickStep(1)
+        setKickConfirmInput('')
+    }
+
+    const closeKickModal = () => {
+        setKickTarget(null)
+        setKickStep(1)
+        setKickConfirmInput('')
+    }
+
+    const handleKickMember = async () => {
+        if (!kickTarget || !currentFamily) return
+        if (kickStep < 2) {
+            setKickStep(2)
+            return
+        }
+        if (kickStep < 3) {
+            if (kickConfirmInput.trim() !== kickTarget.email) {
+                pushToast('error', '请输入正确的成员邮箱以确认')
+                return
+            }
+            setKickStep(3)
+            return
+        }
+        setKicking(true)
+        try {
+            // Remove member from family
+            const { error } = await supabase
+                .from('family_members')
+                .delete()
+                .eq('family_id', currentFamily.id)
+                .eq('user_id', kickTarget.user_id)
+            if (error) throw error
+
+            // Unassign their cats from this family
+            await supabase
+                .from('cats')
+                .update({ family_id: null })
+                .eq('family_id', currentFamily.id)
+                .eq('created_by', kickTarget.user_id)
+
+            setFamilyMembers((prev) => prev.filter((m) => m.id !== kickTarget.id))
+            closeKickModal()
+            pushToast('success', `已将 ${kickTarget.email} 移出家庭`)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '踢出成员失败，请稍后重试'))
+        } finally {
+            setKicking(false)
+        }
+    }
+
     const handleDeleteCat = async () => {
         if (!catId) return
         if (deleteStep < 2) {
@@ -539,8 +606,7 @@ export function SettingsPage() {
                                             <label className="form-label">头像</label>
                                             <label
                                                 className="avatar-upload"
-                                                htmlFor="cat-avatar"
-                                                onClick={() => fileInputRef.current?.click()}
+                                                onClick={(e) => { e.preventDefault(); fileInputRef.current?.click() }}
                                             >
                                                 {avatarUrl ? (
                                                     <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" />
@@ -688,14 +754,23 @@ export function SettingsPage() {
                                                                 </span>
                                                             </div>
                                                             {myRole === 'owner' && member.user_id !== user?.id && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleToggleAdmin(member.id, member.user_id, member.role)}
-                                                                    disabled={roleSaving === member.id}
-                                                                >
-                                                                    {roleSaving === member.id ? '...' : member.role === 'admin' ? '取消管理员' : '设为管理员'}
-                                                                </Button>
+                                                                <div style={{ display: 'flex', gap: '4px' }}>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => handleToggleAdmin(member.id, member.user_id, member.role)}
+                                                                        disabled={roleSaving === member.id}
+                                                                    >
+                                                                        {roleSaving === member.id ? '...' : member.role === 'admin' ? '取消管理员' : '设为管理员'}
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="danger"
+                                                                        size="sm"
+                                                                        onClick={() => openKickModal(member)}
+                                                                    >
+                                                                        踢出
+                                                                    </Button>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     ))}
@@ -916,6 +991,48 @@ export function SettingsPage() {
                                     </p>
                                     <Button variant="danger" fullWidth onClick={handleDissolveFamily} disabled={dissolving}>
                                         {dissolving ? '解散中...' : '确认解散家庭'}
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={Boolean(kickTarget)} onClose={closeKickModal} title="⚠️ 踢出家庭成员">
+                        <div className="settings-confirm">
+                            {kickStep === 1 && (
+                                <>
+                                    <p className="text-sm text-secondary">
+                                        确认要将 <strong>{kickTarget?.email}</strong> 从家庭「{currentFamily?.name}」中移除吗？
+                                    </p>
+                                    <p className="text-sm text-secondary">该成员创建的猫咪将被取消归属。</p>
+                                    <Button variant="danger" fullWidth onClick={handleKickMember}>
+                                        我了解，继续
+                                    </Button>
+                                </>
+                            )}
+                            {kickStep === 2 && (
+                                <>
+                                    <p className="text-sm text-secondary">
+                                        请输入该成员邮箱「{kickTarget?.email}」以确认踢出。
+                                    </p>
+                                    <input
+                                        className="form-input"
+                                        value={kickConfirmInput}
+                                        onChange={(e) => setKickConfirmInput(e.target.value)}
+                                        placeholder="输入成员邮箱确认"
+                                    />
+                                    <Button variant="danger" fullWidth onClick={handleKickMember}>
+                                        确认邮箱
+                                    </Button>
+                                </>
+                            )}
+                            {kickStep === 3 && (
+                                <>
+                                    <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
+                                        最终确认：点击后将立即移除该成员！
+                                    </p>
+                                    <Button variant="danger" fullWidth onClick={handleKickMember} disabled={kicking}>
+                                        {kicking ? '移除中...' : '确认踢出'}
                                     </Button>
                                 </>
                             )}

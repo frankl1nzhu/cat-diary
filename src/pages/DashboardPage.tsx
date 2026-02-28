@@ -51,9 +51,19 @@ export function DashboardPage() {
     const [moodEditing, setMoodEditing] = useState(false)
     const [monthMoodMap, setMonthMoodMap] = useState<Record<string, MoodType>>({})
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
+    const [latestDiaryExpanded, setLatestDiaryExpanded] = useState(false)
+    const DIARY_SNIPPET_LIMIT = 100
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [healthReminders, setHealthReminders] = useState<HealthRecord[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Renew modal (vaccine / deworming)
+    const [renewModalOpen, setRenewModalOpen] = useState(false)
+    const [renewRecord, setRenewRecord] = useState<HealthRecord | null>(null)
+    const [renewDate, setRenewDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+    const [renewNextDue, setRenewNextDue] = useState('')
+    const [renewNotes, setRenewNotes] = useState('')
+    const [renewSaving, setRenewSaving] = useState(false)
 
     const [weekFeedCount, setWeekFeedCount] = useState(0)
     const [weekMoodCounts, setWeekMoodCounts] = useState<Record<string, number>>({ '😸': 0, '😾': 0, '😴': 0 })
@@ -420,6 +430,45 @@ export function DashboardPage() {
         '😴': 'mood-day-sleepy',
     }
 
+    // ─── Renew vaccine / deworming ──────────────────
+    const openRenewModal = (record: HealthRecord) => {
+        setRenewRecord(record)
+        setRenewDate(format(new Date(), 'yyyy-MM-dd'))
+        setRenewNextDue('')
+        setRenewNotes('')
+        setRenewModalOpen(true)
+    }
+
+    const handleRenewSave = async () => {
+        if (!catId || !user || !renewRecord || !renewNextDue) return
+        setRenewSaving(true)
+        try {
+            await supabase.from('health_records').insert({
+                cat_id: catId,
+                type: renewRecord.type,
+                name: renewRecord.name,
+                date: renewDate,
+                next_due: renewNextDue,
+                notes: renewNotes.trim() || `续期自 ${format(new Date(renewRecord.date), 'yyyy/MM/dd')} 记录`,
+                created_by: user.id,
+            })
+            await supabase
+                .from('health_records')
+                .update({ next_due: null })
+                .eq('id', renewRecord.id)
+
+            setRenewModalOpen(false)
+            setRenewRecord(null)
+            await loadData()
+            lightHaptic()
+            pushToast('success', '续期成功 ✅')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '续期失败，请稍后重试'))
+        } finally {
+            setRenewSaving(false)
+        }
+    }
+
     // ─── Inventory alerts ─────────────────────────
     const lowInventory = useMemo(() => inventory.filter((i) => computeInventoryStatus(i) !== 'plenty'), [inventory])
 
@@ -695,6 +744,15 @@ export function DashboardPage() {
                                         <span className={`health-reminder-days ${isPastDue ? 'text-danger' : isUrgent ? 'text-warning' : 'text-secondary'}`}>
                                             {isPastDue ? `过期${Math.abs(r.daysLeft)}天` : `${r.daysLeft}天`}
                                         </span>
+                                        {isPastDue && (
+                                            <button
+                                                type="button"
+                                                className="health-renew-btn"
+                                                onClick={() => openRenewModal(r)}
+                                            >
+                                                🔄 续期
+                                            </button>
+                                        )}
                                     </div>
                                 )
                             })}
@@ -702,6 +760,21 @@ export function DashboardPage() {
                     </Card>
                 </div>
             )}
+
+            {/* ── Quick Scoop Button ── */}
+            <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+                <button
+                    className="quick-scoop-btn"
+                    onClick={() => {
+                        lightHaptic()
+                        setPoopModalOpen(true)
+                    }}
+                    disabled={!cat || !online}
+                >
+                    <span className="quick-scoop-icon">🧹</span>
+                    <span className="quick-scoop-text">一键铲屎</span>
+                </button>
+            </div>
 
             {/* ── Inventory Alert Banner ── */}
             {lowInventory.length > 0 && (
@@ -806,24 +879,37 @@ export function DashboardPage() {
 
             <div className="px-4" style={{ marginTop: 'var(--space-3)' }}>
                 <Card variant="default" padding="md">
-                    {latestDiary ? (
-                        <div className="diary-snippet">
-                            {latestDiary.image_url && (
-                                <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
-                            )}
-                            <p className="text-sm diary-snippet-text">{latestDiary.text || '(无文字)'}</p>
-                            {latestDiary.tags.length > 0 && (
-                                <div className="diary-tags">
-                                    {latestDiary.tags.map((tag) => (
-                                        <span key={tag} className="tag">#{tag}</span>
-                                    ))}
-                                </div>
-                            )}
-                            <span className="text-muted text-xs">
-                                {format(new Date(latestDiary.created_at), 'MM/dd HH:mm')}
-                            </span>
-                        </div>
-                    ) : (
+                    {latestDiary ? (() => {
+                        const fullText = latestDiary.text || '(无文字)'
+                        const isLong = fullText.length > DIARY_SNIPPET_LIMIT
+                        const displayText = isLong && !latestDiaryExpanded ? fullText.slice(0, DIARY_SNIPPET_LIMIT) + '...' : fullText
+                        return (
+                            <div className="diary-snippet">
+                                {latestDiary.image_url && (
+                                    <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
+                                )}
+                                <p className="text-sm diary-snippet-text">{displayText}</p>
+                                {isLong && (
+                                    <button
+                                        className="diary-expand-btn"
+                                        onClick={() => setLatestDiaryExpanded(!latestDiaryExpanded)}
+                                    >
+                                        {latestDiaryExpanded ? '收起 ▲' : '展开全文 ▼'}
+                                    </button>
+                                )}
+                                {latestDiary.tags.length > 0 && (
+                                    <div className="diary-tags">
+                                        {latestDiary.tags.map((tag) => (
+                                            <span key={tag} className="tag">#{tag}</span>
+                                        ))}
+                                    </div>
+                                )}
+                                <span className="text-muted text-xs">
+                                    {format(new Date(latestDiary.created_at), 'MM/dd HH:mm')}
+                                </span>
+                            </div>
+                        )
+                    })() : (
                         <div className="empty-state">
                             <span className="empty-icon">📸</span>
                             <p className="text-secondary text-sm">还没有日记，去记录页添加第一条吧！</p>
@@ -915,6 +1001,65 @@ export function DashboardPage() {
                     >
                         {feedLoading ? '记录中...' : '确认喂食 🐾'}
                     </Button>
+                </div>
+            </Modal>
+
+            {/* ── Renew Modal ── */}
+            <Modal isOpen={renewModalOpen} onClose={() => { setRenewModalOpen(false); setRenewRecord(null) }} title={`🔄 ${renewRecord?.type === 'vaccine' ? '疫苗' : '驱虫'}续期`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                    {renewRecord && (
+                        <>
+                            <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: 'var(--space-2)' }}>
+                                <p className="text-sm text-secondary" style={{ margin: 0 }}>
+                                    📋 上次记录：<strong>{renewRecord.name}</strong>
+                                </p>
+                                <p className="text-xs text-muted" style={{ margin: '4px 0 0' }}>
+                                    日期：{format(new Date(renewRecord.date), 'yyyy/MM/dd')}
+                                    {renewRecord.next_due && ` → 到期：${format(new Date(renewRecord.next_due), 'yyyy/MM/dd')}`}
+                                </p>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-date-dash">本次日期</label>
+                                <input
+                                    id="renew-date-dash"
+                                    type="date"
+                                    className="form-input"
+                                    value={renewDate}
+                                    max={format(new Date(), 'yyyy-MM-dd')}
+                                    onChange={(e) => setRenewDate(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-next-due-dash">下次到期日</label>
+                                <input
+                                    id="renew-next-due-dash"
+                                    type="date"
+                                    className="form-input"
+                                    value={renewNextDue}
+                                    min={renewDate || undefined}
+                                    onChange={(e) => setRenewNextDue(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" htmlFor="renew-notes-dash">备注（可选）</label>
+                                <textarea
+                                    id="renew-notes-dash"
+                                    className="form-input"
+                                    rows={2}
+                                    placeholder="如：使用的品牌、剂量等"
+                                    value={renewNotes}
+                                    onChange={(e) => setRenewNotes(e.target.value)}
+                                />
+                            </div>
+
+                            <Button variant="primary" fullWidth onClick={handleRenewSave} disabled={renewSaving || !renewNextDue || !online}>
+                                {renewSaving ? '续期中...' : '确认续期'}
+                            </Button>
+                        </>
+                    )}
                 </div>
             </Modal>
         </div>

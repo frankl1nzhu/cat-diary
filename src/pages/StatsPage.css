@@ -88,6 +88,26 @@
     white-space: nowrap;
 }
 
+.health-renew-btn {
+    flex-shrink: 0;
+    margin-left: auto;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-primary-light, rgba(99, 102, 241, 0.1));
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+
+.health-renew-btn:active {
+    background: var(--color-primary);
+    color: #fff;
+}
+
 /* ── Inventory List ── */
 .inventory-list {
     display: flex;
@@ -225,6 +245,38 @@
     gap: var(--space-2);
     width: 100%;
     max-width: 100%;
+}
+
+/* ── Inventory Icon Picker ── */
+.inv-icon-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.inv-icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-input);
+    border: 2px solid transparent;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+}
+
+.inv-icon-btn:hover {
+    background: var(--color-bg-card);
+    transform: scale(1.1);
+}
+
+.inv-icon-active {
+    border-color: var(--color-primary);
+    background: rgba(248, 165, 194, 0.15);
 }
 
 /* ── Inventory Status ── */
