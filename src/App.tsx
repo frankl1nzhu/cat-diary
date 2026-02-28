@@ -4,6 +4,8 @@ import { useSession, updatePassword } from './lib/auth'
 import { initAuth } from './stores/useAuthStore'
 import { initCatStore } from './stores/useCatStore'
 import { startOfflineSync } from './lib/offlineQueue'
+import { enablePushNotifications, isStandaloneDisplayMode } from './lib/pushNotifications'
+import { savePushSubscription } from './lib/pushServer'
 import { AppLayout } from './components/layout/AppLayout'
 import { ToastViewport } from './components/ui/ToastViewport'
 import { Modal } from './components/ui/Modal'
@@ -93,6 +95,8 @@ function PasswordResetModal() {
 }
 
 export default function App() {
+  const { user } = useSession()
+
   // Initialize auth & cat stores once at app startup (single subscription for the entire app)
   useEffect(() => {
     const cleanupAuth = initAuth()
@@ -104,6 +108,25 @@ export default function App() {
       cleanupOffline()
     }
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    if (typeof window === 'undefined' || typeof Notification === 'undefined') return
+    if (!isStandaloneDisplayMode()) return
+    if (Notification.permission !== 'default') return
+
+    const promptKey = 'cat_diary_auto_push_prompt_attempted'
+    if (sessionStorage.getItem(promptKey)) return
+    sessionStorage.setItem(promptKey, '1')
+
+    enablePushNotifications()
+      .then(async (result) => {
+        if (result.ok && 'subscribed' in result && result.subscribed && 'subscription' in result && result.subscription) {
+          await savePushSubscription(user.id, result.subscription).catch(() => { })
+        }
+      })
+      .catch(() => { })
+  }, [user])
 
   return (
     <BrowserRouter>

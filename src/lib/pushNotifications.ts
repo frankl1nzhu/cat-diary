@@ -10,7 +10,7 @@ function isIosSafariBrowser() {
     return isiOS && isSafari
 }
 
-function isStandaloneDisplayMode() {
+export function isStandaloneDisplayMode() {
     if (typeof window === 'undefined') return false
     const iosStandalone = typeof (navigator as Navigator & { standalone?: boolean }).standalone === 'boolean'
         ? Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
