@@ -675,12 +675,12 @@ export function DashboardPage() {
             </Card>
 
             {/* ── Health Reminders ── */}
-            {healthReminderItems.length > 0 && (
+            {urgentHealthReminders.length > 0 && (
                 <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
                     <Card variant="default" padding="md">
                         <h2 className="text-lg font-semibold" style={{ marginBottom: 'var(--space-2)' }}>🩺 疫苗 / 驱虫提醒</h2>
                         <div className="health-reminder-list">
-                            {healthReminderItems.map((r) => {
+                            {urgentHealthReminders.map((r) => {
                                 const isPastDue = r.daysLeft <= 0
                                 const isUrgent = r.daysLeft <= 7
                                 const icon = r.type === 'vaccine' ? '💉' : '💊'
