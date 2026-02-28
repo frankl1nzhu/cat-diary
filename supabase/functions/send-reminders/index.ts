@@ -160,73 +160,62 @@ Deno.serve(async (req) => {
       })
     }
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    const accessToken = authHeader.replace(/^Bearer\s+/i, '').trim()
-    if (!accessToken) {
-      return new Response(JSON.stringify({ error: 'Empty access token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
     const admin = createClient(supabaseUrl, serviceRoleKey)
     let userId: string | null = null
     let userErrorMessage: string | null = null
+    const authHeader = req.headers.get('Authorization')
+    const accessToken = authHeader?.replace(/^Bearer\s+/i, '').trim() || ''
 
-    const {
-      data: serviceUserData,
-      error: serviceUserErr,
-    } = await admin.auth.getUser(accessToken)
+    if (accessToken) {
+      const {
+        data: serviceUserData,
+        error: serviceUserErr,
+      } = await admin.auth.getUser(accessToken)
 
-    if (serviceUserData?.user?.id) {
-      userId = serviceUserData.user.id
+      if (serviceUserData?.user?.id) {
+        userId = serviceUserData.user.id
+      } else {
+        userErrorMessage = serviceUserErr?.message || 'service-role getUser failed'
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')
+        if (anonKey) {
+          const userClient = createClient(supabaseUrl, anonKey, {
+            global: { headers: { Authorization: `Bearer ${accessToken}` } },
+          })
+          const {
+            data: anonUserData,
+            error: anonUserErr,
+          } = await userClient.auth.getUser()
+
+          if (anonUserData?.user?.id) {
+            userId = anonUserData.user.id
+            userErrorMessage = null
+          } else {
+            userErrorMessage = `${userErrorMessage}; anon-client getUser failed: ${anonUserErr?.message || 'unknown'}`
+          }
+        }
+
+        if (!userId) {
+          const jwtUserId = getUserIdFromJwt(accessToken)
+          if (jwtUserId) {
+            userId = jwtUserId
+            userErrorMessage = null
+          }
+        }
+      }
     } else {
-      userErrorMessage = serviceUserErr?.message || 'service-role getUser failed'
-      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')
-      if (anonKey) {
-        const userClient = createClient(supabaseUrl, anonKey, {
-          global: { headers: { Authorization: `Bearer ${accessToken}` } },
-        })
-        const {
-          data: anonUserData,
-          error: anonUserErr,
-        } = await userClient.auth.getUser()
-
-        if (anonUserData?.user?.id) {
-          userId = anonUserData.user.id
-          userErrorMessage = null
-        } else {
-          userErrorMessage = `${userErrorMessage}; anon-client getUser failed: ${anonUserErr?.message || 'unknown'}`
-        }
-      }
-
-      if (!userId) {
-        const jwtUserId = getUserIdFromJwt(accessToken)
-        if (jwtUserId) {
-          userId = jwtUserId
-          userErrorMessage = null
-        }
-      }
-    }
-
-    if (!userId) {
-      return new Response(JSON.stringify({ error: `Invalid user context (${userErrorMessage || 'unknown'})` }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      userErrorMessage = 'missing authorization header'
     }
 
     webpush.setVapidDetails('mailto:cat-diary@example.com', vapidPublic, vapidPrivate)
 
     /* ── test: send to requesting user only ── */
     if (action === 'test') {
+      if (!userId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: `Missing user context: ${userErrorMessage || 'unknown'}` }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
       const result = await sendPushToUsers(admin, [userId], {
         title: '喵记测试推送',
         body: '推送链路正常 ✅',
@@ -249,7 +238,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      const memberIds = await getFamilyMemberIds(admin, catId, userId)
+      const memberIds = await getFamilyMemberIds(admin, catId, userId || undefined)
       const result = await sendPushToUsers(admin, memberIds, {
         title: `${catName} 有新日记啦 📝`,
         body: '快来看看吧~',
@@ -265,7 +254,7 @@ Deno.serve(async (req) => {
     if (action === 'comment') {
       const authorId = body.diaryAuthorId
       const catName = body.catName || '猫咪'
-      if (!authorId || authorId === userId) {
+      if (!authorId || (userId && authorId === userId)) {
         return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'No notification needed' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
