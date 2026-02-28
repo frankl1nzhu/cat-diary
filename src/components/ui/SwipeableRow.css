@@ -27,8 +27,7 @@
     touch-action: pan-y;
     width: 100%;
     z-index: 1;
-    background: var(--color-bg);
-    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
 }
 
 .swipe-content>* {

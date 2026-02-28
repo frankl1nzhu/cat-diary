@@ -16,8 +16,8 @@ import { lightHaptic } from '../lib/haptics'
 import { sendReminderPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
-import { differenceInDays, format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
-import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus } from '../types/database.types'
+import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
+import type { MoodType, BristolType, PoopColor, DiaryEntry, InventoryItem, FeedStatus, HealthRecord } from '../types/database.types'
 import { computeInventoryStatus } from '../types/database.types'
 import './DashboardPage.css'
 
@@ -52,7 +52,7 @@ export function DashboardPage() {
     const [monthMoodMap, setMonthMoodMap] = useState<Record<string, MoodType>>({})
     const [latestDiary, setLatestDiary] = useState<DiaryEntry | null>(null)
     const [inventory, setInventory] = useState<InventoryItem[]>([])
-    const [nextDeworming, setNextDeworming] = useState<string | null>(null)
+    const [healthReminders, setHealthReminders] = useState<HealthRecord[]>([])
     const [loading, setLoading] = useState(true)
 
     const [weekFeedCount, setWeekFeedCount] = useState(0)
@@ -163,10 +163,9 @@ export function DashboardPage() {
                     .from('health_records')
                     .select('*')
                     .eq('cat_id', catId)
-                    .eq('type', 'deworming')
-                    .order('date', { ascending: false })
-                    .limit(1)
-                    .single(),
+                    .in('type', ['vaccine', 'deworming'])
+                    .not('next_due', 'is', null)
+                    .order('next_due', { ascending: true }),
                 supabase
                     .from('feed_status')
                     .select('*')
@@ -201,8 +200,7 @@ export function DashboardPage() {
             if (diaryRes.data) setLatestDiary(diaryRes.data)
             if (invRes.data) setInventory(invRes.data)
             if (healthRes.data) {
-                const nextDue = healthRes.data.next_due || format(addMonths(new Date(healthRes.data.date), 3), 'yyyy-MM-dd')
-                setNextDeworming(nextDue)
+                setHealthReminders(healthRes.data)
             }
 
             if (weekFeedsRes.data) {
@@ -289,8 +287,8 @@ export function DashboardPage() {
     }, catId ? `cat_id=eq.${catId}` : undefined)
 
     // ─── Countdown calculations (memoized) ────────
-    const { daysHome, daysToBirthday, daysToDeworming } = useMemo(() => {
-        if (!cat) return { daysHome: null, daysToBirthday: null, daysToDeworming: null }
+    const { daysHome, daysToBirthday } = useMemo(() => {
+        if (!cat) return { daysHome: null, daysToBirthday: null }
 
         const now = new Date()
 
@@ -307,13 +305,17 @@ export function DashboardPage() {
             daysToBirthday = differenceInDays(nextBday, now)
         }
 
-        let daysToDeworming: number | null = null
-        if (nextDeworming) {
-            daysToDeworming = differenceInDays(new Date(nextDeworming), now)
-        }
+        return { daysHome, daysToBirthday }
+    }, [cat])
 
-        return { daysHome, daysToBirthday, daysToDeworming }
-    }, [cat, nextDeworming])
+    // ─── Health reminders (memoized) ──────────────
+    const healthReminderItems = useMemo(() => {
+        const now = new Date()
+        return healthReminders.map((r) => {
+            const daysLeft = differenceInDays(new Date(r.next_due!), now)
+            return { ...r, daysLeft }
+        })
+    }, [healthReminders])
 
     // ─── Feed record ─────────────────────────────
     const handleFeedRecord = async () => {
@@ -421,6 +423,8 @@ export function DashboardPage() {
     // ─── Inventory alerts ─────────────────────────
     const lowInventory = useMemo(() => inventory.filter((i) => computeInventoryStatus(i) !== 'plenty'), [inventory])
 
+    const urgentHealthReminders = useMemo(() => healthReminderItems.filter((r) => r.daysLeft <= 7), [healthReminderItems])
+
     useEffect(() => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
 
@@ -436,21 +440,23 @@ export function DashboardPage() {
             }
         }
 
-        if (daysToDeworming !== null && daysToDeworming <= 1) {
-            const key = `notify_deworming_${todayKey}`
+        for (const r of urgentHealthReminders) {
+            const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
+            const key = `notify_health_${r.id}_${todayKey}`
             if (!localStorage.getItem(key)) {
-                new Notification('喵记驱虫提醒', {
-                    body: daysToDeworming <= 0 ? '今天建议进行驱虫。' : '明天建议进行驱虫。',
-                })
+                const body = r.daysLeft <= 0
+                    ? `「${r.name}」${typeLabel}已过期，请尽快处理。`
+                    : `「${r.name}」${typeLabel}将在 ${r.daysLeft} 天后到期。`
+                new Notification(`喵记${typeLabel}提醒`, { body })
                 localStorage.setItem(key, '1')
             }
         }
-    }, [daysToDeworming, lowInventory])
+    }, [urgentHealthReminders, lowInventory])
 
     useEffect(() => {
         const hasUrgentInventory = lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')
-        const hasDewormingReminder = daysToDeworming !== null && daysToDeworming <= 1
-        if (!hasUrgentInventory && !hasDewormingReminder) return
+        const hasHealthReminder = urgentHealthReminders.length > 0
+        if (!hasUrgentInventory && !hasHealthReminder) return
 
         const todayKey = new Date().toISOString().split('T')[0]
         const serverKey = `server_push_reminder_${todayKey}_${catId || 'none'}`
@@ -463,7 +469,7 @@ export function DashboardPage() {
             .catch(() => {
                 // no-op: frontend local notification fallback already exists
             })
-    }, [catId, daysToDeworming, lowInventory])
+    }, [catId, urgentHealthReminders, lowInventory])
 
     const handleObCreateFamily = async () => {
         await createFamily(obFamilyName, {
@@ -665,18 +671,37 @@ export function DashboardPage() {
                         <span className="countdown-number">{daysToBirthday !== null ? `${daysToBirthday}天` : '—'}</span>
                         <span className="countdown-label">下次生日</span>
                     </div>
-                    <div className="countdown-item">
-                        <span className="countdown-number">
-                            {daysToDeworming !== null ? (
-                                <span className={daysToDeworming <= 7 ? 'text-danger' : ''}>
-                                    {daysToDeworming}天
-                                </span>
-                            ) : '—'}
-                        </span>
-                        <span className="countdown-label">下次驱虫</span>
-                    </div>
                 </div>
             </Card>
+
+            {/* ── Health Reminders ── */}
+            {healthReminderItems.length > 0 && (
+                <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+                    <Card variant="default" padding="md">
+                        <h2 className="text-lg font-semibold" style={{ marginBottom: 'var(--space-2)' }}>🩺 疫苗 / 驱虫提醒</h2>
+                        <div className="health-reminder-list">
+                            {healthReminderItems.map((r) => {
+                                const isPastDue = r.daysLeft <= 0
+                                const isUrgent = r.daysLeft <= 7
+                                const icon = r.type === 'vaccine' ? '💉' : '💊'
+                                const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
+                                return (
+                                    <div key={r.id} className={`health-reminder-item ${isPastDue ? 'health-reminder-overdue' : isUrgent ? 'health-reminder-urgent' : ''}`}>
+                                        <span className="health-reminder-icon">{icon}</span>
+                                        <div className="health-reminder-info">
+                                            <span className="text-sm font-semibold">{r.name}</span>
+                                            <span className="text-xs text-muted">{typeLabel} · 到期：{format(new Date(r.next_due!), 'yyyy/MM/dd')}</span>
+                                        </div>
+                                        <span className={`health-reminder-days ${isPastDue ? 'text-danger' : isUrgent ? 'text-warning' : 'text-secondary'}`}>
+                                            {isPastDue ? `过期${Math.abs(r.daysLeft)}天` : `${r.daysLeft}天`}
+                                        </span>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </Card>
+                </div>
+            )}
 
             {/* ── Inventory Alert Banner ── */}
             {lowInventory.length > 0 && (
