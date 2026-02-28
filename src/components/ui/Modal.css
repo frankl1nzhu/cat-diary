@@ -69,4 +69,7 @@
 
 .modal-body {
     line-height: 1.6;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
