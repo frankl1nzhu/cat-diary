@@ -279,7 +279,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!['vapid-public-key', 'weekly-summary-cron'].includes(action) && !userId) {
+    if (!['vapid-public-key', 'weekly-summary-cron', 'family-join-request', 'family-member-left', 'family-member'].includes(action) && !userId) {
       return new Response(JSON.stringify({ error: `Unauthorized: ${userErrorMessage || 'missing user context'}` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
