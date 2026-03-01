@@ -63,7 +63,7 @@ supabase secrets set SUPABASE_ANON_KEY=...
 4) 部署推送函数：
 
 ```bash
-supabase functions deploy send-reminders
+supabase functions deploy send-reminders --no-verify-jwt
 ```
 
 5) 在应用设置页执行：

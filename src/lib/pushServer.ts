@@ -45,6 +45,19 @@ async function invokeSendReminders(body: Record<string, unknown>) {
         throw new Error('Supabase env missing for push function invoke')
     }
 
+    const invokeHeaders: Record<string, string> = {}
+    if (session?.access_token) {
+        invokeHeaders.Authorization = `Bearer ${session.access_token}`
+    }
+
+    const { data: invokeData, error: invokeError } = await supabase.functions.invoke('send-reminders', {
+        body,
+        headers: Object.keys(invokeHeaders).length > 0 ? invokeHeaders : undefined,
+    })
+    if (!invokeError) {
+        return invokeData
+    }
+
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         apikey: anonKey,
@@ -68,7 +81,10 @@ async function invokeSendReminders(body: Record<string, unknown>) {
 
     if (!response.ok) {
         if (response.status === 401) {
-            const { data, error } = await supabase.functions.invoke('send-reminders', { body })
+            const { data, error } = await supabase.functions.invoke('send-reminders', {
+                body,
+                headers: Object.keys(invokeHeaders).length > 0 ? invokeHeaders : undefined,
+            })
             if (!error) {
                 return data
             }
