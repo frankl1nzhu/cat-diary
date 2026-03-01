@@ -112,6 +112,20 @@ export function StatsPage() {
         feed: true,
     })
 
+    const maxExportDays = useMemo(() => {
+        if (!cat?.created_at) return 1
+        const created = new Date(cat.created_at)
+        const now = new Date()
+        created.setHours(0, 0, 0, 0)
+        now.setHours(0, 0, 0, 0)
+        const diffDays = Math.floor((now.getTime() - created.getTime()) / (24 * 60 * 60 * 1000)) + 1
+        return Math.max(1, diffDays)
+    }, [cat?.created_at])
+
+    useEffect(() => {
+        setExportDays((prev) => Math.min(Math.max(prev, 1), maxExportDays))
+    }, [maxExportDays])
+
     // ─── Quick-open from URL params ───────────────
     useEffect(() => {
         const quick = searchParams.get('quick')
@@ -276,7 +290,7 @@ export function StatsPage() {
             if (exportTypes.miss) htmlSections.push(`<h2>🥹 咪被想次数</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.health) htmlSections.push(`<h2>💉 健康记录</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.inventory) htmlSections.push(`<h2>📦 物资库存</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</div>${d.image_url ? `<div style=\"margin-top:6px;\"><img src=\"${escapeHtml(d.image_url)}\" alt=\"diary image\" style=\"max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;\" /></div>` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.mood) htmlSections.push(`<h2>😺 心情</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.feed) htmlSections.push(`<h2>🍽️ 喂食</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
 
@@ -1294,12 +1308,12 @@ export function StatsPage() {
             <Modal isOpen={exportModalOpen} onClose={() => !exporting && setExportModalOpen(false)} title="导出全部记录">
                 <div className="weight-form">
                     <div className="form-group">
-                        <label className="form-label" htmlFor="export-days">时间跨度：最近 {exportDays} 天</label>
+                        <label className="form-label" htmlFor="export-days">时间跨度：最近 {exportDays} 天（1 - {maxExportDays}）</label>
                         <input
                             id="export-days"
                             type="range"
-                            min="7"
-                            max="365"
+                            min="1"
+                            max={String(maxExportDays)}
                             value={exportDays}
                             onChange={(event) => setExportDays(Number(event.target.value))}
                             disabled={exporting}

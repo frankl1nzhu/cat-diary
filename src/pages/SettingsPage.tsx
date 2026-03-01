@@ -697,12 +697,12 @@ export function SettingsPage() {
                                         <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
                                         <div className="cat-actions-row">
-                                            <Button type="button" variant="ghost" fullWidth onClick={() => setProfileLocked(false)} disabled={myRole !== 'owner' && myRole !== 'admin'}>
+                                            <Button type="button" variant="secondary" fullWidth onClick={() => setProfileLocked(false)} disabled={myRole !== 'owner' && myRole !== 'admin'}>
                                                 编辑档案
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="ghost"
+                                                variant="secondary"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
                                                 disabled={!catId || (myRole !== 'owner' && myRole !== 'admin')}
@@ -807,7 +807,7 @@ export function SettingsPage() {
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="ghost"
+                                                variant="secondary"
                                                 fullWidth
                                                 onClick={openDeleteCatModal}
                                                 disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin')}
@@ -933,7 +933,7 @@ export function SettingsPage() {
                                     )}
                                     <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                         {myRole !== 'owner' && (
-                                            <Button variant="ghost" onClick={handleLeaveFamily}>退出家庭</Button>
+                                            <Button variant="secondary" onClick={handleLeaveFamily}>退出家庭</Button>
                                         )}
                                         {myRole === 'owner' && (
                                             <Button variant="danger" size="sm" onClick={openDissolveFamilyModal}>解散家庭</Button>
@@ -982,7 +982,7 @@ export function SettingsPage() {
                                     <div className="form-group" style={{ marginTop: '16px' }}>
                                         {!showJoinFamilyInput ? (
                                             <Button
-                                                variant="ghost"
+                                                variant="secondary"
                                                 onClick={() => {
                                                     setShowJoinFamilyInput(true)
                                                     setShowCreateFamilyInput(false)
@@ -1235,7 +1235,7 @@ export function SettingsPage() {
                                     <p className="text-sm text-secondary">
                                         确认要将 <strong>{kickTarget?.email}</strong> 从家庭「{currentFamily?.name}」中移除吗？
                                     </p>
-                                    <p className="text-sm text-secondary">该成员创建的猫咪将被取消归属。</p>
+                                    <p className="text-sm text-secondary">该成员创建的猫咪将留在该家庭。</p>
                                     <Button variant="danger" fullWidth onClick={handleKickMember}>
                                         我了解，继续
                                     </Button>
