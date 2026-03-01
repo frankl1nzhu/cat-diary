@@ -39,8 +39,8 @@ function getUserIdFromJwt(accessToken: string): string | null {
     const payloadBase64 = payloadRaw.replace(/-/g, '+').replace(/_/g, '/')
     const padded = payloadBase64 + '='.repeat((4 - (payloadBase64.length % 4)) % 4)
     const payloadJson = atob(padded)
-    const payload = JSON.parse(payloadJson) as { sub?: string }
-    return payload.sub || null
+    const payload = JSON.parse(payloadJson) as { sub?: string; subject?: string; user_id?: string }
+    return payload.sub || payload.subject || payload.user_id || null
   } catch {
     return null
   }
