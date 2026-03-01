@@ -552,8 +552,9 @@ export function DashboardPage() {
         if (!catId || !cat) return
         const now = new Date()
         if (now.getDay() !== 0) return // only on Sunday
+        if (now.getHours() !== 12) return // only at noon (12:xx)
 
-        const weekKey = `weekly_summary_${catId}_${now.toISOString().split('T')[0]}`
+        const weekKey = `weekly_summary_${catId}_${format(now, 'yyyy-MM-dd')}_12`
         if (localStorage.getItem(weekKey)) return
 
         sendWeeklySummary(catId, cat.name)
