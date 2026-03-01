@@ -13,7 +13,7 @@ import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
-import { sendReminderPush, sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendWeeklySummary, sendMissNotification } from '../lib/pushServer'
+import { sendReminderPush, sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../lib/constants'
 import { differenceInDays, format, startOfMonth, endOfMonth, eachDayOfInterval, getDate } from 'date-fns'
@@ -546,21 +546,6 @@ export function DashboardPage() {
                 // no-op: frontend local notification fallback already exists
             })
     }, [catId, urgentHealthReminders, lowInventory])
-
-    // ─── Weekly summary (Sunday) ─────────────────
-    useEffect(() => {
-        if (!catId || !cat) return
-        const now = new Date()
-        if (now.getDay() !== 0) return // only on Sunday
-        if (now.getHours() !== 12) return // only at noon (12:xx)
-
-        const weekKey = `weekly_summary_${catId}_${format(now, 'yyyy-MM-dd')}_12`
-        if (localStorage.getItem(weekKey)) return
-
-        sendWeeklySummary(catId, cat.name)
-            .then(() => localStorage.setItem(weekKey, '1'))
-            .catch(() => { })
-    }, [catId, cat])
 
     const handleObCreateFamily = async () => {
         await createFamily(obFamilyName, {

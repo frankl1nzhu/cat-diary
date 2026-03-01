@@ -4,7 +4,7 @@ import webpush from 'npm:web-push@3.6.7'
 type ActionType =
   | 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
   | 'feed' | 'health' | 'inventory' | 'weight' | 'cat-profile' | 'family-member' | 'new-cat'
-  | 'abnormal-poop' | 'weekly-summary' | 'miss'
+  | 'abnormal-poop' | 'weekly-summary' | 'weekly-summary-cron' | 'miss'
 
 interface PushSubRow {
   id: string
@@ -235,7 +235,7 @@ Deno.serve(async (req) => {
       userErrorMessage = 'missing authorization header'
     }
 
-    if (action !== 'vapid-public-key' && !userId) {
+    if (!['vapid-public-key', 'weekly-summary-cron'].includes(action) && !userId) {
       return new Response(JSON.stringify({ error: `Unauthorized: ${userErrorMessage || 'missing user context'}` }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -621,6 +621,62 @@ Deno.serve(async (req) => {
       })
       return new Response(JSON.stringify(result), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── weekly-summary-cron: server scheduled weekly summary for all cats ── */
+    if (action === 'weekly-summary-cron') {
+      const { data: cats } = await admin
+        .from('cats')
+        .select('id,name')
+
+      if (!cats || cats.length === 0) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'No cats found' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      let delivered = 0
+      let removed = 0
+
+      for (const cat of cats as { id: string; name: string }[]) {
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        const weekAgoStr = weekAgo.toISOString()
+
+        const [{ data: feeds }, { data: poops }, { data: weights }] = await Promise.all([
+          admin.from('feed_status').select('id').eq('cat_id', cat.id).gte('fed_at', weekAgoStr),
+          admin.from('poop_logs').select('id,bristol_type,color').eq('cat_id', cat.id).gte('created_at', weekAgoStr),
+          admin.from('weight_records').select('weight_kg').eq('cat_id', cat.id).order('recorded_at', { ascending: false }).limit(1),
+        ])
+
+        const feedCount = feeds?.length || 0
+        const poopCount = poops?.length || 0
+        const abnormalCount = poops?.filter((p: { bristol_type: string; color: string }) =>
+          Number(p.bristol_type) >= 6 || ['red', 'black', 'white'].includes(p.color)
+        ).length || 0
+        const latestWeight = weights?.[0]?.weight_kg
+
+        const parts: string[] = []
+        parts.push(`喂食${feedCount}次`)
+        parts.push(`铲屎${poopCount}次`)
+        if (abnormalCount > 0) parts.push(`异常便便${abnormalCount}次⚠️`)
+        if (latestWeight) parts.push(`体重${latestWeight}kg`)
+
+        const memberIds = await getFamilyMemberIds(admin, cat.id)
+        const result = await sendPushToUsers(admin, memberIds, {
+          title: `${cat.name || '猫咪'} 每周总结 📊`,
+          body: parts.join('，'),
+          url: '/',
+        })
+        delivered += result.delivered
+        removed += result.removed
+      }
+
+      return new Response(JSON.stringify({ delivered, removed }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 

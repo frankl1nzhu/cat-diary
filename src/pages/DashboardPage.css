@@ -408,8 +408,10 @@
 
 .diary-img {
     width: 100%;
-    max-height: 200px;
-    object-fit: cover;
+    height: auto;
+    max-height: min(56dvh, 360px);
+    object-fit: contain;
+    background: var(--color-bg-input);
     border-radius: var(--radius-md);
 }
 

@@ -11,6 +11,7 @@ interface FamilyRpcResult {
     id: string
     name: string
     invite_code: string
+    status?: 'pending' | 'already_member'
 }
 
 /**
@@ -69,10 +70,15 @@ export function useFamily() {
 
         setFamilySaving(true)
         try {
-            const { data, error } = await supabase.rpc('join_family_by_code', { code: cleanCode })
+            const { data, error } = await supabase.rpc('request_join_family_by_code', { code: cleanCode })
             if (error) throw error
             const family = data as unknown as FamilyRpcResult
             if (!family?.id) throw new Error('家庭不存在')
+
+            if (family.status === 'pending') {
+                pushToast('success', `已提交加入申请，等待「${family.name}」管理员同意`)
+                return
+            }
 
             if (opts?.assignCat && catId) {
                 await supabase.from('cats').update({ family_id: family.id }).eq('id', catId)

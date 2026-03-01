@@ -19,6 +19,20 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import type { Family, FamilyMemberWithEmail } from '../types/database.types'
 import './SettingsPage.css'
 
+type FamilyJoinRequest = {
+    id: string
+    family_id: string
+    user_id: string
+    status: 'pending' | 'approved' | 'rejected'
+    requested_at: string
+    reviewed_at: string | null
+    reviewed_by: string | null
+}
+
+type FamilyJoinRequestWithProfile = FamilyJoinRequest & {
+    requesterEmail?: string
+}
+
 export function SettingsPage() {
     const { user } = useSession()
     const { cat, catId, families, activeFamilyId, setActiveFamilyId, myRole, loading: catLoading } = useCat()
@@ -62,6 +76,9 @@ export function SettingsPage() {
     const [kickStep, setKickStep] = useState(1)
     const [kickConfirmInput, setKickConfirmInput] = useState('')
     const [kicking, setKicking] = useState(false)
+    const [pendingJoinRequests, setPendingJoinRequests] = useState<FamilyJoinRequestWithProfile[]>([])
+    const [joinReqLoading, setJoinReqLoading] = useState(false)
+    const [reviewingReqId, setReviewingReqId] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
 
@@ -95,6 +112,49 @@ export function SettingsPage() {
                 }
                 setMembersLoading(false)
             })
+        return () => { cancelled = true }
+    }, [currentFamily, myRole])
+
+    // Load pending join requests (owner/admin only)
+    useEffect(() => {
+        if (!currentFamily || (myRole !== 'owner' && myRole !== 'admin')) {
+            setPendingJoinRequests([])
+            return
+        }
+        let cancelled = false
+        setJoinReqLoading(true)
+
+            ; (async () => {
+                const { data, error } = await supabase
+                    .from('family_join_requests')
+                    .select('*')
+                    .eq('family_id', currentFamily.id)
+                    .eq('status', 'pending')
+                    .order('requested_at', { ascending: true })
+
+                if (cancelled) return
+                if (error || !data) {
+                    setPendingJoinRequests([])
+                    setJoinReqLoading(false)
+                    return
+                }
+
+                const userIds = Array.from(new Set(data.map((item) => item.user_id)))
+                const { data: users } = await supabase
+                    .from('profiles')
+                    .select('id,email')
+                    .in('id', userIds)
+
+                const emailMap = new Map((users || []).map((u) => [u.id, u.email]))
+                const merged = data.map((row) => ({
+                    ...(row as FamilyJoinRequest),
+                    requesterEmail: emailMap.get(row.user_id) || row.user_id,
+                }))
+
+                setPendingJoinRequests(merged)
+                setJoinReqLoading(false)
+            })()
+
         return () => { cancelled = true }
     }, [currentFamily, myRole])
 
@@ -364,10 +424,35 @@ export function SettingsPage() {
             onSuccess: (family) => {
                 setCurrentFamily(family as Family)
                 setJoinCode('')
-                sendFamilyMemberNotification(family.id, user?.email || '新成员').catch(() => { })
                 setShowJoinFamilyInput(false)
             },
         })
+    }
+
+    const handleReviewJoinRequest = async (requestId: string, approve: boolean) => {
+        if (!currentFamily) return
+        setReviewingReqId(requestId)
+        try {
+            const target = pendingJoinRequests.find((item) => item.id === requestId)
+            const { error } = await supabase.rpc('approve_family_join_request', {
+                req_id: requestId,
+                approve,
+            })
+            if (error) throw error
+
+            if (approve) {
+                sendFamilyMemberNotification(currentFamily.id, target?.requesterEmail || '新成员').catch(() => { })
+                pushToast('success', '已同意加入申请')
+            } else {
+                pushToast('success', '已拒绝加入申请')
+            }
+
+            setPendingJoinRequests((prev) => prev.filter((item) => item.id !== requestId))
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '处理申请失败，请稍后重试'))
+        } finally {
+            setReviewingReqId(null)
+        }
     }
 
     const handleAssignCurrentCatToFamily = async () => {
@@ -801,6 +886,45 @@ export function SettingsPage() {
                                                                     </Button>
                                                                 </div>
                                                             )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {(myRole === 'owner' || myRole === 'admin') && (
+                                        <div className="member-list-section" style={{ marginTop: '12px' }}>
+                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>待审核加入申请</h3>
+                                            {joinReqLoading ? (
+                                                <p className="text-muted text-xs">加载中...</p>
+                                            ) : pendingJoinRequests.length === 0 ? (
+                                                <p className="text-muted text-xs">暂无待审核申请</p>
+                                            ) : (
+                                                <div className="member-list">
+                                                    {pendingJoinRequests.map((req) => (
+                                                        <div key={req.id} className="member-row">
+                                                            <div className="member-info">
+                                                                <span className="member-email text-sm">{req.requesterEmail || req.user_id}</span>
+                                                                <span className="text-muted text-xs">{new Date(req.requested_at).toLocaleString()}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                                <Button
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    onClick={() => handleReviewJoinRequest(req.id, true)}
+                                                                    disabled={reviewingReqId === req.id}
+                                                                >
+                                                                    同意
+                                                                </Button>
+                                                                <Button
+                                                                    variant="danger"
+                                                                    size="sm"
+                                                                    onClick={() => handleReviewJoinRequest(req.id, false)}
+                                                                    disabled={reviewingReqId === req.id}
+                                                                >
+                                                                    拒绝
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>

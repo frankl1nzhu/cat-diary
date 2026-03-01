@@ -50,6 +50,16 @@ export interface FamilyMember {
     created_at: string
 }
 
+export interface FamilyJoinRequest {
+    id: string
+    family_id: string
+    requester_id: string
+    status: 'pending' | 'approved' | 'rejected'
+    reviewed_by: string | null
+    reviewed_at: string | null
+    created_at: string
+}
+
 export interface DiaryEntry {
     id: string
     cat_id: string
@@ -216,6 +226,12 @@ export interface Database {
                 Row: FamilyMember
                 Insert: Omit<FamilyMember, 'id' | 'created_at'>
                 Update: Partial<Omit<FamilyMember, 'id' | 'created_at'>>
+                Relationships: []
+            }
+            family_join_requests: {
+                Row: FamilyJoinRequest
+                Insert: Omit<FamilyJoinRequest, 'id' | 'status' | 'reviewed_by' | 'reviewed_at' | 'created_at'>
+                Update: Partial<Omit<FamilyJoinRequest, 'id' | 'created_at'>>
                 Relationships: []
             }
             diary_entries: {

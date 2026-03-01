@@ -17,11 +17,12 @@ import { sendHealthNotification, sendInventoryNotification, sendWeightNotificati
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
-import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog } from '../types/database.types'
+import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog } from '../types/database.types'
 import { computeDaysRemaining, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
+type ExportTypeKey = 'weight' | 'poop' | 'miss' | 'health' | 'inventory' | 'diary' | 'mood' | 'feed'
 
 /** Escape HTML special characters to prevent XSS in exported reports. */
 function escapeHtml(str: string): string {
@@ -56,6 +57,7 @@ export function StatsPage() {
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [poops, setPoops] = useState<PoopLog[]>([])
     const [missLogs, setMissLogs] = useState<MissLog[]>([])
+    const [feeds, setFeeds] = useState<FeedStatus[]>([])
     const [loading, setLoading] = useState(true)
 
     // Modals
@@ -89,12 +91,26 @@ export function StatsPage() {
     const [weightValue, setWeightValue] = useState('')
     const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
     const [weightWindowDays, setWeightWindowDays] = useState(30)
+    const [feedWindowDays, setFeedWindowDays] = useState(30)
     const [missWindowDays, setMissWindowDays] = useState(30)
     const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
     const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+    const [exportModalOpen, setExportModalOpen] = useState(false)
+    const [exportDays, setExportDays] = useState(30)
+    const [exporting, setExporting] = useState(false)
+    const [exportTypes, setExportTypes] = useState<Record<ExportTypeKey, boolean>>({
+        weight: true,
+        poop: true,
+        miss: true,
+        health: true,
+        inventory: true,
+        diary: true,
+        mood: true,
+        feed: true,
+    })
 
     // ─── Quick-open from URL params ───────────────
     useEffect(() => {
@@ -117,12 +133,13 @@ export function StatsPage() {
         }
 
         try {
-            const [w, h, inv, poopData, missData] = await Promise.all([
+            const [w, h, inv, poopData, missData, feedData] = await Promise.all([
                 supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
                 supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
                 supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
                 supabase.from('miss_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(200),
+                supabase.from('feed_status').select('*').eq('cat_id', catId).order('fed_at', { ascending: false }).limit(400),
             ])
 
             if (w.data) setWeights(w.data)
@@ -130,6 +147,7 @@ export function StatsPage() {
             if (inv.data) setInventory(inv.data)
             if (poopData.data) setPoops(poopData.data)
             if (missData.data) setMissLogs(missData.data)
+            if (feedData.data) setFeeds(feedData.data)
         } catch (err) {
             console.error('Failed to load stats data:', err)
             pushToast('error', getErrorMessage(err, '统计数据加载失败，请稍后重试'))
@@ -187,6 +205,135 @@ export function StatsPage() {
 
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
     }, [missLogs, missWindowDays])
+
+    const feedTrendData = useMemo(() => {
+        const dayMap = new Map<string, number>()
+        for (let i = feedWindowDays - 1; i >= 0; i -= 1) {
+            const d = new Date()
+            d.setDate(d.getDate() - i)
+            const key = format(d, 'MM/dd')
+            dayMap.set(key, 0)
+        }
+
+        feeds.forEach((item) => {
+            const at = item.fed_at || item.updated_at
+            const key = format(new Date(at), 'MM/dd')
+            if (dayMap.has(key)) {
+                dayMap.set(key, (dayMap.get(key) || 0) + 1)
+            }
+        })
+
+        return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
+    }, [feeds, feedWindowDays])
+
+    const handleToggleExportType = (key: ExportTypeKey) => {
+        setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }))
+    }
+
+    const exportSelectedRecords = async () => {
+        if (!catId) return
+        const selectedTypes = (Object.keys(exportTypes) as ExportTypeKey[]).filter((k) => exportTypes[k])
+        if (selectedTypes.length === 0) {
+            pushToast('error', '请至少选择一种导出类型')
+            return
+        }
+
+        const cutoff = Date.now() - (exportDays - 1) * 24 * 60 * 60 * 1000
+        const cutoffIso = new Date(cutoff).toISOString()
+        setExporting(true)
+
+        try {
+            const [weightsRes, poopsRes, missesRes, healthRes, invRes, diaryRes, moodRes, feedRes] = await Promise.all([
+                exportTypes.weight
+                    ? supabase.from('weight_records').select('*').eq('cat_id', catId).gte('recorded_at', cutoffIso).order('recorded_at', { ascending: true })
+                    : Promise.resolve({ data: [] as WeightRecord[], error: null }),
+                exportTypes.poop
+                    ? supabase.from('poop_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as PoopLog[], error: null }),
+                exportTypes.miss
+                    ? supabase.from('miss_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as MissLog[], error: null }),
+                exportTypes.health
+                    ? supabase.from('health_records').select('*').eq('cat_id', catId).gte('date', format(new Date(cutoff), 'yyyy-MM-dd')).order('date', { ascending: true })
+                    : Promise.resolve({ data: [] as HealthRecord[], error: null }),
+                exportTypes.inventory
+                    ? supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true })
+                    : Promise.resolve({ data: [] as InventoryItem[], error: null }),
+                exportTypes.diary
+                    ? supabase.from('diary_entries').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as DiaryEntry[], error: null }),
+                exportTypes.mood
+                    ? supabase.from('mood_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as MoodLog[], error: null }),
+                exportTypes.feed
+                    ? supabase.from('feed_status').select('*').eq('cat_id', catId).gte('updated_at', cutoffIso).order('updated_at', { ascending: true })
+                    : Promise.resolve({ data: [] as FeedStatus[], error: null }),
+            ])
+
+            const htmlSections: string[] = []
+            if (exportTypes.weight) htmlSections.push(`<h2>⚖️ 体重记录</h2><ul>${(weightsRes.data || []).map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleString())}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.poop) htmlSections.push(`<h2>💩 便便记录</h2><ul>${(poopsRes.data || []).map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleString())}: Bristol ${escapeHtml(String(p.bristol_type))}, ${escapeHtml(p.color)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.miss) htmlSections.push(`<h2>🥹 咪被想次数</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.health) htmlSections.push(`<h2>💉 健康记录</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.inventory) htmlSections.push(`<h2>📦 物资库存</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.mood) htmlSections.push(`<h2>😺 心情</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.feed) htmlSections.push(`<h2>🍽️ 喂食</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+
+            const html = `
+            <html><head><meta charset="utf-8" /><title>记录导出</title>
+            <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
+            </head><body>
+            <h1>🐱 全部记录导出</h1>
+            <div>时间跨度：最近 ${exportDays} 天</div>
+            ${htmlSections.join('')}
+            </body></html>`
+
+            const iframe = document.createElement('iframe')
+            iframe.style.position = 'fixed'
+            iframe.style.right = '0'
+            iframe.style.bottom = '0'
+            iframe.style.width = '0'
+            iframe.style.height = '0'
+            iframe.style.border = '0'
+            iframe.setAttribute('aria-hidden', 'true')
+            document.body.appendChild(iframe)
+
+            const cleanup = () => setTimeout(() => iframe.remove(), 1500)
+
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow?.document
+                if (!doc || !iframe.contentWindow) throw new Error('print-frame-unavailable')
+                doc.open()
+                doc.write(html)
+                doc.close()
+                const runPrint = () => {
+                    iframe.contentWindow?.focus()
+                    iframe.contentWindow?.print()
+                    cleanup()
+                }
+                if (doc.readyState === 'complete') runPrint()
+                else iframe.onload = runPrint
+            } catch {
+                cleanup()
+                const reportWindow = window.open('', '_blank')
+                if (!reportWindow) {
+                    pushToast('error', '导出窗口被拦截，请允许弹窗后重试')
+                    return
+                }
+                reportWindow.document.write(html)
+                reportWindow.document.close()
+                reportWindow.focus()
+                reportWindow.print()
+            }
+
+            setExportModalOpen(false)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '导出失败，请稍后重试'))
+        } finally {
+            setExporting(false)
+        }
+    }
 
     // ─── Save health record ───────────────────────
     const handleHealthSave = async () => {
@@ -591,6 +738,7 @@ export function StatsPage() {
                 <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>导出就医报告（中文）</Button>
                     <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>Export Vet Report (EN)</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>导出全部记录</Button>
                 </div>
             </div>
 
@@ -737,6 +885,45 @@ export function StatsPage() {
                                         dot={{ fill: 'var(--color-accent)', r: 3 }}
                                         activeDot={{ r: 5 }}
                                         name="咪被想次数"
+                                    />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        <h3 className="text-base font-semibold">🍽️ 喂食次数</h3>
+                        <div className="weight-window-row">
+                            <label className="text-sm text-secondary" htmlFor="feed-window-range">趋势区间：近 {feedWindowDays} 天</label>
+                            <input
+                                id="feed-window-range"
+                                type="range"
+                                min="7"
+                                max="90"
+                                value={feedWindowDays}
+                                onChange={(event) => setFeedWindowDays(Number(event.target.value))}
+                            />
+                        </div>
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={feedTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
+                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                                    <Tooltip
+                                        contentStyle={{
+                                            background: 'var(--color-bg-card)',
+                                            border: '1px solid var(--color-border)',
+                                            borderRadius: '8px',
+                                            fontSize: '13px',
+                                        }}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="count"
+                                        stroke="var(--color-secondary)"
+                                        strokeWidth={2.5}
+                                        dot={{ fill: 'var(--color-secondary)', r: 3 }}
+                                        activeDot={{ r: 5 }}
+                                        name="喂食次数"
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
@@ -1100,6 +1287,57 @@ export function StatsPage() {
                     <p className="text-sm text-secondary">此操作不可恢复，确认继续删除吗？</p>
                     <Button variant="primary" fullWidth onClick={confirmDelete} disabled={deleteSubmitting}>
                         {deleteSubmitting ? '删除中...' : '确认删除'}
+                    </Button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={exportModalOpen} onClose={() => !exporting && setExportModalOpen(false)} title="导出全部记录">
+                <div className="weight-form">
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="export-days">时间跨度：最近 {exportDays} 天</label>
+                        <input
+                            id="export-days"
+                            type="range"
+                            min="7"
+                            max="365"
+                            value={exportDays}
+                            onChange={(event) => setExportDays(Number(event.target.value))}
+                            disabled={exporting}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">导出类型（可多选）</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            {(Object.keys(exportTypes) as ExportTypeKey[]).map((key) => {
+                                const labels: Record<ExportTypeKey, string> = {
+                                    weight: '体重',
+                                    poop: '便便',
+                                    miss: '咪被想',
+                                    health: '健康',
+                                    inventory: '库存',
+                                    diary: '日记',
+                                    mood: '心情',
+                                    feed: '喂食',
+                                }
+
+                                return (
+                                    <label key={key} className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={exportTypes[key]}
+                                            onChange={() => handleToggleExportType(key)}
+                                            disabled={exporting}
+                                        />
+                                        <span>{labels[key]}</span>
+                                    </label>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    <Button variant="primary" fullWidth onClick={exportSelectedRecords} disabled={exporting || !catId}>
+                        {exporting ? '导出中...' : '开始导出'}
                     </Button>
                 </div>
             </Modal>
