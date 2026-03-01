@@ -76,6 +76,7 @@ export function SettingsPage() {
     const [kickStep, setKickStep] = useState(1)
     const [kickConfirmInput, setKickConfirmInput] = useState('')
     const [kicking, setKicking] = useState(false)
+    const [familySettingsOpen, setFamilySettingsOpen] = useState(false)
     const [pendingJoinRequests, setPendingJoinRequests] = useState<FamilyJoinRequestWithProfile[]>([])
     const [joinReqLoading, setJoinReqLoading] = useState(false)
     const [reviewingReqId, setReviewingReqId] = useState<string | null>(null)
@@ -664,6 +665,12 @@ export function SettingsPage() {
         setDeleteConfirmInput('')
     }
 
+    const openFamilySettingsModal = () => {
+        setShowCreateFamilyInput(false)
+        setShowJoinFamilyInput(false)
+        setFamilySettingsOpen(true)
+    }
+
     return (
         <div className="settings-page fade-in">
             {catLoading && !createMode ? (
@@ -699,15 +706,6 @@ export function SettingsPage() {
                                         <div className="cat-actions-row">
                                             <Button type="button" variant="secondary" fullWidth onClick={() => setProfileLocked(false)} disabled={myRole !== 'owner' && myRole !== 'admin'}>
                                                 编辑档案
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                fullWidth
-                                                onClick={openDeleteCatModal}
-                                                disabled={!catId || (myRole !== 'owner' && myRole !== 'admin')}
-                                            >
-                                                删除猫咪
                                             </Button>
                                         </div>
                                     </div>
@@ -931,156 +929,19 @@ export function SettingsPage() {
                                             )}
                                         </div>
                                     )}
-                                    <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        {myRole !== 'owner' && (
-                                            <Button variant="secondary" onClick={handleLeaveFamily}>退出家庭</Button>
-                                        )}
-                                        {myRole === 'owner' && (
-                                            <Button variant="danger" size="sm" onClick={openDissolveFamilyModal}>解散家庭</Button>
-                                        )}
-                                    </div>
                                     {cat && cat.family_id !== currentFamily.id && (
                                         <div style={{ marginTop: '12px' }}>
                                             <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>将当前猫咪归属到该家庭</Button>
                                         </div>
                                     )}
-                                    {/* Create new family */}
-                                    <div className="form-group" style={{ marginTop: '16px' }}>
-                                        {!showCreateFamilyInput ? (
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => {
-                                                    setShowCreateFamilyInput(true)
-                                                    setShowJoinFamilyInput(false)
-                                                }}
-                                                disabled={isFamilySaving || !online}
-                                            >
-                                                创建新家庭
-                                            </Button>
-                                        ) : (
-                                            <>
-                                                <label className="form-label" htmlFor="family-name">创建新家庭</label>
-                                                <input
-                                                    id="family-name"
-                                                    className="form-input"
-                                                    placeholder="输入家庭名称"
-                                                    value={familyName}
-                                                    onChange={(e) => setFamilyName(e.target.value)}
-                                                />
-                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                                    <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online}>
-                                                        {isFamilySaving ? '处理中...' : '确认创建'}
-                                                    </Button>
-                                                    <Button variant="ghost" onClick={() => { setShowCreateFamilyInput(false); setFamilyName('') }} disabled={isFamilySaving}>
-                                                        取消
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    {/* Join another family */}
-                                    <div className="form-group" style={{ marginTop: '16px' }}>
-                                        {!showJoinFamilyInput ? (
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => {
-                                                    setShowJoinFamilyInput(true)
-                                                    setShowCreateFamilyInput(false)
-                                                }}
-                                                disabled={isFamilySaving || !online}
-                                            >
-                                                加入其他家庭
-                                            </Button>
-                                        ) : (
-                                            <>
-                                                <label className="form-label" htmlFor="family-invite-code">加入其他家庭</label>
-                                                <input
-                                                    id="family-invite-code"
-                                                    className="form-input"
-                                                    placeholder="输入邀请码"
-                                                    value={joinCode}
-                                                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                                />
-                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                                    <Button variant="ghost" onClick={handleJoinFamily} disabled={isFamilySaving || !online}>
-                                                        {isFamilySaving ? '处理中...' : '确认加入'}
-                                                    </Button>
-                                                    <Button variant="secondary" onClick={() => { setShowJoinFamilyInput(false); setJoinCode('') }} disabled={isFamilySaving}>
-                                                        取消
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
+                                    <div style={{ marginTop: '12px' }}>
+                                        <Button variant="secondary" onClick={openFamilySettingsModal}>家庭设置</Button>
                                     </div>
                                 </>
                             ) : (
                                 <div className="family-actions">
-                                    <div className="form-group">
-                                        {!showCreateFamilyInput ? (
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => {
-                                                    setShowCreateFamilyInput(true)
-                                                    setShowJoinFamilyInput(false)
-                                                }}
-                                                disabled={isFamilySaving || !online}
-                                            >
-                                                创建家庭
-                                            </Button>
-                                        ) : (
-                                            <>
-                                                <label className="form-label" htmlFor="new-family-name">创建家庭</label>
-                                                <input
-                                                    id="new-family-name"
-                                                    className="form-input"
-                                                    placeholder="输入家庭名称"
-                                                    value={familyName}
-                                                    onChange={(e) => setFamilyName(e.target.value)}
-                                                />
-                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                                    <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online}>
-                                                        {isFamilySaving ? '处理中...' : '确认创建'}
-                                                    </Button>
-                                                    <Button variant="ghost" onClick={() => { setShowCreateFamilyInput(false); setFamilyName('') }} disabled={isFamilySaving}>
-                                                        取消
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className="form-group">
-                                        {!showJoinFamilyInput ? (
-                                            <Button
-                                                variant="ghost"
-                                                onClick={() => {
-                                                    setShowJoinFamilyInput(true)
-                                                    setShowCreateFamilyInput(false)
-                                                }}
-                                                disabled={isFamilySaving || !online}
-                                            >
-                                                加入家庭
-                                            </Button>
-                                        ) : (
-                                            <>
-                                                <label className="form-label" htmlFor="new-family-invite-code">加入家庭</label>
-                                                <input
-                                                    id="new-family-invite-code"
-                                                    className="form-input"
-                                                    placeholder="输入邀请码"
-                                                    value={joinCode}
-                                                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                                                />
-                                                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                                                    <Button variant="ghost" onClick={handleJoinFamily} disabled={isFamilySaving || !online}>
-                                                        {isFamilySaving ? '处理中...' : '确认加入'}
-                                                    </Button>
-                                                    <Button variant="secondary" onClick={() => { setShowJoinFamilyInput(false); setJoinCode('') }} disabled={isFamilySaving}>
-                                                        取消
-                                                    </Button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
+                                    <p className="text-secondary text-sm">你当前还没有加入家庭。</p>
+                                    <Button variant="secondary" onClick={openFamilySettingsModal}>家庭设置</Button>
                                 </div>
                             )}
                             {user && (
@@ -1225,6 +1086,91 @@ export function SettingsPage() {
                                     </Button>
                                 </>
                             )}
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={familySettingsOpen} onClose={() => setFamilySettingsOpen(false)} title="家庭设置">
+                        <div className="settings-confirm">
+                            {currentFamily && myRole !== 'owner' && (
+                                <Button variant="secondary" fullWidth onClick={handleLeaveFamily}>
+                                    退出家庭
+                                </Button>
+                            )}
+                            {currentFamily && myRole === 'owner' && (
+                                <Button variant="danger" fullWidth onClick={openDissolveFamilyModal}>
+                                    解散家庭
+                                </Button>
+                            )}
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                {!showCreateFamilyInput ? (
+                                    <Button
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => {
+                                            setShowCreateFamilyInput(true)
+                                            setShowJoinFamilyInput(false)
+                                        }}
+                                        disabled={isFamilySaving || !online}
+                                    >
+                                        {currentFamily ? '创建新家庭' : '创建家庭'}
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <label className="form-label" htmlFor="family-settings-create">{currentFamily ? '创建新家庭' : '创建家庭'}</label>
+                                        <input
+                                            id="family-settings-create"
+                                            className="form-input"
+                                            placeholder="输入家庭名称"
+                                            value={familyName}
+                                            onChange={(e) => setFamilyName(e.target.value)}
+                                        />
+                                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                                            <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online}>
+                                                {isFamilySaving ? '处理中...' : '确认创建'}
+                                            </Button>
+                                            <Button variant="ghost" onClick={() => { setShowCreateFamilyInput(false); setFamilyName('') }} disabled={isFamilySaving}>
+                                                取消
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                {!showJoinFamilyInput ? (
+                                    <Button
+                                        variant="secondary"
+                                        fullWidth
+                                        onClick={() => {
+                                            setShowJoinFamilyInput(true)
+                                            setShowCreateFamilyInput(false)
+                                        }}
+                                        disabled={isFamilySaving || !online}
+                                    >
+                                        {currentFamily ? '加入其他家庭' : '加入家庭'}
+                                    </Button>
+                                ) : (
+                                    <>
+                                        <label className="form-label" htmlFor="family-settings-join">{currentFamily ? '加入其他家庭' : '加入家庭'}</label>
+                                        <input
+                                            id="family-settings-join"
+                                            className="form-input"
+                                            placeholder="输入邀请码"
+                                            value={joinCode}
+                                            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                        />
+                                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                                            <Button variant="secondary" onClick={handleJoinFamily} disabled={isFamilySaving || !online}>
+                                                {isFamilySaving ? '处理中...' : '确认加入'}
+                                            </Button>
+                                            <Button variant="ghost" onClick={() => { setShowJoinFamilyInput(false); setJoinCode('') }} disabled={isFamilySaving}>
+                                                取消
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </Modal>
 
