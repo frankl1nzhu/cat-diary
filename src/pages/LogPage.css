@@ -454,15 +454,19 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    padding: var(--space-4);
+    padding: calc(var(--space-3) + env(safe-area-inset-top)) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom));
 }
 
 .lightbox-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
     flex-wrap: wrap;
+    padding: var(--space-1) 0;
 }
 
 .lightbox-btn {
@@ -482,6 +486,7 @@
 
 .lightbox-stage {
     flex: 1;
+    min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
