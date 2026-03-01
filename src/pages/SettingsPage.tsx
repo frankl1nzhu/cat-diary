@@ -69,6 +69,10 @@ export function SettingsPage() {
     const [dissolveStep, setDissolveStep] = useState(1)
     const [dissolveConfirmInput, setDissolveConfirmInput] = useState('')
     const [dissolving, setDissolving] = useState(false)
+    const [leaveFamilyOpen, setLeaveFamilyOpen] = useState(false)
+    const [leaveStep, setLeaveStep] = useState(1)
+    const [leaveConfirmInput, setLeaveConfirmInput] = useState('')
+    const [leavingFamily, setLeavingFamily] = useState(false)
     const [familyMembers, setFamilyMembers] = useState<FamilyMemberWithEmail[]>([])
     const [membersLoading, setMembersLoading] = useState(false)
     const [roleSaving, setRoleSaving] = useState<string | null>(null)
@@ -472,12 +476,13 @@ export function SettingsPage() {
         }
     }
 
-    const handleLeaveFamily = async () => {
+    const doLeaveFamily = async () => {
         if (!user || !currentFamily) return
         if (myRole === 'owner') {
             pushToast('error', '家庭创建者不能退出，请先转让所有权或删除家庭')
             return
         }
+        setLeavingFamily(true)
         try {
             const { error: memberError } = await supabase
                 .from('family_members')
@@ -495,10 +500,41 @@ export function SettingsPage() {
 
             setActiveFamilyId(null)
             setCurrentFamily(null)
+            closeLeaveFamilyModal()
             pushToast('success', '已退出家庭')
         } catch (err) {
             pushToast('error', getErrorMessage(err, '退出家庭失败，请稍后重试'))
+        } finally {
+            setLeavingFamily(false)
         }
+    }
+
+    const openLeaveFamilyModal = () => {
+        setLeaveStep(1)
+        setLeaveConfirmInput('')
+        setLeaveFamilyOpen(true)
+    }
+
+    const closeLeaveFamilyModal = () => {
+        setLeaveFamilyOpen(false)
+        setLeaveStep(1)
+        setLeaveConfirmInput('')
+    }
+
+    const handleLeaveFamily = async () => {
+        if (!currentFamily || !user) return
+        if (leaveStep < 2) {
+            setLeaveStep(2)
+            return
+        }
+
+        const expected = user.email || ''
+        if (leaveConfirmInput.trim() !== expected) {
+            pushToast('error', `请输入当前账号「${expected}」以确认退出`)
+            return
+        }
+
+        await doLeaveFamily()
     }
 
     const handleDissolveFamily = async () => {
@@ -1094,7 +1130,7 @@ export function SettingsPage() {
                     <Modal isOpen={familySettingsOpen} onClose={() => setFamilySettingsOpen(false)} title="家庭设置">
                         <div className="settings-confirm">
                             {currentFamily && myRole !== 'owner' && (
-                                <Button variant="secondary" fullWidth onClick={handleLeaveFamily}>
+                                <Button variant="secondary" fullWidth onClick={openLeaveFamilyModal}>
                                     退出家庭
                                 </Button>
                             )}
@@ -1173,6 +1209,32 @@ export function SettingsPage() {
                                     </>
                                 )}
                             </div>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={leaveFamilyOpen} onClose={closeLeaveFamilyModal} title="确认退出家庭？">
+                        <div className="settings-confirm">
+                            {leaveStep === 1 ? (
+                                <>
+                                    <p className="text-sm text-secondary">退出后你将不再属于家庭「{currentFamily?.name}」，并失去该家庭协作权限。</p>
+                                    <Button variant="secondary" fullWidth onClick={handleLeaveFamily} disabled={leavingFamily}>
+                                        我了解，继续
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-sm text-secondary">请输入当前账号邮箱「{user?.email || ''}」以确认退出。</p>
+                                    <input
+                                        className="form-input"
+                                        value={leaveConfirmInput}
+                                        onChange={(event) => setLeaveConfirmInput(event.target.value)}
+                                        placeholder="输入当前账号邮箱"
+                                    />
+                                    <Button variant="secondary" fullWidth onClick={handleLeaveFamily} disabled={leavingFamily}>
+                                        {leavingFamily ? '处理中...' : '确认退出家庭'}
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </Modal>
 
