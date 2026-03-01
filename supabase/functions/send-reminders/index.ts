@@ -46,6 +46,23 @@ function getUserIdFromJwt(accessToken: string): string | null {
   }
 }
 
+function getUserIdFromForwardedHeaders(req: Request): string | null {
+  const candidates = [
+    'x-supabase-auth-user',
+    'x-supabase-user-id',
+    'x-sb-auth-user',
+    'x-sb-user-id',
+    'x-auth-user',
+  ]
+
+  for (const name of candidates) {
+    const value = req.headers.get(name)?.trim()
+    if (value) return value
+  }
+
+  return null
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -211,7 +228,7 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey)
     let userId: string | null = null
     let userErrorMessage: string | null = null
-    const authHeader = req.headers.get('Authorization')
+    const authHeader = req.headers.get('Authorization') || req.headers.get('authorization')
     const accessToken = authHeader?.replace(/^Bearer\s+/i, '').trim() || ''
 
     if (accessToken) {
@@ -252,6 +269,14 @@ Deno.serve(async (req) => {
       }
     } else {
       userErrorMessage = 'missing authorization header'
+    }
+
+    if (!userId) {
+      const forwardedUserId = getUserIdFromForwardedHeaders(req)
+      if (forwardedUserId) {
+        userId = forwardedUserId
+        userErrorMessage = null
+      }
     }
 
     if (!['vapid-public-key', 'weekly-summary-cron'].includes(action) && !userId) {
