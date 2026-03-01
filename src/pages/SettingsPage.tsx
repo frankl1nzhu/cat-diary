@@ -13,7 +13,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } from '../lib/pushNotifications'
-import { savePushSubscription, sendTestPush, sendCatProfileNotification, sendNewCatNotification, sendFamilyMemberNotification } from '../lib/pushServer'
+import { savePushSubscription, sendTestPush, sendCatProfileNotification, sendNewCatNotification, sendFamilyMemberNotification, sendFamilyMemberLeftNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import type { Family, FamilyMemberWithEmail } from '../types/database.types'
@@ -490,6 +490,8 @@ export function SettingsPage() {
                 await supabase.from('cats').update({ family_id: null }).eq('id', catId)
                 setSelectedFamilyId('')
             }
+
+            sendFamilyMemberLeftNotification(currentFamily.id, user.email || '家庭成员').catch(() => { })
 
             setActiveFamilyId(null)
             setCurrentFamily(null)

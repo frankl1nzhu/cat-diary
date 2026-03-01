@@ -31,10 +31,26 @@
     overflow: hidden;
 }
 
+.avatar-preview-btn {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    display: block;
+}
+
 .avatar-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.avatar-preview-modal-img {
+    width: 100%;
+    max-height: min(75dvh, 560px);
+    object-fit: contain;
+    border-radius: var(--radius-md);
 }
 
 .avatar-emoji {

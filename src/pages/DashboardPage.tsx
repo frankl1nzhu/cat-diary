@@ -56,6 +56,7 @@ export function DashboardPage() {
     const [inventory, setInventory] = useState<InventoryItem[]>([])
     const [healthReminders, setHealthReminders] = useState<HealthRecord[]>([])
     const [loading, setLoading] = useState(true)
+    const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false)
 
     // Renew modal (vaccine / deworming)
     const [renewModalOpen, setRenewModalOpen] = useState(false)
@@ -728,7 +729,14 @@ export function DashboardPage() {
                 <div className="profile-header">
                     <div className="avatar-placeholder">
                         {cat?.avatar_url ? (
-                            <img src={cat.avatar_url} alt={cat.name} className="avatar-img" loading="lazy" />
+                            <button
+                                type="button"
+                                className="avatar-preview-btn"
+                                onClick={() => setAvatarPreviewOpen(true)}
+                                aria-label="查看猫咪头像大图"
+                            >
+                                <img src={cat.avatar_url} alt={cat.name} className="avatar-img" loading="lazy" />
+                            </button>
                         ) : (
                             <span className="avatar-emoji">🐱</span>
                         )}
@@ -749,6 +757,12 @@ export function DashboardPage() {
                     </div>
                 </div>
             </Card>
+
+            <Modal isOpen={avatarPreviewOpen} onClose={() => setAvatarPreviewOpen(false)} title={cat?.name ? `${cat.name} 的头像` : '猫咪头像'}>
+                {cat?.avatar_url ? (
+                    <img src={cat.avatar_url} alt={cat.name || '猫咪头像'} className="avatar-preview-modal-img" loading="lazy" />
+                ) : null}
+            </Modal>
 
             {/* ── Health Reminders ── */}
             {urgentHealthReminders.length > 0 && (

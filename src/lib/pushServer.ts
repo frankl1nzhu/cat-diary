@@ -130,6 +130,14 @@ export async function sendFamilyMemberNotification(familyId: string, memberName:
     await invokeSendReminders({ action: 'family-member', familyId, memberName })
 }
 
+export async function sendFamilyJoinRequestNotification(familyId: string, requesterName: string) {
+    await invokeSendReminders({ action: 'family-join-request', familyId, memberName: requesterName })
+}
+
+export async function sendFamilyMemberLeftNotification(familyId: string, memberName: string) {
+    await invokeSendReminders({ action: 'family-member-left', familyId, memberName })
+}
+
 export async function sendNewCatNotification(catId: string, catName: string) {
     await invokeSendReminders({ action: 'new-cat', catId, catName })
 }

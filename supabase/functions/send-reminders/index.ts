@@ -5,6 +5,7 @@ type ActionType =
   | 'test' | 'reminder' | 'diary' | 'comment' | 'scoop' | 'vapid-public-key'
   | 'feed' | 'health' | 'inventory' | 'weight' | 'cat-profile' | 'family-member' | 'new-cat'
   | 'abnormal-poop' | 'weekly-summary' | 'weekly-summary-cron' | 'miss'
+  | 'family-join-request' | 'family-member-left'
 
 interface PushSubRow {
   id: string
@@ -91,6 +92,24 @@ async function getFamilyMemberIdsByFamilyId(
     .from('family_members')
     .select('user_id')
     .eq('family_id', familyId)
+
+  if (!members) return []
+
+  const ids = members.map((m: { user_id: string }) => m.user_id)
+  return excludeUserId ? ids.filter((id: string) => id !== excludeUserId) : ids
+}
+
+/** Get owner/admin user IDs in a family, optionally excluding one user */
+async function getFamilyAdminOwnerIdsByFamilyId(
+  admin: ReturnType<typeof createClient>,
+  familyId: string,
+  excludeUserId?: string
+): Promise<string[]> {
+  const { data: members } = await admin
+    .from('family_members')
+    .select('user_id,role')
+    .eq('family_id', familyId)
+    .in('role', ['owner', 'admin'])
 
   if (!members) return []
 
@@ -532,6 +551,46 @@ Deno.serve(async (req) => {
       const result = await sendPushToUsers(admin, memberIds, {
         title: '新成员加入啦 🎉',
         body: `${memberName} 加入了家庭`,
+        url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── family-join-request: notify owner/admin when someone requests to join ── */
+    if (action === 'family-join-request') {
+      const familyId = body.familyId
+      const requesterName = body.memberName || '新申请成员'
+      if (!familyId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing familyId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const managerIds = await getFamilyAdminOwnerIdsByFamilyId(admin, familyId, userId || undefined)
+      const result = await sendPushToUsers(admin, managerIds, {
+        title: '新的入家申请 👥',
+        body: `${requesterName} 申请加入家庭，请前往设置审核`,
+        url: '/settings',
+      })
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    /* ── family-member-left: notify owner/admin when someone leaves family ── */
+    if (action === 'family-member-left') {
+      const familyId = body.familyId
+      const memberName = body.memberName || '家庭成员'
+      if (!familyId) {
+        return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'Missing familyId' }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const managerIds = await getFamilyAdminOwnerIdsByFamilyId(admin, familyId, userId || undefined)
+      const result = await sendPushToUsers(admin, managerIds, {
+        title: '成员退出家庭',
+        body: `${memberName} 已退出家庭`,
         url: '/settings',
       })
       return new Response(JSON.stringify(result), {
