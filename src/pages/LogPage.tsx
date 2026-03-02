@@ -823,14 +823,14 @@ export function LogPage() {
                                 <div className="diary-comments-section">
                                     {comments.map((c) => (
                                         <div key={c.id} className="diary-comment-item">
-                                            <span className="diary-comment-author text-xs">{getUserName(c.user_id)}</span>
-                                            <span className="text-sm diary-comment-text">{c.text}</span>
-                                            <span className="text-xs text-muted diary-comment-time">{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
+                                            <div className="diary-comment-meta">
+                                                <span className="diary-comment-author text-xs">{getUserName(c.user_id)}</span>
+                                                <span className="text-xs text-muted diary-comment-time">{format(new Date(c.created_at), 'MM/dd HH:mm')}</span>
+                                            </div>
+                                            <p className="text-sm diary-comment-text">{c.text}</p>
                                             {c.user_id === user?.id ? (
                                                 <button className="diary-comment-delete" onClick={() => handleDeleteComment(c.id, item.data.id)}>✕</button>
-                                            ) : (
-                                                <span className="diary-comment-delete-placeholder" />
-                                            )}
+                                            ) : null}
                                         </div>
                                     ))}
                                     <div className="diary-comment-input-row">

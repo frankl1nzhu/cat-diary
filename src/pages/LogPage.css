@@ -261,28 +261,37 @@
 }
 
 .diary-comment-item {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: 2px;
     padding: var(--space-1) var(--space-2);
     background: var(--color-bg-input);
     border-radius: var(--radius-sm);
     font-size: var(--font-size-sm);
 }
 
+.diary-comment-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    width: 100%;
+    padding-right: 26px;
+}
+
 .diary-comment-text {
-    flex: 1;
+    margin: 0;
+    width: 100%;
     min-width: 0;
+    padding-right: 26px;
+    white-space: pre-wrap;
     word-break: break-word;
 }
 
 .diary-comment-time {
-    flex-shrink: 0;
+    text-align: right;
     white-space: nowrap;
-}
-
-.diary-comment-delete-placeholder {
-    width: 20px;
     flex-shrink: 0;
 }
 
@@ -290,17 +299,20 @@
     font-weight: 600;
     color: var(--color-primary);
     white-space: nowrap;
-    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .diary-comment-delete {
+    position: absolute;
+    top: 6px;
+    right: 6px;
     background: none;
     border: none;
     color: var(--color-text-muted);
     font-size: var(--font-size-xs);
     cursor: pointer;
     padding: 2px 4px;
-    flex-shrink: 0;
     width: 20px;
     text-align: center;
 }
