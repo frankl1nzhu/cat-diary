@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { CatSwitcher } from './CatSwitcher'
@@ -10,18 +10,52 @@ export function AppLayout() {
     const online = useOnlineStatus()
     const mainRef = useRef<HTMLElement>(null)
     const [showScrollTop, setShowScrollTop] = useState(false)
+    const [navHidden, setNavHidden] = useState(false)
+    const lastScrollTop = useRef(0)
+    const scrollDelta = useRef(0)
+
+    const HIDE_THRESHOLD = 40  // px of downward scroll before hiding
+    const SHOW_THRESHOLD = 20  // px of upward scroll before showing
+
+    const handleScroll = useCallback(() => {
+        const el = mainRef.current
+        if (!el) return
+
+        const currentTop = el.scrollTop
+        setShowScrollTop(currentTop > 400)
+
+        const diff = currentTop - lastScrollTop.current
+        lastScrollTop.current = currentTop
+
+        // Near top — always show nav
+        if (currentTop < 80) {
+            setNavHidden(false)
+            scrollDelta.current = 0
+            return
+        }
+
+        // Accumulate delta in the same direction, reset on direction change
+        if ((diff > 0 && scrollDelta.current < 0) || (diff < 0 && scrollDelta.current > 0)) {
+            scrollDelta.current = 0
+        }
+        scrollDelta.current += diff
+
+        if (scrollDelta.current > HIDE_THRESHOLD) {
+            setNavHidden(true)
+            scrollDelta.current = 0
+        } else if (scrollDelta.current < -SHOW_THRESHOLD) {
+            setNavHidden(false)
+            scrollDelta.current = 0
+        }
+    }, [])
 
     useEffect(() => {
         const el = mainRef.current
         if (!el) return
 
-        const onScroll = () => {
-            setShowScrollTop(el.scrollTop > 400)
-        }
-
-        el.addEventListener('scroll', onScroll, { passive: true })
-        return () => el.removeEventListener('scroll', onScroll)
-    }, [])
+        el.addEventListener('scroll', handleScroll, { passive: true })
+        return () => el.removeEventListener('scroll', handleScroll)
+    }, [handleScroll])
 
     const scrollToTop = () => {
         mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
@@ -70,7 +104,7 @@ export function AppLayout() {
             >
                 ↑
             </button>
-            <BottomNav />
+            <BottomNav hidden={navHidden} />
         </div>
     )
 }

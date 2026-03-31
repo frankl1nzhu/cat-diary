@@ -23,7 +23,7 @@ const quickActions = [
     { label: '🩺', sublabel: '健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
 ] as const
 
-export function BottomNav() {
+export function BottomNav({ hidden }: { hidden?: boolean }) {
     const navigate = useNavigate()
     const [quickOpen, setQuickOpen] = useState(false)
     const quickSheetRef = useRef<HTMLDivElement>(null)
@@ -89,7 +89,7 @@ export function BottomNav() {
                 </div>
             )}
 
-            <nav className="bottom-nav" id="bottom-nav">
+            <nav className={`bottom-nav ${hidden && !quickOpen ? 'bottom-nav-hidden' : ''}`} id="bottom-nav">
                 {leftItems.map((item) => (
                     <NavLink
                         key={item.to}
