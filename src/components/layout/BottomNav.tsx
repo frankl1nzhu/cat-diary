@@ -93,6 +93,7 @@ export function BottomNav() {
                         key={item.to}
                         to={item.to}
                         end={item.to === '/'}
+                        viewTransition
                         className={({ isActive }) =>
                             `bottom-nav-item ${isActive ? 'bottom-nav-item-active' : ''}`
                         }
@@ -113,6 +114,7 @@ export function BottomNav() {
                     <NavLink
                         key={item.to}
                         to={item.to}
+                        viewTransition
                         className={({ isActive }) =>
                             `bottom-nav-item ${isActive ? 'bottom-nav-item-active' : ''}`
                         }

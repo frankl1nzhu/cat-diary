@@ -7,6 +7,7 @@ import { Modal } from '../components/ui/Modal'
 import { RenewModal } from '../components/ui/RenewModal'
 import { SwipeableRow } from '../components/ui/SwipeableRow'
 import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
+import { Skeleton } from '../components/ui/Skeleton'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
@@ -693,9 +694,34 @@ export function StatsPage() {
     if (loading || catLoading) {
         return (
             <div className="stats-page fade-in">
-                <div className="empty-state">
-                    <span className="empty-icon">⏳</span>
-                    <p className="text-secondary text-sm">加载中...</p>
+                <div className="page-header p-4">
+                    <Skeleton width="50%" height="28px" />
+                    <Skeleton width="70%" height="16px" style={{ marginTop: 'var(--space-2)' }} />
+                </div>
+                <div className="px-4 mb-4">
+                    <Card variant="default" padding="md">
+                        <Skeleton width="40%" height="20px" />
+                        <Skeleton height="220px" borderRadius="var(--radius-md)" style={{ marginTop: 'var(--space-3)' }} />
+                    </Card>
+                </div>
+                <div className="px-4 mb-4">
+                    <Card variant="default" padding="md">
+                        <Skeleton width="40%" height="20px" />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                            <Skeleton height="52px" borderRadius="var(--radius-md)" />
+                            <Skeleton height="52px" borderRadius="var(--radius-md)" />
+                            <Skeleton height="52px" borderRadius="var(--radius-md)" />
+                        </div>
+                    </Card>
+                </div>
+                <div className="px-4 mb-4">
+                    <Card variant="default" padding="md">
+                        <Skeleton width="40%" height="20px" />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                            <Skeleton height="44px" borderRadius="var(--radius-md)" />
+                            <Skeleton height="44px" borderRadius="var(--radius-md)" />
+                        </div>
+                    </Card>
                 </div>
             </div>
         )

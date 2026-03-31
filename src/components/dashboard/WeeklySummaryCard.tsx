@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card } from '../ui/Card'
 
 interface WeeklySummaryCardProps {
@@ -7,7 +8,7 @@ interface WeeklySummaryCardProps {
     weekWeightDelta: number | null
 }
 
-export function WeeklySummaryCard({
+export const WeeklySummaryCard = memo(function WeeklySummaryCard({
     weekFeedCount,
     weekMoodCounts,
     weekAbnormalPoopCount,
@@ -46,4 +47,4 @@ export function WeeklySummaryCard({
             </Card>
         </div>
     )
-}
+})

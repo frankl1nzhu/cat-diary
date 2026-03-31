@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { differenceInDays } from 'date-fns'
@@ -8,7 +8,7 @@ interface CatProfileCardProps {
     cat: Cat | null
 }
 
-export function CatProfileCard({ cat }: CatProfileCardProps) {
+export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCardProps) {
     const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false)
 
     const { daysHome, daysToBirthday } = useMemo(() => {
@@ -75,4 +75,4 @@ export function CatProfileCard({ cat }: CatProfileCardProps) {
             </Modal>
         </>
     )
-}
+})

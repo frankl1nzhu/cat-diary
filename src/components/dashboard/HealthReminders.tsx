@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Card } from '../ui/Card'
 import { RenewModal } from '../ui/RenewModal'
 import { format } from 'date-fns'
@@ -24,7 +25,7 @@ interface HealthRemindersProps {
     online: boolean
 }
 
-export function HealthReminders({ items, renew, online }: HealthRemindersProps) {
+export const HealthReminders = memo(function HealthReminders({ items, renew, online }: HealthRemindersProps) {
     if (items.length === 0) return null
 
     return (
@@ -90,4 +91,4 @@ export function HealthReminders({ items, renew, online }: HealthRemindersProps) 
             />
         </>
     )
-}
+})

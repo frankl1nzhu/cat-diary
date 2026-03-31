@@ -6,12 +6,14 @@ import { Modal } from '../components/ui/Modal'
 import { SwipeableRow } from '../components/ui/SwipeableRow'
 import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
 import { Skeleton } from '../components/ui/Skeleton'
+import { ImageLightbox } from '../components/ui/ImageLightbox'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useToastStore } from '../stores/useToastStore'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
@@ -40,7 +42,6 @@ export function LogPage() {
     const [loadLimit, setLoadLimit] = useState(50)
     const [hasMore, setHasMore] = useState(false)
     const [loadingMore, setLoadingMore] = useState(false)
-    const [pullDistance, setPullDistance] = useState(0)
 
     // New diary modal
     const [diaryOpen, setDiaryOpen] = useState(false)
@@ -65,9 +66,6 @@ export function LogPage() {
     const [poopSaving, setPoopSaving] = useState(false)
 
     const [imageLightbox, setImageLightbox] = useState<string | null>(null)
-    const [lightboxScale, setLightboxScale] = useState(1)
-    const [lightboxOffset, setLightboxOffset] = useState({ x: 0, y: 0 })
-    const [lightboxDragging, setLightboxDragging] = useState(false)
 
     const [pendingDeleteItem, setPendingDeleteItem] = useState<TimelineItem | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
@@ -94,11 +92,6 @@ export function LogPage() {
     const [dateEnd, setDateEnd] = useState('')
 
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const pullStartYRef = useRef<number | null>(null)
-    const pinchStartDistanceRef = useRef<number | null>(null)
-    const lastTapAtRef = useRef(0)
-    const dragStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null)
-    const lightboxRef = useRef<HTMLDivElement>(null)
     const dateRangeInitializedRef = useRef(false)
 
     // ─── Load timeline ────────────────────────────
@@ -353,89 +346,9 @@ export function LogPage() {
 
     const openLightbox = (url: string) => {
         setImageLightbox(url)
-        setLightboxScale(1)
-        setLightboxOffset({ x: 0, y: 0 })
     }
-
     const closeLightbox = () => {
         setImageLightbox(null)
-        setLightboxScale(1)
-        setLightboxOffset({ x: 0, y: 0 })
-        setLightboxDragging(false)
-        pinchStartDistanceRef.current = null
-        dragStartRef.current = null
-    }
-
-    const updateLightboxScale = (nextScale: number) => {
-        const clamped = Math.min(3, Math.max(1, nextScale))
-        setLightboxScale(clamped)
-        if (clamped === 1) {
-            setLightboxOffset({ x: 0, y: 0 })
-        }
-    }
-
-    const getPinchDistance = (touches: React.TouchList) => {
-        const dx = touches[0].clientX - touches[1].clientX
-        const dy = touches[0].clientY - touches[1].clientY
-        return Math.hypot(dx, dy)
-    }
-
-    const onLightboxTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (event.touches.length === 1) {
-            const now = Date.now()
-            if (now - lastTapAtRef.current < 260) {
-                const targetScale = lightboxScale > 1 ? 1 : 2
-                updateLightboxScale(targetScale)
-            }
-            lastTapAtRef.current = now
-        }
-
-        if (event.touches.length === 2) {
-            pinchStartDistanceRef.current = getPinchDistance(event.touches)
-        }
-    }
-
-    const onLightboxTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (event.touches.length !== 2 || pinchStartDistanceRef.current === null) return
-        const distance = getPinchDistance(event.touches)
-        const ratio = distance / pinchStartDistanceRef.current
-        setLightboxScale((prev) => Math.min(3, Math.max(1, prev * ratio)))
-        pinchStartDistanceRef.current = distance
-    }
-
-    const onLightboxTouchEnd = () => {
-        pinchStartDistanceRef.current = null
-    }
-
-    const onLightboxPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (lightboxScale <= 1) return
-        dragStartRef.current = {
-            x: event.clientX,
-            y: event.clientY,
-            originX: lightboxOffset.x,
-            originY: lightboxOffset.y,
-        }
-        setLightboxDragging(true)
-    }
-
-    const onLightboxPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-        if (!dragStartRef.current || lightboxScale <= 1) return
-        const deltaX = event.clientX - dragStartRef.current.x
-        const deltaY = event.clientY - dragStartRef.current.y
-        setLightboxOffset({
-            x: dragStartRef.current.originX + deltaX,
-            y: dragStartRef.current.originY + deltaY,
-        })
-    }
-
-    const onLightboxPointerUp = () => {
-        dragStartRef.current = null
-        setLightboxDragging(false)
-    }
-
-    const onLightboxDoubleClick = () => {
-        const targetScale = lightboxScale > 1 ? 1 : 2
-        updateLightboxScale(targetScale)
     }
 
     const toggleTag = (tag: string) => {
@@ -686,64 +599,8 @@ export function LogPage() {
         setLoadingMore(false)
     }
 
-    const handleRefresh = async () => {
-        await loadTimeline()
-    }
-
-    // ─── Scroll ref (for pull-to-refresh only) ─────
-    const timelineParentRef = useRef<HTMLDivElement>(null)
-
-    const onTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (window.scrollY > 0) return
-        pullStartYRef.current = event.touches[0].clientY
-    }
-
-    const onTouchMovePage = (event: React.TouchEvent<HTMLDivElement>) => {
-        if (pullStartYRef.current === null) return
-        const delta = event.touches[0].clientY - pullStartYRef.current
-        if (delta > 0) {
-            setPullDistance(Math.min(delta, 90))
-        }
-    }
-
-    const onTouchEndPage = async () => {
-        if (pullDistance >= 72) {
-            await handleRefresh()
-        }
-        setPullDistance(0)
-        pullStartYRef.current = null
-    }
-
-    useEffect(() => {
-        if (!imageLightbox) return
-
-        lightboxRef.current?.focus()
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (!imageLightbox) return
-            if (event.key === 'Escape') {
-                event.preventDefault()
-                closeLightbox()
-            }
-            if (event.key === 'Tab') {
-                const focusable = lightboxRef.current?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
-                if (!focusable || focusable.length === 0) return
-                const first = focusable[0]
-                const last = focusable[focusable.length - 1]
-                const active = document.activeElement
-                if (event.shiftKey && active === first) {
-                    event.preventDefault()
-                    last.focus()
-                } else if (!event.shiftKey && active === last) {
-                    event.preventDefault()
-                    first.focus()
-                }
-            }
-        }
-
-        window.addEventListener('keydown', onKeyDown)
-        return () => window.removeEventListener('keydown', onKeyDown)
-    }, [imageLightbox])
+    // ─── Pull-to-refresh via shared hook ──────────
+    const pullToRefresh = usePullToRefresh({ onRefresh: loadTimeline, enabled: !loading })
 
     // ─── Helpers ──────────────────────────────────
     const bristolLabels = BRISTOL_LABELS
@@ -912,14 +769,18 @@ export function LogPage() {
     }
 
     return (
-        <div className="log-page fade-in" onTouchStart={onTouchStart} onTouchMove={onTouchMovePage} onTouchEnd={onTouchEndPage}>
+        <div
+            className="log-page fade-in"
+            ref={pullToRefresh.containerRef}
+            {...pullToRefresh.handlers}
+        >
             {/* Pull-to-refresh indicator */}
             <div
-                className={`pull-indicator ${pullDistance >= 72 ? 'pull-indicator-ready' : ''}`}
-                style={{ height: pullDistance > 0 ? `${Math.min(pullDistance, 90)}px` : '0' }}
+                className={`pull-indicator ${pullToRefresh.isReady ? 'pull-indicator-ready' : ''}`}
+                style={{ height: pullToRefresh.pullDistance > 0 ? `${pullToRefresh.pullDistance}px` : undefined }}
             >
-                <span className="pull-indicator-icon">↓</span>
-                <span>{pullDistance >= 72 ? '松手刷新' : '下拉刷新'}</span>
+                <span className="pull-indicator-icon">{pullToRefresh.refreshing ? '🔄' : '↓'}</span>
+                <span>{pullToRefresh.refreshing ? '刷新中…' : pullToRefresh.isReady ? '松手刷新' : '下拉刷新'}</span>
             </div>
 
             <div className="page-header p-4">
@@ -975,7 +836,7 @@ export function LogPage() {
                 </Card>
             </div>
 
-            <div className="timeline px-4" ref={timelineParentRef}>
+            <div className="timeline px-4">
                 {loading || catLoading ? (
                     <div className="timeline-list">
                         {Array.from({ length: 4 }).map((_, i) => (
@@ -1136,47 +997,7 @@ export function LogPage() {
                 </div>
             </Modal>
 
-            {imageLightbox && (
-                <div
-                    className="lightbox-overlay"
-                    onClick={closeLightbox}
-                    ref={lightboxRef}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="图片预览"
-                    tabIndex={-1}
-                >
-                    <div className="lightbox-toolbar" onClick={(event) => event.stopPropagation()}>
-                        <button className="lightbox-btn" onClick={() => updateLightboxScale(lightboxScale - 0.2)}>-</button>
-                        <span className="lightbox-scale">{Math.round(lightboxScale * 100)}%</span>
-                        <button className="lightbox-btn" onClick={() => updateLightboxScale(lightboxScale + 0.2)}>+</button>
-                        <button className="lightbox-btn" onClick={() => updateLightboxScale(1)}>重置</button>
-                        <button className="lightbox-btn" onClick={closeLightbox}>关闭</button>
-                    </div>
-                    <div
-                        className="lightbox-stage"
-                        onClick={(event) => event.stopPropagation()}
-                        onTouchStart={onLightboxTouchStart}
-                        onTouchMove={onLightboxTouchMove}
-                        onTouchEnd={onLightboxTouchEnd}
-                        onPointerDown={onLightboxPointerDown}
-                        onPointerMove={onLightboxPointerMove}
-                        onPointerUp={onLightboxPointerUp}
-                        onPointerCancel={onLightboxPointerUp}
-                        onDoubleClick={onLightboxDoubleClick}
-                    >
-                        <img
-                            src={imageLightbox}
-                            alt="日记图片预览"
-                            className="lightbox-image"
-                            style={{
-                                transform: `translate(${lightboxOffset.x}px, ${lightboxOffset.y}px) scale(${lightboxScale})`,
-                                cursor: lightboxScale > 1 ? (lightboxDragging ? 'grabbing' : 'grab') : 'zoom-in',
-                            }}
-                        />
-                    </div>
-                </div>
-            )}
+            <ImageLightbox src={imageLightbox} alt="日记图片预览" onClose={closeLightbox} />
 
             <Modal isOpen={Boolean(pendingDeleteItem)} onClose={() => setPendingDeleteItem(null)} title="确认删除？">
                 <div className="weight-form">
