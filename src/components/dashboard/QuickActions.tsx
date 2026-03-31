@@ -1,4 +1,5 @@
-import { useRef, useState, useOptimistic } from 'react'
+import { useEffect, useRef, useState, useOptimistic } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { supabase } from '../../lib/supabase'
@@ -32,6 +33,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
     const { user } = useSession()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
+    const [searchParams, setSearchParams] = useSearchParams()
 
     // Feed modal
     const [feedModalOpen, setFeedModalOpen] = useState(false)
@@ -52,6 +54,33 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
     const [rewardEmoji, setRewardEmoji] = useState<'💖' | '🐾' | null>(null)
     const [rewardParticles, setRewardParticles] = useState<RewardParticle[]>([])
     const particleIdRef = useRef(1)
+
+    const openFeedModal = () => {
+        setFeedModalOpen(true)
+    }
+
+    const openPoopModal = () => {
+        setPoopModalOpen(true)
+    }
+
+    useEffect(() => {
+        const quick = searchParams.get('quick')
+        if (quick !== 'feed' && quick !== 'poop') return
+
+        if (quick === 'feed') {
+            openFeedModal()
+        }
+
+        if (quick === 'poop') {
+            openPoopModal()
+        }
+
+        setSearchParams((prev) => {
+            const next = new URLSearchParams(prev)
+            next.delete('quick')
+            return next
+        }, { replace: true })
+    }, [searchParams, setSearchParams])
 
     const triggerRewardBurst = (icon: '💖' | '🐾') => {
         setRewardEmoji(icon)

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -27,7 +26,6 @@ export function DashboardPage() {
     const { user } = useSession()
     const { cat, catId, cats, setCatId, families, activeFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
-    const [searchParams, setSearchParams] = useSearchParams()
     const online = useOnlineStatus()
 
     // ─── Centralized data hook ────────────────────
@@ -51,18 +49,6 @@ export function DashboardPage() {
     const [obFamilyName, setObFamilyName] = useState('')
     const [obJoinCode, setObJoinCode] = useState('')
     const { createFamily, joinFamily, familySaving: obFamilySaving } = useFamily()
-
-    // ─── Quick-open from URL params ───────────────
-    useEffect(() => {
-        const quick = searchParams.get('quick')
-        if (!quick) return
-        // Quick params are handled by QuickActions via its own state
-        setSearchParams((prev) => {
-            const next = new URLSearchParams(prev)
-            next.delete('quick')
-            return next
-        }, { replace: true })
-    }, [searchParams, setSearchParams])
 
     // ─── Local & server push notifications ────────
     useEffect(() => {
