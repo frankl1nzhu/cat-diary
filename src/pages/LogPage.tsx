@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
 import { SwipeableRow } from '../components/ui/SwipeableRow'
 import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
+import { Skeleton } from '../components/ui/Skeleton'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
@@ -912,6 +913,15 @@ export function LogPage() {
 
     return (
         <div className="log-page fade-in" onTouchStart={onTouchStart} onTouchMove={onTouchMovePage} onTouchEnd={onTouchEndPage}>
+            {/* Pull-to-refresh indicator */}
+            <div
+                className={`pull-indicator ${pullDistance >= 72 ? 'pull-indicator-ready' : ''}`}
+                style={{ height: pullDistance > 0 ? `${Math.min(pullDistance, 90)}px` : '0' }}
+            >
+                <span className="pull-indicator-icon">↓</span>
+                <span>{pullDistance >= 72 ? '松手刷新' : '下拉刷新'}</span>
+            </div>
+
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">📝 记录</h1>
                 <p className="text-secondary text-sm">所有猫咪动态</p>
@@ -967,9 +977,17 @@ export function LogPage() {
 
             <div className="timeline px-4" ref={timelineParentRef}>
                 {loading || catLoading ? (
-                    <div className="empty-state">
-                        <span className="empty-icon">⏳</span>
-                        <p className="text-secondary text-sm">加载中...</p>
+                    <div className="timeline-list">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                            <Card key={i} variant="default" padding="md" className="timeline-card">
+                                <Skeleton width="36px" height="36px" borderRadius="var(--radius-full)" />
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                                    <Skeleton width="60%" height="14px" />
+                                    <Skeleton width="90%" height="14px" />
+                                    <Skeleton width="40%" height="12px" />
+                                </div>
+                            </Card>
+                        ))}
                     </div>
                 ) : filteredTimeline.length === 0 ? (
                     <div className="empty-state">

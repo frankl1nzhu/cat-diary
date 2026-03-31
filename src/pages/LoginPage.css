@@ -61,7 +61,14 @@
     border-radius: var(--radius-xl);
     padding: var(--space-6);
     box-shadow: var(--shadow-lg);
+    animation: fade-in 400ms ease-out forwards;
 }
+
+.login-form .form-group:nth-child(1) { animation: stagger-in 350ms cubic-bezier(0.2,0.8,0.2,1) 80ms forwards; opacity: 0; }
+.login-form .form-group:nth-child(2) { animation: stagger-in 350ms cubic-bezier(0.2,0.8,0.2,1) 160ms forwards; opacity: 0; }
+.login-form .form-group:nth-child(3) { animation: stagger-in 350ms cubic-bezier(0.2,0.8,0.2,1) 240ms forwards; opacity: 0; }
+.login-form .form-group:nth-child(4) { animation: stagger-in 350ms cubic-bezier(0.2,0.8,0.2,1) 320ms forwards; opacity: 0; }
+.login-form .form-group:nth-child(5) { animation: stagger-in 350ms cubic-bezier(0.2,0.8,0.2,1) 400ms forwards; opacity: 0; }
 
 .login-error {
     background: rgba(255, 107, 107, 0.1);

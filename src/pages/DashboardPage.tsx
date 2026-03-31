@@ -684,6 +684,7 @@ export function DashboardPage() {
                 </div>
             )}
             {/* ── Cat Profile Card ── */}
+            <div className="stagger-item">
             <Card variant="accent" padding="lg" className="cat-profile-card">
                 <div className="profile-header">
                     <div className="avatar-placeholder">
@@ -716,6 +717,7 @@ export function DashboardPage() {
                     </div>
                 </div>
             </Card>
+            </div>
 
             <Modal isOpen={avatarPreviewOpen} onClose={() => setAvatarPreviewOpen(false)} title={cat?.name ? `${cat.name} 的头像` : '猫咪头像'}>
                 {cat?.avatar_url ? (
@@ -725,7 +727,7 @@ export function DashboardPage() {
 
             {/* ── Health Reminders ── */}
             {urgentHealthReminders.length > 0 && (
-                <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+                <div className="px-4 stagger-item" style={{ marginBottom: 'var(--space-3)' }}>
                     <Card variant="default" padding="md">
                         <h2 className="text-lg font-semibold" style={{ marginBottom: 'var(--space-2)' }}>🩺 疫苗 / 驱虫提醒</h2>
                         <div className="health-reminder-list">
@@ -762,7 +764,7 @@ export function DashboardPage() {
             )}
 
             {/* ── Quick Action Buttons ── */}
-            <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+            <div className="px-4 stagger-item" style={{ marginBottom: 'var(--space-3)' }}>
                 <div className="quick-action-row">
                     <button
                         className="quick-scoop-btn"
@@ -794,7 +796,7 @@ export function DashboardPage() {
                 </div>
             )}
 
-            <div className="px-4" style={{ marginBottom: 'var(--space-3)' }}>
+            <div className="px-4 stagger-item" style={{ marginBottom: 'var(--space-3)' }}>
                 <Card variant="glass" padding="md" aria-label="记录心情">
                     <div className="mood-head-row">
                         <div className="bento-label">今日心情</div>
@@ -859,10 +861,10 @@ export function DashboardPage() {
             </div>
 
             {/* ── Latest Diary ── */}
-            <div className="section-header px-4">
+            <div className="section-header px-4 stagger-item">
                 <h2 className="text-lg font-semibold">最近动态</h2>
             </div>
-            <div className="px-4">
+            <div className="px-4 stagger-item">
                 <Card variant="default" padding="md">
                     <div className="section-row">
                         <h2 className="text-lg font-semibold">📊 本周总结</h2>
@@ -888,7 +890,7 @@ export function DashboardPage() {
                 </Card>
             </div>
 
-            <div className="px-4" style={{ marginTop: 'var(--space-3)' }}>
+            <div className="px-4 stagger-item" style={{ marginTop: 'var(--space-3)' }}>
                 <Card variant="default" padding="md">
                     {latestDiary ? (() => {
                         const fullText = latestDiary.text || '(无文字)'

@@ -20,10 +20,21 @@
 
 .modal-content {
     padding: var(--space-6);
+    padding-top: var(--space-3);
     max-height: calc(100dvh - var(--space-8));
     overflow-y: auto;
     overflow-x: hidden;
     animation: modal-pop 320ms cubic-bezier(0.2, 0.8, 0.2, 1.2);
+    transition: transform 80ms ease-out, opacity 80ms ease-out;
+}
+
+.modal-drag-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: var(--radius-full);
+    background: var(--color-border);
+    margin: 0 auto var(--space-3);
+    opacity: 0.6;
 }
 
 @keyframes modal-pop {

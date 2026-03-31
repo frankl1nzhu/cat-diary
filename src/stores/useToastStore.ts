@@ -6,6 +6,7 @@ export interface ToastItem {
     id: string
     type: ToastType
     message: string
+    durationMs: number
 }
 
 interface ToastState {
@@ -19,7 +20,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
     pushToast: (type, message, durationMs = 2800) => {
         const id = crypto.randomUUID()
         set((state) => ({
-            items: [...state.items, { id, type, message }],
+            items: [...state.items, { id, type, message, durationMs }],
         }))
 
         window.setTimeout(() => {

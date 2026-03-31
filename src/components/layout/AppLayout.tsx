@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { CatSwitcher } from './CatSwitcher'
@@ -8,6 +8,24 @@ import './AppLayout.css'
 export function AppLayout() {
     const navigate = useNavigate()
     const online = useOnlineStatus()
+    const mainRef = useRef<HTMLElement>(null)
+    const [showScrollTop, setShowScrollTop] = useState(false)
+
+    useEffect(() => {
+        const el = mainRef.current
+        if (!el) return
+
+        const onScroll = () => {
+            setShowScrollTop(el.scrollTop > 400)
+        }
+
+        el.addEventListener('scroll', onScroll, { passive: true })
+        return () => el.removeEventListener('scroll', onScroll)
+    }, [])
+
+    const scrollToTop = () => {
+        mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    }
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -41,9 +59,16 @@ export function AppLayout() {
         <div className="app-layout">
             <CatSwitcher />
             {!online && <div className="offline-banner">📡 当前离线，暂不可提交新记录</div>}
-            <main className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
+            <main ref={mainRef} className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
                 <Outlet />
             </main>
+            <button
+                className={`scroll-top-btn ${showScrollTop ? 'visible' : ''}`}
+                onClick={scrollToTop}
+                aria-label="回到顶部"
+            >
+                ↑
+            </button>
             <BottomNav />
         </div>
     )

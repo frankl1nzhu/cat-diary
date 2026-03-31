@@ -12,6 +12,7 @@ export function ToastViewport() {
                     className={`toast toast-${item.type}`}
                     onClick={() => removeToast(item.id)}
                     type="button"
+                    style={{ '--toast-duration': `${item.durationMs}ms` } as React.CSSProperties}
                 >
                     <span className="toast-icon">
                         {item.type === 'success' ? '✅' : item.type === 'error' ? '⚠️' : 'ℹ️'}

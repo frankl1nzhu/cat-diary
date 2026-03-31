@@ -306,6 +306,212 @@ a {
   animation: fade-in var(--transition-base) ease-out forwards;
 }
 
+/* ─── Staggered entrance animation ────────────── */
+
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: stagger-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 60ms; }
+.stagger-item:nth-child(3) { animation-delay: 120ms; }
+.stagger-item:nth-child(4) { animation-delay: 180ms; }
+.stagger-item:nth-child(5) { animation-delay: 240ms; }
+.stagger-item:nth-child(6) { animation-delay: 300ms; }
+.stagger-item:nth-child(7) { animation-delay: 360ms; }
+.stagger-item:nth-child(8) { animation-delay: 420ms; }
+
+/* ─── Slide-up animation ─────────────────────── */
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slide-up 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* ─── Pull-to-refresh indicator ─────────────── */
+
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0;
+  overflow: hidden;
+  transition: height 100ms ease-out;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+}
+
+.pull-indicator-icon {
+  transition: transform 200ms ease;
+}
+
+.pull-indicator-ready .pull-indicator-icon {
+  transform: rotate(180deg);
+}
+
+/* ─── Scroll to top button ───────────────────── */
+
+.scroll-top-btn {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--color-text-secondary);
+  z-index: 190;
+  opacity: 0;
+  transform: translateY(16px) scale(0.8);
+  pointer-events: none;
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scroll-top-btn.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.scroll-top-btn:active {
+  transform: scale(0.9);
+}
+
+/* ─── Staggered entrance animation ────────────── */
+
+@keyframes stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: stagger-in 400ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.stagger-item:nth-child(1) { animation-delay: 0ms; }
+.stagger-item:nth-child(2) { animation-delay: 60ms; }
+.stagger-item:nth-child(3) { animation-delay: 120ms; }
+.stagger-item:nth-child(4) { animation-delay: 180ms; }
+.stagger-item:nth-child(5) { animation-delay: 240ms; }
+.stagger-item:nth-child(6) { animation-delay: 300ms; }
+.stagger-item:nth-child(7) { animation-delay: 360ms; }
+.stagger-item:nth-child(8) { animation-delay: 420ms; }
+
+/* ─── Slide-up animation ─────────────────────── */
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slide-up 300ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* ─── Pull-to-refresh indicator ─────────────── */
+
+.pull-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 0;
+  overflow: hidden;
+  transition: height 100ms ease-out;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+}
+
+.pull-indicator-icon {
+  transition: transform 200ms ease;
+}
+
+.pull-indicator-ready .pull-indicator-icon {
+  transform: rotate(180deg);
+}
+
+/* ─── Scroll to top button ───────────────────── */
+
+.scroll-top-btn {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: var(--color-text-secondary);
+  z-index: 190;
+  opacity: 0;
+  transform: translateY(16px) scale(0.8);
+  pointer-events: none;
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.scroll-top-btn.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.scroll-top-btn:active {
+  transform: scale(0.9);
+}
+
 /* ─── Scroll container ───────────────────────────── */
 
 .scroll-area {

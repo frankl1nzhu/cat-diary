@@ -26,6 +26,11 @@ function PageLoader() {
   return (
     <div className="loading-screen">
       <div className="loading-cat">🐱</div>
+      <div className="loading-dots">
+        <span className="loading-dot" />
+        <span className="loading-dot" />
+        <span className="loading-dot" />
+      </div>
       <p className="text-secondary text-sm">加载中…</p>
     </div>
   )

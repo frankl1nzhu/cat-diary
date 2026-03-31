@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { prefetchRoute } from '../../lib/prefetch'
+import { lightHaptic } from '../../lib/haptics'
 import './BottomNav.css'
 
 const leftItems = [
@@ -97,13 +98,14 @@ export function BottomNav() {
                         }
                         onPointerEnter={() => prefetchRoute(item.to)}
                         onFocus={() => prefetchRoute(item.to)}
+                        onClick={() => lightHaptic()}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
                         <span className="bottom-nav-label">{item.label}</span>
                     </NavLink>
                 ))}
 
-                <button className="bottom-nav-plus" onClick={() => setQuickOpen((v) => !v)} aria-label="快速记录">
+                <button className="bottom-nav-plus" onClick={() => { lightHaptic(); setQuickOpen((v) => !v) }} aria-label="快速记录">
                     ＋
                 </button>
 
@@ -116,6 +118,7 @@ export function BottomNav() {
                         }
                         onPointerEnter={() => prefetchRoute(item.to)}
                         onFocus={() => prefetchRoute(item.to)}
+                        onClick={() => lightHaptic()}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
                         <span className="bottom-nav-label">{item.label}</span>
