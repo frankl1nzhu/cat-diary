@@ -100,7 +100,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             lightHaptic()
             triggerRewardBurst('🐾')
             pushToast('success', '喂食记录成功 🐾')
-            sendFeedNotification(cat.id, cat.name, MEAL_LABELS[selectedMeal]).catch(() => {})
+            sendFeedNotification(cat.id, cat.name, MEAL_LABELS[selectedMeal]).catch(() => { })
         } catch (err) {
             pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
         } finally {
@@ -129,7 +129,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                 pushToast('info', '铲屎记录已保存，但家庭通知发送失败')
             })
             if (isAbnormalPoop(selectedBristol, selectedColor)) {
-                sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => {})
+                sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => { })
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
@@ -149,7 +149,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             lightHaptic()
             triggerRewardBurst('💖')
             pushToast('success', '想咪 +1 🥹')
-            sendMissNotification(cat.id, cat.name).catch(() => {})
+            sendMissNotification(cat.id, cat.name).catch(() => { })
         } catch (err) {
             pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
         } finally {

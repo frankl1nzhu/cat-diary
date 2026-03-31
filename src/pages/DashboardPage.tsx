@@ -96,7 +96,7 @@ export function DashboardPage() {
         if (localStorage.getItem(serverKey)) return
         sendReminderPush(catId || undefined)
             .then(() => localStorage.setItem(serverKey, '1'))
-            .catch(() => {})
+            .catch(() => { })
     }, [catId, urgentHealthReminders, lowInventory])
 
     // ─── Onboarding handlers ──────────────────────
