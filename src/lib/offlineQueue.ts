@@ -104,13 +104,13 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
                 continue
             }
             if (op.type === 'insert') {
-                // Dynamic table name — SDK can't infer the Insert type
-                const { error } = await (supabase.from(op.table) as any).insert(op.payload)
+                // Dynamic table name — use type assertion narrowed by ALLOWED_TABLES check above
+                const { error } = await supabase.from(op.table as 'diary_entries').insert(op.payload as never)
                 if (error) throw error
             } else if (op.type === 'update') {
                 const { id: rowId, ...rest } = op.payload as { id: string;[k: string]: unknown }
                 if (!rowId) throw new Error('Missing row id for update')
-                const { error } = await (supabase.from(op.table) as any).update(rest).eq('id', rowId)
+                const { error } = await supabase.from(op.table as 'diary_entries').update(rest as never).eq('id', rowId)
                 if (error) throw error
             } else if (op.type === 'delete') {
                 const rowId = op.payload.id as string | undefined

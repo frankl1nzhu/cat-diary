@@ -1,6 +1,6 @@
 .fab {
     position: fixed;
-    bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-4));
+    bottom: calc(var(--nav-height) + var(--safe-bottom) + var(--space-6));
     right: var(--space-4);
     width: 56px;
     height: 56px;

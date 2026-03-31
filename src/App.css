@@ -5,12 +5,13 @@
   justify-content: center;
   min-height: 100dvh;
   gap: var(--space-4);
+  background: radial-gradient(ellipse at 50% 40%, rgba(248, 165, 194, 0.08) 0%, transparent 60%);
 }
 
 .loading-cat {
   font-size: 4rem;
   animation: float 2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+  filter: drop-shadow(0 4px 16px rgba(248, 165, 194, 0.25));
 }
 
 .loading-dots {
@@ -22,7 +23,7 @@
   width: 8px;
   height: 8px;
   border-radius: var(--radius-full);
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   opacity: 0.3;
   animation: dot-bounce 1.4s ease-in-out infinite;
 }
@@ -46,7 +47,7 @@
 
   40% {
     opacity: 1;
-    transform: scale(1.4);
+    transform: scale(1.5);
   }
 }
 
@@ -54,10 +55,18 @@
 
   0%,
   100% {
-    transform: translateY(0);
+    transform: translateY(0) rotate(0deg);
+  }
+
+  25% {
+    transform: translateY(-8px) rotate(-2deg);
   }
 
   50% {
-    transform: translateY(-10px);
+    transform: translateY(-12px) rotate(0deg);
+  }
+
+  75% {
+    transform: translateY(-8px) rotate(2deg);
   }
 }

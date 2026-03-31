@@ -21,9 +21,14 @@ export const useToastStore = create<ToastState>((set, get) => ({
         const id = crypto.randomUUID()
         // Auto-extend duration for longer messages
         const duration = durationMs ?? (message.length > 20 ? 3500 : 2800)
-        set((state) => ({
-            items: [...state.items, { id, type, message, durationMs: duration }],
-        }))
+
+        set((state) => {
+            // Limit concurrent toasts to 3 — drop oldest when exceeding
+            const current = state.items.length >= 3 ? state.items.slice(-2) : state.items
+            return {
+                items: [...current, { id, type, message, durationMs: duration }],
+            }
+        })
 
         window.setTimeout(() => {
             get().removeToast(id)

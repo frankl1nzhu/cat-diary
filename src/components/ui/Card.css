@@ -3,6 +3,7 @@
     transition: all var(--transition-base);
     text-align: left;
     width: 100%;
+    position: relative;
 }
 
 .card-default {
@@ -13,16 +14,29 @@
 
 .card-glass {
     background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--glass-border-light);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--shadow-sm);
 }
 
 .card-accent {
     background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
     color: #1a1625;
     border: none;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-md), 0 4px 24px rgba(248, 165, 194, 0.2);
+    overflow: hidden;
+}
+
+.card-accent::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -30%;
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .card-interactive {
@@ -35,7 +49,7 @@
 }
 
 .card-interactive:active {
-    transform: translateY(0);
+    transform: translateY(0) scale(0.99);
 }
 
 /* Padding */

@@ -15,12 +15,12 @@ const rightItems = [
 ]
 
 const quickActions = [
-    { label: '📝 写日记', path: '/log?quick=diary' as const, type: 'path' as const },
-    { label: '💩 记便便', path: '/?quick=poop' as const, type: 'path' as const },
-    { label: '🍽️ 记喂食', path: '/?quick=feed' as const, type: 'path' as const },
-    { label: '⚖️ 记体重', path: '/log?quick=weight' as const, type: 'path' as const },
-    { label: '🛒 新增库存', path: '/stats?quick=inventory' as const, type: 'path' as const },
-    { label: '🩺 健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
+    { label: '📝', sublabel: '写日记', path: '/log?quick=diary' as const, type: 'path' as const },
+    { label: '💩', sublabel: '记便便', path: '/?quick=poop' as const, type: 'path' as const },
+    { label: '🍽️', sublabel: '记喂食', path: '/?quick=feed' as const, type: 'path' as const },
+    { label: '⚖️', sublabel: '记体重', path: '/log?quick=weight' as const, type: 'path' as const },
+    { label: '🛒', sublabel: '新增库存', path: '/stats?quick=inventory' as const, type: 'path' as const },
+    { label: '🩺', sublabel: '健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
 ] as const
 
 export function BottomNav() {
@@ -29,6 +29,7 @@ export function BottomNav() {
     const quickSheetRef = useRef<HTMLDivElement>(null)
 
     const onQuickAction = (action: { path: string; type: 'path' }) => {
+        lightHaptic()
         setQuickOpen(false)
         navigate(action.path)
     }
@@ -80,7 +81,8 @@ export function BottomNav() {
                                 className="quick-item"
                                 onClick={() => onQuickAction(action)}
                             >
-                                {action.label}
+                                <span style={{ fontSize: '1.5rem' }}>{action.label}</span>
+                                <span>{action.sublabel}</span>
                             </button>
                         ))}
                     </div>
