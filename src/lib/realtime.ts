@@ -43,8 +43,8 @@ export function useRealtimeSubscription<T extends Record<string, unknown>>(
         const channel: RealtimeChannel = supabase
             .channel(`realtime-${table}-${filter || 'all'}`)
             .on(
-                'postgres_changes',
-                subscriptionConfig as Parameters<typeof channel.on>[1],
+                'postgres_changes' as any,
+                subscriptionConfig,
                 (payload: RealtimePostgresChangesPayload<T>) => {
                     // Debounce: if multiple events arrive quickly, only fire once
                     if (timeoutId) clearTimeout(timeoutId)

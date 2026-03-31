@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { prefetchRoute } from '../../lib/prefetch'
 import './BottomNav.css'
 
 const leftItems = [
@@ -94,6 +95,8 @@ export function BottomNav() {
                         className={({ isActive }) =>
                             `bottom-nav-item ${isActive ? 'bottom-nav-item-active' : ''}`
                         }
+                        onPointerEnter={() => prefetchRoute(item.to)}
+                        onFocus={() => prefetchRoute(item.to)}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
                         <span className="bottom-nav-label">{item.label}</span>
@@ -111,6 +114,8 @@ export function BottomNav() {
                         className={({ isActive }) =>
                             `bottom-nav-item ${isActive ? 'bottom-nav-item-active' : ''}`
                         }
+                        onPointerEnter={() => prefetchRoute(item.to)}
+                        onFocus={() => prefetchRoute(item.to)}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
                         <span className="bottom-nav-label">{item.label}</span>

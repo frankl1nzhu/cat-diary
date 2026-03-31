@@ -104,12 +104,13 @@ export async function flushQueue(): Promise<{ synced: number; failed: number }> 
                 continue
             }
             if (op.type === 'insert') {
-                const { error } = await supabase.from(op.table).insert(op.payload)
+                // Dynamic table name — SDK can't infer the Insert type
+                const { error } = await (supabase.from(op.table) as any).insert(op.payload)
                 if (error) throw error
             } else if (op.type === 'update') {
                 const { id: rowId, ...rest } = op.payload as { id: string;[k: string]: unknown }
                 if (!rowId) throw new Error('Missing row id for update')
-                const { error } = await supabase.from(op.table).update(rest).eq('id', rowId)
+                const { error } = await (supabase.from(op.table) as any).update(rest).eq('id', rowId)
                 if (error) throw error
             } else if (op.type === 'delete') {
                 const rowId = op.payload.id as string | undefined

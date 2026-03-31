@@ -63,7 +63,7 @@ export function SettingsPage() {
     const [showJoinFamilyInput, setShowJoinFamilyInput] = useState(false)
     const { createFamily, joinFamily, familySaving: isFamilySaving } = useFamily()
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
-    const [notificationHint, setNotificationHint] = useState('')
+    const [_notificationHint, setNotificationHint] = useState('')
     const [isStandaloneMode, setIsStandaloneMode] = useState(false)
     const [dissolveFamilyOpen, setDissolveFamilyOpen] = useState(false)
     const [dissolveStep, setDissolveStep] = useState(1)

@@ -8,6 +8,7 @@ import { enablePushNotifications, isStandaloneDisplayMode } from './lib/pushNoti
 import { savePushSubscription } from './lib/pushServer'
 import { AppLayout } from './components/layout/AppLayout'
 import { ToastViewport } from './components/ui/ToastViewport'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { Modal } from './components/ui/Modal'
 import { Button } from './components/ui/Button'
 import { useToastStore } from './stores/useToastStore'
@@ -130,24 +131,26 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<DashboardPage />} />
-            <Route path="log" element={<LogPage />} />
-            <Route path="stats" element={<StatsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="log" element={<LogPage />} />
+              <Route path="stats" element={<StatsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
       <PasswordResetModal />
       <ToastViewport />
     </BrowserRouter>

@@ -4,6 +4,7 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { StatusBadge } from '../components/ui/StatusBadge'
 import { Modal } from '../components/ui/Modal'
+import { RenewModal } from '../components/ui/RenewModal'
 import { SwipeableRow } from '../components/ui/SwipeableRow'
 import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
 import { supabase } from '../lib/supabase'
@@ -13,10 +14,11 @@ import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useRenewForm } from '../lib/useRenewForm'
 import { sendHealthNotification, sendInventoryNotification, sendWeightNotification } from '../lib/pushServer'
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Legend } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog } from '../types/database.types'
 import { computeDaysRemaining, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
@@ -71,13 +73,9 @@ export function StatsPage() {
     const [editingHealthId, setEditingHealthId] = useState<string | null>(null)
     const [healthSaving, setHealthSaving] = useState(false)
 
-    // Renew modal (vaccine / deworming)
-    const [renewModalOpen, setRenewModalOpen] = useState(false)
-    const [renewRecord, setRenewRecord] = useState<HealthRecord | null>(null)
-    const [renewDate, setRenewDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-    const [renewNextDue, setRenewNextDue] = useState('')
-    const [renewNotes, setRenewNotes] = useState('')
-    const [renewSaving, setRenewSaving] = useState(false)
+    // Renew modal (vaccine / deworming) — shared hook
+    // Use arrow wrapper to avoid forward-reference of loadData
+    const renew = useRenewForm({ catId, onSuccess: () => loadData() })
 
     const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
     const [invItemName, setInvItemName] = useState('')
@@ -403,47 +401,6 @@ export function StatsPage() {
         setHealthNotes('')
         setHealthType('vaccine')
         setEditingHealthId(null)
-    }
-
-    // ─── Renew vaccine / deworming ────────────────
-    const openRenewModal = (record: HealthRecord) => {
-        setRenewRecord(record)
-        setRenewDate(record.next_due || format(new Date(), 'yyyy-MM-dd'))
-        setRenewNextDue('')
-        setRenewNotes('')
-        setRenewModalOpen(true)
-    }
-
-    const handleRenewSave = async () => {
-        if (!catId || !user || !renewRecord || !renewNextDue) return
-        setRenewSaving(true)
-        try {
-            // Insert a new record (old one stays as history)
-            await supabase.from('health_records').insert({
-                cat_id: catId,
-                type: renewRecord.type,
-                name: renewRecord.name,
-                date: renewDate,
-                next_due: renewNextDue,
-                notes: renewNotes.trim() || `续期自 ${format(new Date(renewRecord.date), 'yyyy/MM/dd')} 记录`,
-                created_by: user.id,
-            })
-            // Clear the old record's next_due so it becomes pure history
-            await supabase
-                .from('health_records')
-                .update({ next_due: null })
-                .eq('id', renewRecord.id)
-
-            setRenewModalOpen(false)
-            setRenewRecord(null)
-            await loadData()
-            lightHaptic()
-            pushToast('success', '续期成功，旧记录已归档 ✅')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '续期失败，请稍后重试'))
-        } finally {
-            setRenewSaving(false)
-        }
     }
 
     // ─── Save/update inventory ────────────────────
@@ -980,7 +937,7 @@ export function StatsPage() {
                                                 <button
                                                     type="button"
                                                     className="health-renew-btn"
-                                                    onClick={(e) => { e.stopPropagation(); openRenewModal(r) }}
+                                                    onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
                                                 >
                                                     🔄 续期
                                                 </button>
@@ -1357,64 +1314,21 @@ export function StatsPage() {
             </Modal>
 
             {/* ── Renew Modal ── */}
-            <Modal isOpen={renewModalOpen} onClose={() => { setRenewModalOpen(false); setRenewRecord(null) }} title={`🔄 ${renewRecord?.type === 'vaccine' ? '疫苗' : '驱虫'}续期`}>
-                <div className="health-form">
-                    {renewRecord && (
-                        <>
-                            <div className="renew-old-info" style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-                                <p className="text-sm text-secondary" style={{ margin: 0 }}>
-                                    📋 上次记录：<strong>{renewRecord.name}</strong>
-                                </p>
-                                <p className="text-xs text-muted" style={{ margin: '4px 0 0' }}>
-                                    日期：{format(new Date(renewRecord.date), 'yyyy/MM/dd')}
-                                    {renewRecord.next_due && ` → 到期：${format(new Date(renewRecord.next_due), 'yyyy/MM/dd')}`}
-                                </p>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group flex-1">
-                                    <label className="form-label" htmlFor="renew-date">本次日期</label>
-                                    <input
-                                        id="renew-date"
-                                        type="date"
-                                        className="form-input"
-                                        value={renewDate}
-                                        onChange={(e) => setRenewDate(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="form-group flex-1">
-                                    <label className="form-label" htmlFor="renew-next-due">下次到期日</label>
-                                    <input
-                                        id="renew-next-due"
-                                        type="date"
-                                        className="form-input"
-                                        value={renewNextDue}
-                                        min={renewDate || undefined}
-                                        onChange={(e) => setRenewNextDue(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label" htmlFor="renew-notes">备注（可选）</label>
-                                <textarea
-                                    id="renew-notes"
-                                    className="form-input"
-                                    rows={2}
-                                    placeholder="如：使用的品牌、剂量等"
-                                    value={renewNotes}
-                                    onChange={(e) => setRenewNotes(e.target.value)}
-                                />
-                            </div>
-
-                            <Button variant="primary" fullWidth onClick={handleRenewSave} disabled={renewSaving || !renewNextDue || !online}>
-                                {renewSaving ? '续期中...' : '确认续期'}
-                            </Button>
-                        </>
-                    )}
-                </div>
-            </Modal>
+            <RenewModal
+                isOpen={renew.renewModalOpen}
+                onClose={renew.closeRenewModal}
+                record={renew.renewRecord}
+                renewDate={renew.renewDate}
+                onRenewDateChange={renew.setRenewDate}
+                renewNextDue={renew.renewNextDue}
+                onRenewNextDueChange={renew.setRenewNextDue}
+                renewNotes={renew.renewNotes}
+                onRenewNotesChange={renew.setRenewNotes}
+                saving={renew.renewSaving}
+                onSave={renew.handleRenewSave}
+                online={online}
+                idSuffix="-stats"
+            />
         </div>
     )
 }

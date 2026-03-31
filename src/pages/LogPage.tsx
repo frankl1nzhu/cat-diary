@@ -14,7 +14,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
-import { sendDiaryNotification, sendCommentNotification, sendWeightNotification, sendScoopNotification, sendAbnormalPoopNotification } from '../lib/pushServer'
+import { sendDiaryNotification, sendCommentNotification, sendWeightNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
@@ -780,7 +780,7 @@ export function LogPage() {
                             )}
                             <span className="diary-author text-xs text-secondary">{getUserName(item.data.created_by)}</span>
                             {item.data.image_url && (
-                                <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url)}>
+                                <button className="timeline-img-btn" onClick={() => openLightbox(item.data.image_url!)}>
                                     <img src={item.data.image_url} alt="" className="timeline-img" loading="lazy" />
                                 </button>
                             )}

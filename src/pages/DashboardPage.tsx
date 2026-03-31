@@ -4,11 +4,13 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
 import { Modal } from '../components/ui/Modal'
+import { RenewModal } from '../components/ui/RenewModal'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useCat } from '../lib/useCat'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useRenewForm } from '../lib/useRenewForm'
 import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
@@ -58,13 +60,9 @@ export function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false)
 
-    // Renew modal (vaccine / deworming)
-    const [renewModalOpen, setRenewModalOpen] = useState(false)
-    const [renewRecord, setRenewRecord] = useState<HealthRecord | null>(null)
-    const [renewDate, setRenewDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-    const [renewNextDue, setRenewNextDue] = useState('')
-    const [renewNotes, setRenewNotes] = useState('')
-    const [renewSaving, setRenewSaving] = useState(false)
+    // Renew modal (vaccine / deworming) — shared hook
+    // Use arrow wrapper to avoid forward-reference of loadData
+    const renew = useRenewForm({ catId, onSuccess: () => loadData() })
 
     const [weekFeedCount, setWeekFeedCount] = useState(0)
     const [weekMoodCounts, setWeekMoodCounts] = useState<Record<string, number>>({ '😸': 0, '😾': 0, '😴': 0 })
@@ -458,45 +456,6 @@ export function DashboardPage() {
         }
     }
 
-    // ─── Renew vaccine / deworming ──────────────────
-    const openRenewModal = (record: HealthRecord) => {
-        setRenewRecord(record)
-        setRenewDate(record.next_due || format(new Date(), 'yyyy-MM-dd'))
-        setRenewNextDue('')
-        setRenewNotes('')
-        setRenewModalOpen(true)
-    }
-
-    const handleRenewSave = async () => {
-        if (!catId || !user || !renewRecord || !renewNextDue) return
-        setRenewSaving(true)
-        try {
-            await supabase.from('health_records').insert({
-                cat_id: catId,
-                type: renewRecord.type,
-                name: renewRecord.name,
-                date: renewDate,
-                next_due: renewNextDue,
-                notes: renewNotes.trim() || `续期自 ${format(new Date(renewRecord.date), 'yyyy/MM/dd')} 记录`,
-                created_by: user.id,
-            })
-            await supabase
-                .from('health_records')
-                .update({ next_due: null })
-                .eq('id', renewRecord.id)
-
-            setRenewModalOpen(false)
-            setRenewRecord(null)
-            await loadData()
-            lightHaptic()
-            pushToast('success', '续期成功 ✅')
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, '续期失败，请稍后重试'))
-        } finally {
-            setRenewSaving(false)
-        }
-    }
-
     // ─── Inventory alerts ─────────────────────────
     const lowInventory = useMemo(() => inventory.filter((i) => computeInventoryStatus(i) !== 'plenty'), [inventory])
 
@@ -789,7 +748,7 @@ export function DashboardPage() {
                                             <button
                                                 type="button"
                                                 className="health-renew-btn"
-                                                onClick={() => openRenewModal(r)}
+                                                onClick={() => renew.openRenewModal(r)}
                                             >
                                                 🔄 续期
                                             </button>
@@ -1057,64 +1016,21 @@ export function DashboardPage() {
             </Modal>
 
             {/* ── Renew Modal ── */}
-            <Modal isOpen={renewModalOpen} onClose={() => { setRenewModalOpen(false); setRenewRecord(null) }} title={`🔄 ${renewRecord?.type === 'vaccine' ? '疫苗' : '驱虫'}续期`}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                    {renewRecord && (
-                        <>
-                            <div style={{ background: 'var(--color-bg-secondary)', borderRadius: 8, padding: 'var(--space-2)' }}>
-                                <p className="text-sm text-secondary" style={{ margin: 0 }}>
-                                    📋 上次记录：<strong>{renewRecord.name}</strong>
-                                </p>
-                                <p className="text-xs text-muted" style={{ margin: '4px 0 0' }}>
-                                    日期：{format(new Date(renewRecord.date), 'yyyy/MM/dd')}
-                                    {renewRecord.next_due && ` → 到期：${format(new Date(renewRecord.next_due), 'yyyy/MM/dd')}`}
-                                </p>
-                            </div>
-
-                            <div className="form-row">
-                                <div className="form-group flex-1">
-                                    <label className="form-label" htmlFor="renew-date-dash">本次日期</label>
-                                    <input
-                                        id="renew-date-dash"
-                                        type="date"
-                                        className="form-input"
-                                        value={renewDate}
-                                        onChange={(e) => setRenewDate(e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="form-group flex-1">
-                                    <label className="form-label" htmlFor="renew-next-due-dash">下次到期日</label>
-                                    <input
-                                        id="renew-next-due-dash"
-                                        type="date"
-                                        className="form-input"
-                                        value={renewNextDue}
-                                        min={renewDate || undefined}
-                                        onChange={(e) => setRenewNextDue(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label" htmlFor="renew-notes-dash">备注（可选）</label>
-                                <textarea
-                                    id="renew-notes-dash"
-                                    className="form-input"
-                                    rows={2}
-                                    placeholder="如：使用的品牌、剂量等"
-                                    value={renewNotes}
-                                    onChange={(e) => setRenewNotes(e.target.value)}
-                                />
-                            </div>
-
-                            <Button variant="primary" fullWidth onClick={handleRenewSave} disabled={renewSaving || !renewNextDue || !online}>
-                                {renewSaving ? '续期中...' : '确认续期'}
-                            </Button>
-                        </>
-                    )}
-                </div>
-            </Modal>
+            <RenewModal
+                isOpen={renew.renewModalOpen}
+                onClose={renew.closeRenewModal}
+                record={renew.renewRecord}
+                renewDate={renew.renewDate}
+                onRenewDateChange={renew.setRenewDate}
+                renewNextDue={renew.renewNextDue}
+                onRenewNextDueChange={renew.setRenewNextDue}
+                renewNotes={renew.renewNotes}
+                onRenewNotesChange={renew.setRenewNotes}
+                saving={renew.renewSaving}
+                onSave={renew.handleRenewSave}
+                online={online}
+                idSuffix="-dash"
+            />
         </div>
     )
 }
