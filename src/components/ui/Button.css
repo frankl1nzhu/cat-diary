@@ -35,6 +35,13 @@
     box-shadow: var(--shadow-sm);
 }
 
+@media (prefers-color-scheme: light) {
+    .btn-primary {
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+}
+
 .btn-primary:hover:not(:disabled) {
     box-shadow: var(--shadow-md), var(--shadow-glow);
     transform: translateY(-1px);

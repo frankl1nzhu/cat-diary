@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from 'react'
+import { lightHaptic } from '../../lib/haptics'
 import './SwipeableRow.css'
 
 interface SwipeableRowProps {
@@ -27,6 +28,7 @@ export function SwipeableRow({ onDelete, children }: SwipeableRowProps) {
 
     const onTouchEnd = () => {
         const shouldOpen = offsetX < -44
+        if (shouldOpen && !open) lightHaptic()
         setOpen(shouldOpen)
         setOffsetX(shouldOpen ? -88 : 0)
         startXRef.current = null

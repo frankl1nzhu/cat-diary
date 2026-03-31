@@ -21,7 +21,8 @@
 }
 
 .fab:active {
-    transform: scale(0.95);
+    transform: scale(0.92);
+    box-shadow: var(--shadow-sm);
 }
 
 .fab-icon {

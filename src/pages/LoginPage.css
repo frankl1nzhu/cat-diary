@@ -124,12 +124,13 @@
     border: none;
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-base);
 }
 
 .auth-tab-active {
     background: var(--color-primary);
     color: #fff;
+    box-shadow: var(--shadow-sm);
 }
 
 /* ── Forgot Password Link ── */

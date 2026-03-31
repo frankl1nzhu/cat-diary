@@ -33,16 +33,19 @@
 }
 
 .lightbox-btn {
+    min-width: 44px;
+    min-height: 44px;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-full);
     background: var(--color-bg-elevated);
     color: var(--color-text);
     font-size: var(--font-size-sm);
-    transition: background var(--transition-fast);
+    transition: background var(--transition-fast), transform var(--transition-fast);
 }
 
 .lightbox-btn:active {
     background: var(--color-bg-card);
+    transform: scale(0.95);
 }
 
 .lightbox-scale {

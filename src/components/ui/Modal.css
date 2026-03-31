@@ -16,6 +16,17 @@
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+    animation: backdrop-fade 200ms ease-out forwards;
+}
+
+@keyframes backdrop-fade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .modal-content {
@@ -30,11 +41,13 @@
 
 .modal-drag-handle {
     width: 36px;
-    height: 4px;
+    height: 5px;
     border-radius: var(--radius-full);
     background: var(--color-border);
     margin: 0 auto var(--space-3);
     opacity: 0.6;
+    padding: 6px 0;
+    background-clip: content-box;
 }
 
 @keyframes modal-pop {
@@ -62,8 +75,8 @@
 }
 
 .modal-close {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-full);
     display: flex;
     align-items: center;
@@ -71,6 +84,7 @@
     color: var(--color-text-muted);
     transition: all var(--transition-fast);
     font-size: var(--font-size-lg);
+    flex-shrink: 0;
 }
 
 .modal-close:hover {

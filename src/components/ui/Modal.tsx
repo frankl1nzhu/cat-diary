@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState, useCallback } from 'react'
+import { mediumHaptic } from '../../lib/haptics'
 import './Modal.css'
 
 interface ModalProps {
@@ -99,6 +100,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
 
     const onDragEnd = useCallback(() => {
         if (dragY > 100) {
+            mediumHaptic()
             onClose()
         }
         setDragY(0)

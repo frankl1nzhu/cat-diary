@@ -133,6 +133,7 @@ export function LoginPage() {
                             <input
                                 id="login-id"
                                 type="text"
+                                inputMode="email"
                                 className="form-input"
                                 placeholder="输入邮箱、用户名或手机号"
                                 value={identifier}

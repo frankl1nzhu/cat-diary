@@ -12,10 +12,16 @@ const themeMap: Record<ThemePreset, { primary: string; primaryDark: string; prim
 export function applyThemePreset(preset: ThemePreset) {
     const root = document.documentElement
     const colors = themeMap[preset]
+    // Smooth color transition when switching themes
+    root.style.setProperty('transition', 'color 300ms ease, background-color 300ms ease')
     root.style.setProperty('--color-primary', colors.primary)
     root.style.setProperty('--color-primary-dark', colors.primaryDark)
     root.style.setProperty('--color-primary-light', colors.primaryLight)
     localStorage.setItem(THEME_KEY, preset)
+    // Remove transition after colors settle to avoid interfering with other animations
+    requestAnimationFrame(() => {
+        setTimeout(() => root.style.removeProperty('transition'), 350)
+    })
 }
 
 export function getStoredTheme(): ThemePreset {

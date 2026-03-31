@@ -17,15 +17,17 @@ interface ToastState {
 
 export const useToastStore = create<ToastState>((set, get) => ({
     items: [],
-    pushToast: (type, message, durationMs = 2800) => {
+    pushToast: (type, message, durationMs) => {
         const id = crypto.randomUUID()
+        // Auto-extend duration for longer messages
+        const duration = durationMs ?? (message.length > 20 ? 3500 : 2800)
         set((state) => ({
-            items: [...state.items, { id, type, message, durationMs }],
+            items: [...state.items, { id, type, message, durationMs: duration }],
         }))
 
         window.setTimeout(() => {
             get().removeToast(id)
-        }, durationMs)
+        }, duration)
     },
     removeToast: (id) => {
         set((state) => ({

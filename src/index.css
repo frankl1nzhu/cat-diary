@@ -16,7 +16,7 @@
   --color-accent-dark: #e6b84d;
 
   /* Status colors */
-  --color-success: #6bcb77;
+  --color-success: #5ed971;
   --color-warning: #ffd93d;
   --color-danger: #ff6b6b;
 
@@ -27,7 +27,7 @@
   --color-bg-input: #352e4a;
   --color-text: #f0edf5;
   --color-text-secondary: #a89bbd;
-  --color-text-muted: #6e6288;
+  --color-text-muted: #857a9c;
   --color-border: #3d3556;
 
   /* Glassmorphism */
@@ -74,7 +74,7 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Safe areas */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -266,25 +266,25 @@ a {
 
 /* ─── Skeleton Loading ───────────────────────────── */
 
-@keyframes skeleton-pulse {
-
-  0%,
-  100% {
-    opacity: 0.4;
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
   }
 
-  50% {
-    opacity: 0.8;
+  100% {
+    background-position: -200% 0;
   }
 }
 
 .skeleton {
   background: linear-gradient(90deg,
       var(--color-bg-card) 0%,
+      var(--color-bg-card) 35%,
       var(--color-bg-elevated) 50%,
+      var(--color-bg-card) 65%,
       var(--color-bg-card) 100%);
   background-size: 200% 100%;
-  animation: skeleton-pulse 1.8s ease-in-out infinite;
+  animation: skeleton-shimmer 2s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
 
@@ -391,10 +391,21 @@ a {
 
 .pull-indicator-icon {
   transition: transform 200ms ease;
+  display: inline-block;
 }
 
 .pull-indicator-ready .pull-indicator-icon {
   transform: rotate(180deg);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pull-indicator-refreshing .pull-indicator-icon {
+  animation: spin 0.8s linear infinite;
 }
 
 /* ─── Scroll to top button ───────────────────── */
@@ -437,6 +448,7 @@ a {
 .scroll-area {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
@@ -636,5 +648,12 @@ a {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation: none !important;
+  }
+
+  /* Reduce glassmorphism blur on reduced-motion preference */
+  .bottom-nav,
+  .cat-switcher-wrap {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
   }
 }

@@ -139,11 +139,11 @@ export function ImageLightbox({ src, alt = '图片预览', onClose }: ImageLight
             tabIndex={-1}
         >
             <div className="lightbox-toolbar" onClick={(e) => e.stopPropagation()}>
-                <button className="lightbox-btn" onClick={() => updateScale(scale - 0.2)}>-</button>
+                <button className="lightbox-btn" onClick={() => updateScale(scale - 0.2)} aria-label="缩小图片">-</button>
                 <span className="lightbox-scale">{Math.round(scale * 100)}%</span>
-                <button className="lightbox-btn" onClick={() => updateScale(scale + 0.2)}>+</button>
-                <button className="lightbox-btn" onClick={() => updateScale(1)}>重置</button>
-                <button className="lightbox-btn" onClick={close}>关闭</button>
+                <button className="lightbox-btn" onClick={() => updateScale(scale + 0.2)} aria-label="放大图片">+</button>
+                <button className="lightbox-btn" onClick={() => updateScale(1)} aria-label="重置缩放">重置</button>
+                <button className="lightbox-btn" onClick={close} aria-label="关闭图片预览">关闭</button>
             </div>
             <div
                 className="lightbox-stage"

@@ -208,10 +208,10 @@ export function DashboardPage() {
         >
             {/* Pull-to-refresh indicator */}
             <div
-                className={`pull-indicator ${pullToRefresh.isReady ? 'pull-indicator-ready' : ''}`}
+                className={`pull-indicator ${pullToRefresh.isReady ? 'pull-indicator-ready' : ''} ${pullToRefresh.refreshing ? 'pull-indicator-refreshing' : ''}`}
                 style={{ height: pullToRefresh.pullDistance > 0 ? `${pullToRefresh.pullDistance}px` : undefined }}
             >
-                <span className="pull-indicator-icon">{pullToRefresh.refreshing ? '🔄' : '↓'}</span>
+                <span className="pull-indicator-icon">{pullToRefresh.refreshing ? '⟳' : '↓'}</span>
                 <span>{pullToRefresh.refreshing ? '刷新中…' : pullToRefresh.isReady ? '松手刷新' : '下拉刷新'}</span>
             </div>
 
