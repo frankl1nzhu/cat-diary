@@ -18,6 +18,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, HealthReminders, QuickActions } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
+import { STORAGE_KEYS } from '../lib/constants'
 import './DashboardPage.css'
 
 const DIARY_SNIPPET_LIMIT = 100
@@ -69,7 +70,7 @@ export function DashboardPage() {
         const todayKey = new Date().toISOString().split('T')[0]
 
         if (lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')) {
-            const key = `notify_inventory_${todayKey}`
+            const key = STORAGE_KEYS.notifyInventory(todayKey)
             if (!localStorage.getItem(key)) {
                 new Notification('库存提醒', { body: '有物资已到紧急状态，记得补货。' })
                 localStorage.setItem(key, '1')
@@ -78,7 +79,7 @@ export function DashboardPage() {
 
         for (const r of urgentHealthReminders) {
             const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
-            const key = `notify_health_${r.id}_${todayKey}`
+            const key = STORAGE_KEYS.notifyHealth(r.id, todayKey)
             if (!localStorage.getItem(key)) {
                 const body = r.daysLeft <= 0
                     ? `「${r.name}」${typeLabel}已过期，请尽快处理。`
@@ -92,7 +93,7 @@ export function DashboardPage() {
     useEffect(() => {
         if (lowInventory.length === 0 && urgentHealthReminders.length === 0) return
         const todayKey = new Date().toISOString().split('T')[0]
-        const serverKey = `server_push_reminder_${todayKey}_${catId || 'none'}`
+        const serverKey = STORAGE_KEYS.serverPushReminder(todayKey, catId || 'none')
         if (localStorage.getItem(serverKey)) return
         sendReminderPush(catId || undefined)
             .then(() => localStorage.setItem(serverKey, '1'))

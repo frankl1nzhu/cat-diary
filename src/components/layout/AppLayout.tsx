@@ -57,9 +57,10 @@ export function AppLayout() {
 
     return (
         <div className="app-layout">
+            <a href="#main-content" className="skip-link">跳转到主要内容</a>
             <CatSwitcher />
-            {!online && <div className="offline-banner">📡 当前离线，暂不可提交新记录</div>}
-            <main ref={mainRef} className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
+            {!online && <div className="offline-banner" role="alert">📡 当前离线，暂不可提交新记录</div>}
+            <main ref={mainRef} id="main-content" className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
                 <Outlet />
             </main>
             <button

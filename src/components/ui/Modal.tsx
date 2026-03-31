@@ -11,6 +11,7 @@ interface ModalProps {
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
     const dialogRef = useRef<HTMLDialogElement>(null)
     const contentRef = useRef<HTMLDivElement>(null)
+    const previousFocusRef = useRef<HTMLElement | null>(null)
     const titleId = useId()
     const [dragY, setDragY] = useState(0)
     const dragStartRef = useRef<number | null>(null)
@@ -20,12 +21,56 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         if (!dialog) return
 
         if (isOpen && !dialog.open) {
+            // Save currently focused element to restore on close
+            previousFocusRef.current = document.activeElement as HTMLElement | null
             dialog.showModal()
-            setDragY(0)
+
+            // Focus first interactive element inside the modal
+            requestAnimationFrame(() => {
+                const content = contentRef.current
+                if (!content) return
+                const focusable = content.querySelector<HTMLElement>(
+                    'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                )
+                if (focusable) {
+                    focusable.focus()
+                } else {
+                    // Fallback: focus the close button or content
+                    const closeBtn = content.querySelector<HTMLElement>('.modal-close')
+                    closeBtn?.focus()
+                }
+            })
         } else if (!isOpen && dialog.open) {
             dialog.close()
+            // Restore focus to previous element
+            previousFocusRef.current?.focus()
+            previousFocusRef.current = null
         }
     }, [isOpen])
+
+    // Focus trap: keep Tab cycling within the modal
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key !== 'Tab') return
+        const content = contentRef.current
+        if (!content) return
+
+        const focusableElements = content.querySelectorAll<HTMLElement>(
+            'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"]), a[href]'
+        )
+        if (focusableElements.length === 0) return
+
+        const first = focusableElements[0]
+        const last = focusableElements[focusableElements.length - 1]
+        const active = document.activeElement
+
+        if (e.shiftKey && active === first) {
+            e.preventDefault()
+            last.focus()
+        } else if (!e.shiftKey && active === last) {
+            e.preventDefault()
+            first.focus()
+        }
+    }, [])
 
     const handleDialogClick = (e: React.MouseEvent<HTMLDialogElement>) => {
         if (e.target === dialogRef.current) {
@@ -66,6 +111,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             className="modal"
             onClick={handleDialogClick}
             onCancel={handleCancel}
+            onKeyDown={handleKeyDown}
             aria-labelledby={title ? titleId : undefined}
         >
             <div

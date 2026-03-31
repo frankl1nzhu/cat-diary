@@ -4,6 +4,7 @@ import { useSession, updatePassword } from './lib/auth'
 import { initAuth } from './stores/useAuthStore'
 import { initCatStore } from './stores/useCatStore'
 import { startOfflineSync } from './lib/offlineQueue'
+import { prefetchAllRoutesOnIdle } from './lib/prefetch'
 import { enablePushNotifications, isStandaloneDisplayMode } from './lib/pushNotifications'
 import { savePushSubscription } from './lib/pushServer'
 import { AppLayout } from './components/layout/AppLayout'
@@ -13,6 +14,7 @@ import { Modal } from './components/ui/Modal'
 import { Button } from './components/ui/Button'
 import { useToastStore } from './stores/useToastStore'
 import { getErrorMessage } from './lib/errorMessage'
+import { STORAGE_KEYS } from './lib/constants'
 import './App.css'
 
 // Route-level code splitting
@@ -108,6 +110,7 @@ export default function App() {
     const cleanupAuth = initAuth()
     const cleanupCat = initCatStore()
     const cleanupOffline = startOfflineSync()
+    prefetchAllRoutesOnIdle()
     return () => {
       cleanupAuth()
       cleanupCat()
@@ -121,7 +124,7 @@ export default function App() {
     if (!isStandaloneDisplayMode()) return
     if (Notification.permission !== 'default') return
 
-    const promptKey = 'cat_diary_auto_push_prompt_attempted'
+    const promptKey = STORAGE_KEYS.AUTO_PUSH_PROMPT
     if (sessionStorage.getItem(promptKey)) return
     sessionStorage.setItem(promptKey, '1')
 
@@ -139,7 +142,7 @@ export default function App() {
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/login" element={<LoginPage />} />
+            <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
             <Route
               element={
                 <ProtectedRoute>
@@ -147,10 +150,10 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
-              <Route path="log" element={<LogPage />} />
-              <Route path="stats" element={<StatsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route index element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+              <Route path="log" element={<ErrorBoundary><LogPage /></ErrorBoundary>} />
+              <Route path="stats" element={<ErrorBoundary><StatsPage /></ErrorBoundary>} />
+              <Route path="settings" element={<ErrorBoundary><SettingsPage /></ErrorBoundary>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

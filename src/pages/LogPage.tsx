@@ -17,6 +17,7 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
+import { withTimeout } from '../lib/promiseTimeout'
 import { sendDiaryNotification, sendCommentNotification, sendWeightNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
 import { format } from 'date-fns'
@@ -84,6 +85,9 @@ export function LogPage() {
 
     // User profile cache for displaying usernames
     const [userProfiles, setUserProfiles] = useState<Record<string, string>>({})
+    const userProfilesRef = useRef<Record<string, string>>({})
+    // Keep ref in sync with state
+    userProfilesRef.current = userProfiles
 
     const [keyword, setKeyword] = useState('')
     const deferredKeyword = useDeferredValue(keyword)
@@ -104,11 +108,11 @@ export function LogPage() {
         const effectiveLimit = nextLimit ?? loadLimit
 
         try {
-            const [diaries, poops, weights] = await Promise.all([
+            const [diaries, poops, weights] = await withTimeout(Promise.all([
                 supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
                 supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
-            ])
+            ]), 15000) // 15s timeout
 
             const items: TimelineItem[] = []
             diaries.data?.forEach((d) => items.push({ type: 'diary', data: d, time: d.created_at }))
@@ -171,8 +175,8 @@ export function LogPage() {
             if (t.type === 'diary') userIds.add(t.data.created_by)
         })
         Object.values(diaryComments).flat().forEach((c) => userIds.add(c.user_id))
-        // Remove already-loaded profiles
-        const missing = [...userIds].filter((id) => !userProfiles[id])
+        // Remove already-loaded profiles (using ref to avoid infinite loop)
+        const missing = [...userIds].filter((id) => !userProfilesRef.current[id])
         if (missing.length === 0) return
 
         supabase
@@ -185,7 +189,7 @@ export function LogPage() {
                 data.forEach((p: { id: string; username: string }) => { map[p.id] = p.username })
                 setUserProfiles((prev) => ({ ...prev, ...map }))
             })
-    }, [timeline, diaryComments]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [timeline, diaryComments])
 
     const getUserName = (userId: string) => userProfiles[userId] || '匿名'
 
@@ -309,11 +313,23 @@ export function LogPage() {
         }, { replace: true })
     }, [searchParams, setSearchParams])
 
-    useRealtimeSubscription('diary_entries', () => loadTimeline(),
+    // Consolidated realtime handler — avoids 3 separate reloads on bulk changes
+    const loadTimelineStable = useRef(loadTimeline)
+    loadTimelineStable.current = loadTimeline
+
+    const debouncedReload = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const triggerRealtimeReload = useCallback(() => {
+        if (debouncedReload.current) clearTimeout(debouncedReload.current)
+        debouncedReload.current = setTimeout(() => {
+            loadTimelineStable.current()
+        }, 400)
+    }, [])
+
+    useRealtimeSubscription('diary_entries', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
-    useRealtimeSubscription('poop_logs', () => loadTimeline(),
+    useRealtimeSubscription('poop_logs', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
-    useRealtimeSubscription('weight_records', () => loadTimeline(),
+    useRealtimeSubscription('weight_records', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
 
     useEffect(() => {

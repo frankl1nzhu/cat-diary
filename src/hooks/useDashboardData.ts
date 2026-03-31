@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useRealtimeSubscription } from '../lib/realtime'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { withTimeout } from '../lib/promiseTimeout'
 import { isAbnormalPoop } from '../lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays } from 'date-fns'
 import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord } from '../types/database.types'
@@ -63,7 +64,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                 feedRes, moodRes, diaryRes, invRes, healthRes,
                 weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes,
                 monthMoodsRes,
-            ] = await Promise.all([
+            ] = await withTimeout(Promise.all([
                 supabase
                     .from('feed_status')
                     .select('*')
@@ -119,7 +120,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     .eq('cat_id', catId)
                     .gte('date', format(monthStart, 'yyyy-MM-dd'))
                     .lte('date', format(monthEnd, 'yyyy-MM-dd')),
-            ])
+            ]), 15000) // 15s timeout to prevent stuck loading
 
             const newData: DashboardData = { ...EMPTY_DATA }
 

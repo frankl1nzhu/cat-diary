@@ -69,3 +69,18 @@ export const INVENTORY_ICONS = [
 export function isAbnormalPoop(bristolType: BristolType | string, color: PoopColor | string): boolean {
     return Number(bristolType) >= 6 || ['red', 'black', 'white'].includes(color)
 }
+
+/* ─── Storage Key Constants ────────────────────────
+ *  Centralized keys for localStorage & sessionStorage
+ *  to prevent typos and make refactoring easier.
+ * ────────────────────────────────────────────────── */
+export const STORAGE_KEYS = {
+    /** Push notification auto-prompt attempt (sessionStorage) */
+    AUTO_PUSH_PROMPT: 'cat_diary_auto_push_prompt_attempted',
+    /** Local notification: inventory reminder (localStorage, per-day) */
+    notifyInventory: (todayKey: string) => `notify_inventory_${todayKey}`,
+    /** Local notification: health reminder (localStorage, per-record per-day) */
+    notifyHealth: (recordId: string, todayKey: string) => `notify_health_${recordId}_${todayKey}`,
+    /** Server push reminder (localStorage, per-cat per-day) */
+    serverPushReminder: (todayKey: string, catId: string) => `server_push_reminder_${todayKey}_${catId}`,
+} as const
