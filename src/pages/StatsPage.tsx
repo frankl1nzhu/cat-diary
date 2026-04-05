@@ -21,7 +21,7 @@ import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
-import { computeDaysRemaining, computeInventoryExpiryDaysLeft, computeInventoryStatus } from '../types/database.types'
+import { computeDaysRemaining, computeInventoryExpiryHoursLeft, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
@@ -89,7 +89,7 @@ export function StatsPage() {
 
     const [expiryModalOpen, setExpiryModalOpen] = useState(false)
     const [expiryItemName, setExpiryItemName] = useState('')
-    const [expiryInDays, setExpiryInDays] = useState('30')
+    const [expiryInHours, setExpiryInHours] = useState('48')
     const [expirySaving, setExpirySaving] = useState(false)
     const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
 
@@ -143,6 +143,7 @@ export function StatsPage() {
             setHealthModalOpen(true)
             setSearchParams({}, { replace: true })
         } else if (quick === 'expiry') {
+            resetExpiryForm()
             setExpiryModalOpen(true)
             setSearchParams({}, { replace: true })
         }
@@ -165,7 +166,7 @@ export function StatsPage() {
                     .select('*')
                     .eq('cat_id', catId)
                     .is('discarded_at', null)
-                    .order('expires_on', { ascending: true }),
+                    .order('expires_at', { ascending: true }),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
                 supabase.from('miss_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(200),
                 supabase.from('feed_status').select('*').eq('cat_id', catId).order('fed_at', { ascending: false }).limit(400),
@@ -256,14 +257,12 @@ export function StatsPage() {
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
     }, [feeds, feedWindowDays])
 
-    const expiryPreviewDate = useMemo(() => {
-        const days = Math.floor(Number(expiryInDays))
-        if (!Number.isFinite(days) || days <= 0) return null
-        const expireDate = new Date()
-        expireDate.setHours(0, 0, 0, 0)
-        expireDate.setDate(expireDate.getDate() + days)
-        return format(expireDate, 'yyyy/MM/dd')
-    }, [expiryInDays])
+    const expiryPreviewDateTime = useMemo(() => {
+        const hours = Math.floor(Number(expiryInHours))
+        if (!Number.isFinite(hours) || hours <= 0) return null
+        const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+        return format(expiresAt, 'yyyy/MM/dd HH:mm')
+    }, [expiryInHours])
 
     const handleToggleExportType = (key: ExportTypeKey) => {
         setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -480,28 +479,26 @@ export function StatsPage() {
 
     const resetExpiryForm = () => {
         setExpiryItemName('')
-        setExpiryInDays('30')
+        setExpiryInHours('48')
     }
 
     const handleExpiryReminderSave = async () => {
         if (!catId || !user || !expiryItemName.trim()) return
 
-        const days = Math.floor(Number(expiryInDays))
-        if (!Number.isFinite(days) || days <= 0) {
-            pushToast('error', '请填写大于 0 的过期天数')
+        const hours = Math.floor(Number(expiryInHours))
+        if (!Number.isFinite(hours) || hours <= 0) {
+            pushToast('error', '请填写大于 0 的过期小时数')
             return
         }
 
-        const expireDate = new Date()
-        expireDate.setHours(0, 0, 0, 0)
-        expireDate.setDate(expireDate.getDate() + days)
+        const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
 
         setExpirySaving(true)
         try {
             const { error } = await supabase.from('inventory_expiry_reminders').insert({
                 cat_id: catId,
                 item_name: expiryItemName.trim(),
-                expires_on: format(expireDate, 'yyyy-MM-dd'),
+                expires_at: expiresAt.toISOString(),
                 created_by: user.id,
             })
             if (error) throw error
@@ -1122,13 +1119,13 @@ export function StatsPage() {
                     {inventoryExpiryReminders.length > 0 ? (
                         <div className="expiry-reminder-list">
                             {inventoryExpiryReminders.map((item) => {
-                                const daysLeft = computeInventoryExpiryDaysLeft(item)
-                                const isOverdue = daysLeft < 0
+                                const hoursLeft = computeInventoryExpiryHoursLeft(item)
+                                const isOverdue = new Date(item.expires_at).getTime() <= Date.now()
                                 const statusText = isOverdue
-                                    ? `已过期 ${Math.abs(daysLeft)} 天`
-                                    : daysLeft === 0
-                                        ? '今天到期'
-                                        : `${daysLeft} 天后过期`
+                                    ? `已过期 ${Math.max(1, Math.abs(hoursLeft))} 小时`
+                                    : hoursLeft === 0
+                                        ? '即将过期'
+                                        : `${hoursLeft} 小时后过期`
 
                                 return (
                                     <div
@@ -1392,18 +1389,18 @@ export function StatsPage() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label" htmlFor="expiry-in-days">多久后过期（天）</label>
+                        <label className="form-label" htmlFor="expiry-in-hours">多久后过期（小时）</label>
                         <input
-                            id="expiry-in-days"
+                            id="expiry-in-hours"
                             type="number"
                             min="1"
                             step="1"
                             className="form-input"
-                            value={expiryInDays}
-                            onChange={(e) => setExpiryInDays(e.target.value)}
+                            value={expiryInHours}
+                            onChange={(e) => setExpiryInHours(e.target.value)}
                         />
                         <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
-                            {expiryPreviewDate ? `预计过期日期：${expiryPreviewDate}` : '请输入有效天数'}
+                            {expiryPreviewDateTime ? `预计过期时间：${expiryPreviewDateTime}` : '请输入有效小时数'}
                         </p>
                     </div>
 

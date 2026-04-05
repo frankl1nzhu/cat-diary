@@ -21,6 +21,7 @@ const quickActions = [
     { label: '⚖️', sublabel: '记体重', path: '/log?quick=weight' as const, type: 'path' as const },
     { label: '🛒', sublabel: '新增库存', path: '/stats?quick=inventory' as const, type: 'path' as const },
     { label: '🩺', sublabel: '健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
+    { label: '🗑️', sublabel: '过期提醒', path: '/stats?quick=expiry' as const, type: 'path' as const },
 ] as const
 
 export function BottomNav({ hidden }: { hidden?: boolean }) {

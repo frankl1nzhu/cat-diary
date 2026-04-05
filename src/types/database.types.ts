@@ -144,7 +144,7 @@ export type InventoryExpiryReminder = {
     id: string
     cat_id: string
     item_name: string
-    expires_on: string
+    expires_at: string
     discarded_at: string | null
     created_by: string | null
     created_at: string
@@ -222,16 +222,15 @@ export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
     return 'plenty'
 }
 
-/** Compute days until expiry based on local date (negative means already expired). */
-export function computeInventoryExpiryDaysLeft(
-    reminder: Pick<InventoryExpiryReminder, 'expires_on'>,
+/** Compute integer hours to expiry (negative means already expired). */
+export function computeInventoryExpiryHoursLeft(
+    reminder: Pick<InventoryExpiryReminder, 'expires_at'>,
     now = new Date(),
 ): number {
-    const today = new Date(now)
-    today.setHours(0, 0, 0, 0)
-    const expireDate = new Date(reminder.expires_on)
-    expireDate.setHours(0, 0, 0, 0)
-    return Math.floor((expireDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    const diffMs = new Date(reminder.expires_at).getTime() - now.getTime()
+    const oneHourMs = 1000 * 60 * 60
+    if (diffMs >= 0) return Math.ceil(diffMs / oneHourMs)
+    return Math.floor(diffMs / oneHourMs)
 }
 
 /* ─── Database type for Supabase client ──────────── */

@@ -99,7 +99,7 @@ export function DashboardPage() {
             const key = STORAGE_KEYS.notifyExpiredInventory(item.id, todayKey)
             if (!localStorage.getItem(key)) {
                 new Notification('物品过期提醒', {
-                    body: `「${item.item_name}」已过期 ${Math.abs(item.daysLeft)} 天，请尽快处理。`,
+                    body: `「${item.item_name}」已过期 ${Math.abs(item.hoursLeft)} 小时，请尽快处理。`,
                 })
                 localStorage.setItem(key, '1')
             }

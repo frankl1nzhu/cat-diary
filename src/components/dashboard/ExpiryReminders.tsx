@@ -2,7 +2,7 @@ import { memo } from 'react'
 import { Card } from '../ui/Card'
 import type { InventoryExpiryReminder } from '../../types/database.types'
 
-export type OverdueExpiryReminderItem = InventoryExpiryReminder & { daysLeft: number }
+export type OverdueExpiryReminderItem = InventoryExpiryReminder & { hoursLeft: number }
 
 interface ExpiryRemindersProps {
     items: OverdueExpiryReminderItem[]
@@ -22,12 +22,12 @@ export const ExpiryReminders = memo(function ExpiryReminders({ items, online, di
                 </h2>
                 <div className="expired-reminder-list">
                     {items.map((item) => {
-                        const expiredDays = Math.abs(item.daysLeft)
+                        const expiredHours = Math.abs(item.hoursLeft)
                         return (
                             <div key={item.id} className="expired-reminder-item">
                                 <div className="expired-reminder-info">
                                     <span className="text-sm font-semibold">{item.item_name}</span>
-                                    <span className="text-xs text-muted">已过期 {expiredDays} 天</span>
+                                    <span className="text-xs text-muted">已过期 {expiredHours} 小时</span>
                                 </div>
                                 <button
                                     type="button"

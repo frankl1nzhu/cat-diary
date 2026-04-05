@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      const todayDate = new Date().toISOString().split('T')[0]
+      const nowIso = new Date().toISOString()
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const tomorrowDate = tomorrow.toISOString().split('T')[0]
@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
           .select('id')
           .eq('cat_id', catId)
           .is('discarded_at', null)
-          .lt('expires_on', todayDate)
+          .lt('expires_at', nowIso)
           .limit(1),
       ])
 

@@ -7,7 +7,7 @@ import { withTimeout } from '../lib/promiseTimeout'
 import { isAbnormalPoop } from '../lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays } from 'date-fns'
 import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord, InventoryExpiryReminder } from '../types/database.types'
-import { computeInventoryStatus, computeInventoryExpiryDaysLeft } from '../types/database.types'
+import { computeInventoryStatus, computeInventoryExpiryHoursLeft } from '../types/database.types'
 
 export interface DashboardData {
     todayFeeds: FeedStatus[]
@@ -93,7 +93,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     .select('*')
                     .eq('cat_id', catId)
                     .is('discarded_at', null)
-                    .order('expires_on', { ascending: true }),
+                    .order('expires_at', { ascending: true }),
                 supabase
                     .from('health_records')
                     .select('*')
@@ -246,11 +246,11 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
     const overdueInventoryExpiryReminders = useMemo(() => {
         return data.inventoryExpiryReminders
             .map((item) => {
-                const daysLeft = computeInventoryExpiryDaysLeft(item)
-                return { ...item, daysLeft }
+                const hoursLeft = computeInventoryExpiryHoursLeft(item)
+                return { ...item, hoursLeft }
             })
-            .filter((item) => item.daysLeft < 0)
-            .sort((a, b) => a.daysLeft - b.daysLeft)
+            .filter((item) => item.hoursLeft < 0)
+            .sort((a, b) => a.hoursLeft - b.hoursLeft)
     }, [data.inventoryExpiryReminders])
 
     const healthReminderItems = useMemo(() => {
