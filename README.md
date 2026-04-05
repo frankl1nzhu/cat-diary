@@ -128,3 +128,4 @@ Covered main path: login → bottom navigation switching → open/close dashboar
 ## Notes
 
 - This project is optimized for mobile experience. Horizontal page scrolling is locked, and only vertical scrolling is allowed.
+ 
