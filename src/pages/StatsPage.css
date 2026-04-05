@@ -143,6 +143,43 @@
     background: var(--color-bg-card);
 }
 
+/* ── Expiry Reminder List ── */
+.expiry-reminder-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.expiry-reminder-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-bg-input);
+    border-radius: var(--radius-md);
+    border-left: 3px solid transparent;
+}
+
+.expiry-reminder-overdue {
+    border-left-color: var(--color-danger);
+    background: rgba(255, 99, 99, 0.08);
+}
+
+.expiry-reminder-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.expiry-reminder-info .font-semibold {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* ── Weight List ── */
 .weight-list {
     margin-top: var(--space-3);

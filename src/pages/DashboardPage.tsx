@@ -15,7 +15,7 @@ import { useFamily } from '../lib/useFamily'
 import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
-import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, HealthReminders, QuickActions } from '../components/dashboard'
+import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, HealthReminders, ExpiryReminders, QuickActions } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS } from '../lib/constants'
 import './DashboardPage.css'
@@ -30,7 +30,7 @@ export function DashboardPage() {
 
     // ─── Centralized data hook ────────────────────
     const dashboard = useDashboardData(catId, catLoading)
-    const { data, loading, today, monthDays, lowInventory, urgentHealthReminders, reload } = dashboard
+    const { data, loading, today, monthDays, lowInventory, overdueInventoryExpiryReminders, urgentHealthReminders, reload } = dashboard
 
     // ─── Pull-to-refresh ──────────────────────────
     const pullToRefresh = usePullToRefresh({ onRefresh: reload, enabled: !loading })
@@ -39,6 +39,7 @@ export function DashboardPage() {
     const renew = useRenewForm({ catId, onSuccess: () => reload() })
 
     const [latestDiaryExpanded, setLatestDiaryExpanded] = useState(false)
+    const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
 
     // Onboarding state
     const [onboardingName, setOnboardingName] = useState('')
@@ -49,6 +50,25 @@ export function DashboardPage() {
     const [obFamilyName, setObFamilyName] = useState('')
     const [obJoinCode, setObJoinCode] = useState('')
     const { createFamily, joinFamily, familySaving: obFamilySaving } = useFamily()
+
+    const handleDiscardExpiredReminder = async (reminderId: string) => {
+        if (!online || !catId || discardingExpiryId) return
+        setDiscardingExpiryId(reminderId)
+        try {
+            const { error } = await supabase
+                .from('inventory_expiry_reminders')
+                .update({ discarded_at: new Date().toISOString() })
+                .eq('id', reminderId)
+            if (error) throw error
+
+            pushToast('success', '已标记为已丢弃')
+            await reload()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '处理失败，请稍后重试'))
+        } finally {
+            setDiscardingExpiryId(null)
+        }
+    }
 
     // ─── Local & server push notifications ────────
     useEffect(() => {
@@ -74,17 +94,27 @@ export function DashboardPage() {
                 localStorage.setItem(key, '1')
             }
         }
-    }, [urgentHealthReminders, lowInventory])
+
+        for (const item of overdueInventoryExpiryReminders) {
+            const key = STORAGE_KEYS.notifyExpiredInventory(item.id, todayKey)
+            if (!localStorage.getItem(key)) {
+                new Notification('物品过期提醒', {
+                    body: `「${item.item_name}」已过期 ${Math.abs(item.daysLeft)} 天，请尽快处理。`,
+                })
+                localStorage.setItem(key, '1')
+            }
+        }
+    }, [overdueInventoryExpiryReminders, urgentHealthReminders, lowInventory])
 
     useEffect(() => {
-        if (lowInventory.length === 0 && urgentHealthReminders.length === 0) return
+        if (lowInventory.length === 0 && urgentHealthReminders.length === 0 && overdueInventoryExpiryReminders.length === 0) return
         const todayKey = new Date().toISOString().split('T')[0]
         const serverKey = STORAGE_KEYS.serverPushReminder(todayKey, catId || 'none')
         if (localStorage.getItem(serverKey)) return
         sendReminderPush(catId || undefined)
             .then(() => localStorage.setItem(serverKey, '1'))
             .catch(() => { })
-    }, [catId, urgentHealthReminders, lowInventory])
+    }, [catId, overdueInventoryExpiryReminders, urgentHealthReminders, lowInventory])
 
     // ─── Onboarding handlers ──────────────────────
     const handleObCreateFamily = async () => {
@@ -221,6 +251,13 @@ export function DashboardPage() {
                 items={urgentHealthReminders}
                 renew={renew}
                 online={online}
+            />
+
+            <ExpiryReminders
+                items={overdueInventoryExpiryReminders}
+                online={online}
+                discardingId={discardingExpiryId}
+                onDiscard={handleDiscardExpiredReminder}
             />
 
             <QuickActions

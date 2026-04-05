@@ -383,11 +383,12 @@ Deno.serve(async (req) => {
         })
       }
 
+      const todayDate = new Date().toISOString().split('T')[0]
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const tomorrowDate = tomorrow.toISOString().split('T')[0]
 
-      const [{ data: invRows }, { data: healthRows }] = await Promise.all([
+      const [{ data: invRows }, { data: healthRows }, { data: expiredItemRows }] = await Promise.all([
         admin
           .from('inventory')
           .select('id,status')
@@ -403,14 +404,22 @@ Deno.serve(async (req) => {
           .lte('next_due', tomorrowDate)
           .order('date', { ascending: false })
           .limit(5),
+        admin
+          .from('inventory_expiry_reminders')
+          .select('id')
+          .eq('cat_id', catId)
+          .is('discarded_at', null)
+          .lt('expires_on', todayDate)
+          .limit(1),
       ])
 
       const hasUrgentInventory = Boolean(invRows && invRows.length > 0)
       const overdueHealth = healthRows && healthRows.length > 0
+      const hasExpiredItem = Boolean(expiredItemRows && expiredItemRows.length > 0)
       const dewormingDue = healthRows?.some((r: { type: string }) => r.type === 'deworming')
       const vaccineDue = healthRows?.some((r: { type: string }) => r.type === 'vaccine')
 
-      if (!hasUrgentInventory && !overdueHealth) {
+      if (!hasUrgentInventory && !overdueHealth && !hasExpiredItem) {
         return new Response(JSON.stringify({ delivered: 0, removed: 0, message: 'No reminder conditions met' }), {
           status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -421,6 +430,7 @@ Deno.serve(async (req) => {
       if (hasUrgentInventory) parts.push('物资库存告急')
       if (dewormingDue) parts.push('驱虫时间到期')
       if (vaccineDue) parts.push('疫苗接种到期')
+      if (hasExpiredItem) parts.push('有物品已过期待处理')
 
       const memberIds = await getFamilyMemberIds(admin, catId)
       const result = await sendPushToUsers(admin, memberIds, {

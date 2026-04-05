@@ -6,8 +6,8 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { withTimeout } from '../lib/promiseTimeout'
 import { isAbnormalPoop } from '../lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays } from 'date-fns'
-import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord } from '../types/database.types'
-import { computeInventoryStatus } from '../types/database.types'
+import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord, InventoryExpiryReminder } from '../types/database.types'
+import { computeInventoryStatus, computeInventoryExpiryDaysLeft } from '../types/database.types'
 
 export interface DashboardData {
     todayFeeds: FeedStatus[]
@@ -15,6 +15,7 @@ export interface DashboardData {
     monthMoodMap: Record<string, MoodType>
     latestDiary: DiaryEntry | null
     inventory: InventoryItem[]
+    inventoryExpiryReminders: InventoryExpiryReminder[]
     healthReminders: HealthRecord[]
     weekFeedCount: number
     weekMoodCounts: Record<string, number>
@@ -28,6 +29,7 @@ const EMPTY_DATA: DashboardData = {
     monthMoodMap: {},
     latestDiary: null,
     inventory: [],
+    inventoryExpiryReminders: [],
     healthReminders: [],
     weekFeedCount: 0,
     weekMoodCounts: { '😸': 0, '😾': 0, '😴': 0 },
@@ -61,7 +63,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
 
         try {
             const [
-                feedRes, moodRes, diaryRes, invRes, healthRes,
+                feedRes, moodRes, diaryRes, invRes, invExpiryRes, healthRes,
                 weekFeedsRes, weekMoodsRes, weekPoopsRes, weekWeightsRes,
                 monthMoodsRes,
             ] = await withTimeout(Promise.all([
@@ -86,6 +88,12 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     .limit(1)
                     .single(),
                 supabase.from('inventory').select('*').eq('cat_id', catId),
+                supabase
+                    .from('inventory_expiry_reminders')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .is('discarded_at', null)
+                    .order('expires_on', { ascending: true }),
                 supabase
                     .from('health_records')
                     .select('*')
@@ -128,6 +136,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
             if (moodRes.data) newData.todayMood = moodRes.data.mood
             if (diaryRes.data) newData.latestDiary = diaryRes.data
             if (invRes.data) newData.inventory = invRes.data
+            if (invExpiryRes.data) newData.inventoryExpiryReminders = invExpiryRes.data
             if (healthRes.data) newData.healthReminders = healthRes.data
             if (weekFeedsRes.data) newData.weekFeedCount = weekFeedsRes.data.length
 
@@ -234,6 +243,16 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
         [data.inventory],
     )
 
+    const overdueInventoryExpiryReminders = useMemo(() => {
+        return data.inventoryExpiryReminders
+            .map((item) => {
+                const daysLeft = computeInventoryExpiryDaysLeft(item)
+                return { ...item, daysLeft }
+            })
+            .filter((item) => item.daysLeft < 0)
+            .sort((a, b) => a.daysLeft - b.daysLeft)
+    }, [data.inventoryExpiryReminders])
+
     const healthReminderItems = useMemo(() => {
         const now = new Date()
         return data.healthReminders.map((r) => {
@@ -258,6 +277,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
         today,
         monthDays,
         lowInventory,
+        overdueInventoryExpiryReminders,
         healthReminderItems,
         urgentHealthReminders,
         reload: loadData,

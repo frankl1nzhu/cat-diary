@@ -140,6 +140,16 @@ export type InventoryItem = {
     updated_at: string
 }
 
+export type InventoryExpiryReminder = {
+    id: string
+    cat_id: string
+    item_name: string
+    expires_on: string
+    discarded_at: string | null
+    created_by: string | null
+    created_at: string
+}
+
 export type Countdown = {
     id: string
     cat_id: string
@@ -210,6 +220,18 @@ export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
     if (days < 7) return 'urgent'
     if (days < 14) return 'low'
     return 'plenty'
+}
+
+/** Compute days until expiry based on local date (negative means already expired). */
+export function computeInventoryExpiryDaysLeft(
+    reminder: Pick<InventoryExpiryReminder, 'expires_on'>,
+    now = new Date(),
+): number {
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    const expireDate = new Date(reminder.expires_on)
+    expireDate.setHours(0, 0, 0, 0)
+    return Math.floor((expireDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 /* ─── Database type for Supabase client ──────────── */
@@ -303,6 +325,12 @@ export interface Database {
                 Row: InventoryItem
                 Insert: DbInsert<InventoryItem, 'id' | 'updated_at'>
                 Update: DbUpdate<InventoryItem, 'id'>
+                Relationships: []
+            }
+            inventory_expiry_reminders: {
+                Row: InventoryExpiryReminder
+                Insert: DbInsert<InventoryExpiryReminder, 'id' | 'created_at'>
+                Update: DbUpdate<InventoryExpiryReminder, 'id'>
                 Relationships: []
             }
             countdowns: {

@@ -81,6 +81,8 @@ export const STORAGE_KEYS = {
     notifyInventory: (todayKey: string) => `notify_inventory_${todayKey}`,
     /** Local notification: health reminder (localStorage, per-record per-day) */
     notifyHealth: (recordId: string, todayKey: string) => `notify_health_${recordId}_${todayKey}`,
+    /** Local notification: expired inventory item (localStorage, per-record per-day) */
+    notifyExpiredInventory: (recordId: string, todayKey: string) => `notify_expired_inventory_${recordId}_${todayKey}`,
     /** Server push reminder (localStorage, per-cat per-day) */
     serverPushReminder: (todayKey: string, catId: string) => `server_push_reminder_${todayKey}_${catId}`,
 } as const

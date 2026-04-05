@@ -20,8 +20,8 @@ import { sendHealthNotification, sendInventoryNotification, sendWeightNotificati
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog } from '../types/database.types'
-import { computeDaysRemaining, computeInventoryStatus } from '../types/database.types'
+import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
+import { computeDaysRemaining, computeInventoryExpiryDaysLeft, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
@@ -58,6 +58,7 @@ export function StatsPage() {
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
     const [inventory, setInventory] = useState<InventoryItem[]>([])
+    const [inventoryExpiryReminders, setInventoryExpiryReminders] = useState<InventoryExpiryReminder[]>([])
     const [poops, setPoops] = useState<PoopLog[]>([])
     const [missLogs, setMissLogs] = useState<MissLog[]>([])
     const [feeds, setFeeds] = useState<FeedStatus[]>([])
@@ -85,6 +86,12 @@ export function StatsPage() {
     const [invDailyConsumption, setInvDailyConsumption] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
     const [invSaving, setInvSaving] = useState(false)
+
+    const [expiryModalOpen, setExpiryModalOpen] = useState(false)
+    const [expiryItemName, setExpiryItemName] = useState('')
+    const [expiryInDays, setExpiryInDays] = useState('30')
+    const [expirySaving, setExpirySaving] = useState(false)
+    const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
 
     const [weightModalOpen, setWeightModalOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
@@ -135,6 +142,9 @@ export function StatsPage() {
         } else if (quick === 'health') {
             setHealthModalOpen(true)
             setSearchParams({}, { replace: true })
+        } else if (quick === 'expiry') {
+            setExpiryModalOpen(true)
+            setSearchParams({}, { replace: true })
         }
     }, [searchParams, setSearchParams, loading])
 
@@ -146,10 +156,16 @@ export function StatsPage() {
         }
 
         try {
-            const [w, h, inv, poopData, missData, feedData] = await Promise.all([
+            const [w, h, inv, invExpiry, poopData, missData, feedData] = await Promise.all([
                 supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: true }),
                 supabase.from('health_records').select('*').eq('cat_id', catId).order('date', { ascending: false }),
                 supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
+                supabase
+                    .from('inventory_expiry_reminders')
+                    .select('*')
+                    .eq('cat_id', catId)
+                    .is('discarded_at', null)
+                    .order('expires_on', { ascending: true }),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(120),
                 supabase.from('miss_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(200),
                 supabase.from('feed_status').select('*').eq('cat_id', catId).order('fed_at', { ascending: false }).limit(400),
@@ -158,6 +174,7 @@ export function StatsPage() {
             if (w.data) setWeights(w.data)
             if (h.data) setHealthRecords(h.data)
             if (inv.data) setInventory(inv.data)
+            if (invExpiry.data) setInventoryExpiryReminders(invExpiry.data)
             if (poopData.data) setPoops(poopData.data)
             if (missData.data) setMissLogs(missData.data)
             if (feedData.data) setFeeds(feedData.data)
@@ -239,6 +256,15 @@ export function StatsPage() {
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
     }, [feeds, feedWindowDays])
 
+    const expiryPreviewDate = useMemo(() => {
+        const days = Math.floor(Number(expiryInDays))
+        if (!Number.isFinite(days) || days <= 0) return null
+        const expireDate = new Date()
+        expireDate.setHours(0, 0, 0, 0)
+        expireDate.setDate(expireDate.getDate() + days)
+        return format(expireDate, 'yyyy/MM/dd')
+    }, [expiryInDays])
+
     const handleToggleExportType = (key: ExportTypeKey) => {
         setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }))
     }
@@ -289,7 +315,7 @@ export function StatsPage() {
             if (exportTypes.miss) htmlSections.push(`<h2>🥹 咪被想次数</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.health) htmlSections.push(`<h2>💉 健康记录</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.inventory) htmlSections.push(`<h2>📦 物资库存</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</div>${d.image_url ? `<div style=\"margin-top:6px;\"><img src=\"${escapeHtml(d.image_url)}\" alt=\"diary image\" style=\"max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;\" /></div>` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</div>${d.image_url ? `<div style="margin-top:6px;"><img src="${escapeHtml(d.image_url)}" alt="diary image" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;" /></div>` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.mood) htmlSections.push(`<h2>😺 心情</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
             if (exportTypes.feed) htmlSections.push(`<h2>🍽️ 喂食</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
 
@@ -450,6 +476,65 @@ export function StatsPage() {
         setInvTotalQty('')
         setInvDailyConsumption('')
         setEditingInvId(null)
+    }
+
+    const resetExpiryForm = () => {
+        setExpiryItemName('')
+        setExpiryInDays('30')
+    }
+
+    const handleExpiryReminderSave = async () => {
+        if (!catId || !user || !expiryItemName.trim()) return
+
+        const days = Math.floor(Number(expiryInDays))
+        if (!Number.isFinite(days) || days <= 0) {
+            pushToast('error', '请填写大于 0 的过期天数')
+            return
+        }
+
+        const expireDate = new Date()
+        expireDate.setHours(0, 0, 0, 0)
+        expireDate.setDate(expireDate.getDate() + days)
+
+        setExpirySaving(true)
+        try {
+            const { error } = await supabase.from('inventory_expiry_reminders').insert({
+                cat_id: catId,
+                item_name: expiryItemName.trim(),
+                expires_on: format(expireDate, 'yyyy-MM-dd'),
+                created_by: user.id,
+            })
+            if (error) throw error
+
+            setExpiryModalOpen(false)
+            resetExpiryForm()
+            await loadData()
+            lightHaptic()
+            pushToast('success', '过期提醒已添加')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '过期提醒保存失败，请稍后重试'))
+        } finally {
+            setExpirySaving(false)
+        }
+    }
+
+    const markExpiryReminderDiscarded = async (id: string) => {
+        setDiscardingExpiryId(id)
+        try {
+            const { error } = await supabase
+                .from('inventory_expiry_reminders')
+                .update({ discarded_at: new Date().toISOString() })
+                .eq('id', id)
+            if (error) throw error
+
+            lightHaptic()
+            pushToast('success', '已标记为已丢弃')
+            await loadData()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '操作失败，请稍后重试'))
+        } finally {
+            setDiscardingExpiryId(null)
+        }
     }
 
     const resetWeightForm = () => {
@@ -1024,6 +1109,60 @@ export function StatsPage() {
                 </Card>
             </div>
 
+            {/* ── Expiry Reminders ── */}
+            <div className="px-4 mb-4">
+                <Card variant="default" padding="md">
+                    <div className="section-row">
+                        <h2 className="text-lg font-semibold">🗑️ 物品过期提醒</h2>
+                        <Button variant="ghost" size="sm" onClick={() => { resetExpiryForm(); setExpiryModalOpen(true) }}>
+                            + 添加
+                        </Button>
+                    </div>
+
+                    {inventoryExpiryReminders.length > 0 ? (
+                        <div className="expiry-reminder-list">
+                            {inventoryExpiryReminders.map((item) => {
+                                const daysLeft = computeInventoryExpiryDaysLeft(item)
+                                const isOverdue = daysLeft < 0
+                                const statusText = isOverdue
+                                    ? `已过期 ${Math.abs(daysLeft)} 天`
+                                    : daysLeft === 0
+                                        ? '今天到期'
+                                        : `${daysLeft} 天后过期`
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className={`expiry-reminder-item ${isOverdue ? 'expiry-reminder-overdue' : ''}`}
+                                    >
+                                        <div className="expiry-reminder-info">
+                                            <span className="text-sm font-semibold">{item.item_name}</span>
+                                            <span className={`text-xs ${isOverdue ? 'text-danger' : 'text-secondary'}`}>{statusText}</span>
+                                        </div>
+                                        {isOverdue ? (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => { void markExpiryReminderDiscarded(item.id) }}
+                                                disabled={!online || discardingExpiryId === item.id}
+                                            >
+                                                {discardingExpiryId === item.id ? '处理中...' : '已丢弃'}
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-muted">待过期</span>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    ) : (
+                        <div className="empty-state-sm">
+                            <p className="text-secondary text-sm">添加湿粮、罐头等物品，到期后会显示提醒并可标记已丢弃</p>
+                        </div>
+                    )}
+                </Card>
+            </div>
+
             {/* ── Health Modal ── */}
             <Modal isOpen={healthModalOpen} onClose={() => { setHealthModalOpen(false); resetHealthForm() }} title={editingHealthId ? '💉 编辑健康记录' : '💉 添加健康记录'}>
                 <div className="health-form">
@@ -1235,6 +1374,46 @@ export function StatsPage() {
 
                     <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving || !online}>
                         {invSaving ? '保存中...' : editingInvId ? '更新库存' : '添加物资'}
+                    </Button>
+                </div>
+            </Modal>
+
+            <Modal isOpen={expiryModalOpen} onClose={() => { setExpiryModalOpen(false); resetExpiryForm() }} title="🗑️ 添加过期提醒">
+                <div className="inv-form">
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="expiry-item-name">物品名称</label>
+                        <input
+                            id="expiry-item-name"
+                            className="form-input"
+                            placeholder="如：湿粮、罐头、猫条"
+                            value={expiryItemName}
+                            onChange={(e) => setExpiryItemName(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="expiry-in-days">多久后过期（天）</label>
+                        <input
+                            id="expiry-in-days"
+                            type="number"
+                            min="1"
+                            step="1"
+                            className="form-input"
+                            value={expiryInDays}
+                            onChange={(e) => setExpiryInDays(e.target.value)}
+                        />
+                        <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
+                            {expiryPreviewDate ? `预计过期日期：${expiryPreviewDate}` : '请输入有效天数'}
+                        </p>
+                    </div>
+
+                    <Button
+                        variant="primary"
+                        fullWidth
+                        onClick={handleExpiryReminderSave}
+                        disabled={expirySaving || !online || !expiryItemName.trim()}
+                    >
+                        {expirySaving ? '保存中...' : '保存提醒'}
                     </Button>
                 </div>
             </Modal>
