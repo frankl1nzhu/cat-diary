@@ -15,7 +15,7 @@ import { useRenewForm } from '../lib/useRenewForm'
 import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
-import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions } from '../components/dashboard'
+import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS } from '../lib/constants'
 import './DashboardPage.css'
@@ -34,6 +34,30 @@ export function DashboardPage() {
 
     // ─── Renew form for health notifications ──────
     const renewForm = useRenewForm({ catId, onSuccess: reload })
+
+    // ─── Replenish inventory handler ──────────
+    const handleReplenishInventory = async (itemId: string, totalQuantity: number, dailyConsumption: number) => {
+        if (!online || !catId) return
+        try {
+            const { computeInventoryStatus: calcStatus } = await import('../types/database.types')
+            const fakeItem = { total_quantity: totalQuantity, daily_consumption: dailyConsumption, status: 'plenty' as const, updated_at: new Date().toISOString() } as import('../types/database.types').InventoryItem
+            const status = calcStatus(fakeItem)
+            const { error } = await supabase
+                .from('inventory')
+                .update({
+                    total_quantity: totalQuantity,
+                    daily_consumption: dailyConsumption,
+                    status,
+                    updated_by: user?.id ?? null,
+                })
+                .eq('id', itemId)
+            if (error) throw error
+            pushToast('success', '库存已补充 ✅')
+            await reload()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '补充失败，请稍后重试'))
+        }
+    }
 
     // ─── Pull-to-refresh ──────────────────────────
     const pullToRefresh = usePullToRefresh({ onRefresh: reload, enabled: !loading })
@@ -259,6 +283,12 @@ export function DashboardPage() {
                 items={urgentHealthReminders}
                 renew={renewForm}
                 online={online}
+            />
+
+            <InventoryAlerts
+                items={lowInventory}
+                online={online}
+                onReplenish={handleReplenishInventory}
             />
 
             <QuickActions
