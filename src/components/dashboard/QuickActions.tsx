@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useOptimistic } from 'react'
+import { useEffect, useRef, useState, useOptimistic, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
@@ -54,6 +54,29 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
     const [rewardEmoji, setRewardEmoji] = useState<'💖' | '🐾' | null>(null)
     const [rewardParticles, setRewardParticles] = useState<RewardParticle[]>([])
     const particleIdRef = useRef(1)
+
+    // Random diary photo state for "想咪了"
+    const [diaryPhotos, setDiaryPhotos] = useState<string[]>([])
+    const [randomPhotoUrl, setRandomPhotoUrl] = useState<string | null>(null)
+    const [randomPhotoOpen, setRandomPhotoOpen] = useState(false)
+
+    // Fetch diary photos once
+    const fetchDiaryPhotos = useCallback(async () => {
+        if (!cat) return
+        try {
+            const { data } = await supabase
+                .from('diary_entries')
+                .select('image_url')
+                .eq('cat_id', cat.id)
+                .not('image_url', 'is', null)
+                .limit(200)
+            if (data) {
+                setDiaryPhotos(data.map((d) => d.image_url!).filter(Boolean))
+            }
+        } catch { /* silent */ }
+    }, [cat])
+
+    useEffect(() => { fetchDiaryPhotos() }, [fetchDiaryPhotos])
 
     const openFeedModal = () => {
         setFeedModalOpen(true)
@@ -179,6 +202,13 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             triggerRewardBurst('💖')
             pushToast('success', '想咪 +1 🥹')
             sendMissNotification(cat.id, cat.name).catch(() => { })
+
+            // Show a random diary photo
+            if (diaryPhotos.length > 0) {
+                const randomIndex = Math.floor(Math.random() * diaryPhotos.length)
+                setRandomPhotoUrl(diaryPhotos[randomIndex])
+                setRandomPhotoOpen(true)
+            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
         } finally {
@@ -311,6 +341,15 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         {feedLoading ? '记录中...' : '确认喂食 🐾'}
                     </Button>
                 </div>
+            </Modal>
+
+            {/* Random Photo Modal ("想咪了") */}
+            <Modal isOpen={randomPhotoOpen} onClose={() => setRandomPhotoOpen(false)} title={`🥹 ${cat?.name || '猫咪'}的回忆`}>
+                {randomPhotoUrl && (
+                    <div className="miss-photo-container">
+                        <img src={randomPhotoUrl} alt="随机猫咪日记照片" className="miss-photo-img" loading="lazy" />
+                    </div>
+                )}
             </Modal>
         </>
     )

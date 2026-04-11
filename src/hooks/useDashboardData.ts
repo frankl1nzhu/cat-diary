@@ -243,13 +243,12 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
         [data.inventory],
     )
 
-    const overdueInventoryExpiryReminders = useMemo(() => {
+    const allInventoryExpiryReminders = useMemo(() => {
         return data.inventoryExpiryReminders
             .map((item) => {
                 const hoursLeft = computeInventoryExpiryHoursLeft(item)
                 return { ...item, hoursLeft }
             })
-            .filter((item) => item.hoursLeft < 0)
             .sort((a, b) => a.hoursLeft - b.hoursLeft)
     }, [data.inventoryExpiryReminders])
 
@@ -277,7 +276,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
         today,
         monthDays,
         lowInventory,
-        overdueInventoryExpiryReminders,
+        allInventoryExpiryReminders,
         healthReminderItems,
         urgentHealthReminders,
         reload: loadData,

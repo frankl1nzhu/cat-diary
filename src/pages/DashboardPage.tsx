@@ -6,16 +6,15 @@ import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
-import { useRenewForm } from '../lib/useRenewForm'
 import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
-import { sendReminderPush } from '../lib/pushServer'
+
 import { useFamily } from '../lib/useFamily'
 import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
-import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, HealthReminders, ExpiryReminders, QuickActions } from '../components/dashboard'
+import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, QuickActions } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS } from '../lib/constants'
 import './DashboardPage.css'
@@ -30,13 +29,12 @@ export function DashboardPage() {
 
     // ─── Centralized data hook ────────────────────
     const dashboard = useDashboardData(catId, catLoading)
-    const { data, loading, today, monthDays, lowInventory, overdueInventoryExpiryReminders, urgentHealthReminders, reload } = dashboard
+    const { data, loading, today, monthDays, lowInventory, allInventoryExpiryReminders, reload } = dashboard
 
     // ─── Pull-to-refresh ──────────────────────────
     const pullToRefresh = usePullToRefresh({ onRefresh: reload, enabled: !loading })
 
-    // Renew modal (vaccine / deworming)
-    const renew = useRenewForm({ catId, onSuccess: () => reload() })
+
 
     const [latestDiaryExpanded, setLatestDiaryExpanded] = useState(false)
     const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
@@ -70,7 +68,26 @@ export function DashboardPage() {
         }
     }
 
-    // ─── Local & server push notifications ────────
+    const handleUsedUpReminder = async (reminderId: string) => {
+        if (!online || !catId || discardingExpiryId) return
+        setDiscardingExpiryId(reminderId)
+        try {
+            const { error } = await supabase
+                .from('inventory_expiry_reminders')
+                .update({ discarded_at: new Date().toISOString() })
+                .eq('id', reminderId)
+            if (error) throw error
+
+            pushToast('success', '已标记为已用完')
+            await reload()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '处理失败，请稍后重试'))
+        } finally {
+            setDiscardingExpiryId(null)
+        }
+    }
+
+    // ─── Local push notifications ─────────────────
     useEffect(() => {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         const todayKey = new Date().toISOString().split('T')[0]
@@ -83,19 +100,8 @@ export function DashboardPage() {
             }
         }
 
-        for (const r of urgentHealthReminders) {
-            const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
-            const key = STORAGE_KEYS.notifyHealth(r.id, todayKey)
-            if (!localStorage.getItem(key)) {
-                const body = r.daysLeft <= 0
-                    ? `「${r.name}」${typeLabel}已过期，请尽快处理。`
-                    : `「${r.name}」${typeLabel}将在 ${r.daysLeft} 天后到期。`
-                new Notification(`${typeLabel}提醒`, { body })
-                localStorage.setItem(key, '1')
-            }
-        }
-
-        for (const item of overdueInventoryExpiryReminders) {
+        const overdueItems = allInventoryExpiryReminders.filter((item) => item.hoursLeft < 0)
+        for (const item of overdueItems) {
             const key = STORAGE_KEYS.notifyExpiredInventory(item.id, todayKey)
             if (!localStorage.getItem(key)) {
                 new Notification('物品过期提醒', {
@@ -104,17 +110,7 @@ export function DashboardPage() {
                 localStorage.setItem(key, '1')
             }
         }
-    }, [overdueInventoryExpiryReminders, urgentHealthReminders, lowInventory])
-
-    useEffect(() => {
-        if (lowInventory.length === 0 && urgentHealthReminders.length === 0 && overdueInventoryExpiryReminders.length === 0) return
-        const todayKey = new Date().toISOString().split('T')[0]
-        const serverKey = STORAGE_KEYS.serverPushReminder(todayKey, catId || 'none')
-        if (localStorage.getItem(serverKey)) return
-        sendReminderPush(catId || undefined)
-            .then(() => localStorage.setItem(serverKey, '1'))
-            .catch(() => { })
-    }, [catId, overdueInventoryExpiryReminders, urgentHealthReminders, lowInventory])
+    }, [allInventoryExpiryReminders, lowInventory])
 
     // ─── Onboarding handlers ──────────────────────
     const handleObCreateFamily = async () => {
@@ -247,17 +243,12 @@ export function DashboardPage() {
 
             <CatProfileCard cat={cat} />
 
-            <HealthReminders
-                items={urgentHealthReminders}
-                renew={renew}
-                online={online}
-            />
-
             <ExpiryReminders
-                items={overdueInventoryExpiryReminders}
+                items={allInventoryExpiryReminders}
                 online={online}
                 discardingId={discardingExpiryId}
                 onDiscard={handleDiscardExpiredReminder}
+                onUsedUp={handleUsedUpReminder}
             />
 
             <QuickActions

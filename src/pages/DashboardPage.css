@@ -197,8 +197,18 @@
     gap: var(--space-3);
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-md);
-    border-left: 3px solid var(--color-danger);
+    border-left: 3px solid transparent;
+    background: var(--color-bg-input);
+}
+
+.expired-reminder-overdue {
+    border-left-color: var(--color-danger);
     background: rgba(255, 99, 99, 0.08);
+}
+
+.expired-reminder-active {
+    border-left-color: var(--color-success, #5ed971);
+    background: rgba(94, 217, 113, 0.08);
 }
 
 .expired-reminder-info {
@@ -231,6 +241,32 @@
 .expired-reminder-btn:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.expired-usedup-btn {
+    color: var(--color-success, #5ed971);
+    background: rgba(94, 217, 113, 0.12);
+    border-color: var(--color-success, #5ed971);
+}
+
+.expired-usedup-btn:active {
+    background: var(--color-success, #5ed971);
+    color: #fff;
+}
+
+/* ── Miss Cat Photo ── */
+.miss-photo-container {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-2) 0;
+}
+
+.miss-photo-img {
+    width: 100%;
+    max-height: min(65dvh, 480px);
+    object-fit: contain;
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-input);
 }
 
 /* ── Quick Scoop Button ── */
