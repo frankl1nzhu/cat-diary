@@ -11,10 +11,11 @@ import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 
 import { useFamily } from '../lib/useFamily'
+import { useRenewForm } from '../lib/useRenewForm'
 import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
-import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, QuickActions } from '../components/dashboard'
+import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS } from '../lib/constants'
 import './DashboardPage.css'
@@ -29,7 +30,10 @@ export function DashboardPage() {
 
     // ─── Centralized data hook ────────────────────
     const dashboard = useDashboardData(catId, catLoading)
-    const { data, loading, today, monthDays, lowInventory, allInventoryExpiryReminders, reload } = dashboard
+    const { data, loading, today, monthDays, lowInventory, allInventoryExpiryReminders, urgentHealthReminders, reload } = dashboard
+
+    // ─── Renew form for health notifications ──────
+    const renewForm = useRenewForm({ catId, onSuccess: reload })
 
     // ─── Pull-to-refresh ──────────────────────────
     const pullToRefresh = usePullToRefresh({ onRefresh: reload, enabled: !loading })
@@ -249,6 +253,12 @@ export function DashboardPage() {
                 discardingId={discardingExpiryId}
                 onDiscard={handleDiscardExpiredReminder}
                 onUsedUp={handleUsedUpReminder}
+            />
+
+            <HealthNotifications
+                items={urgentHealthReminders}
+                renew={renewForm}
+                online={online}
             />
 
             <QuickActions

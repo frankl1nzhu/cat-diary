@@ -11,7 +11,7 @@ import { lightHaptic } from '../../lib/haptics'
 import { sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../../lib/constants'
 import { format } from 'date-fns'
-import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem } from '../../types/database.types'
+import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
 import { computeInventoryStatus } from '../../types/database.types'
 
 type RewardParticle = {
@@ -55,28 +55,28 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
     const [rewardParticles, setRewardParticles] = useState<RewardParticle[]>([])
     const particleIdRef = useRef(1)
 
-    // Random diary photo state for "想咪了"
-    const [diaryPhotos, setDiaryPhotos] = useState<string[]>([])
-    const [randomPhotoUrl, setRandomPhotoUrl] = useState<string | null>(null)
-    const [randomPhotoOpen, setRandomPhotoOpen] = useState(false)
+    // Random diary entry state for "想咪了"
+    const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+    const [randomDiary, setRandomDiary] = useState<DiaryEntry | null>(null)
+    const [randomDiaryOpen, setRandomDiaryOpen] = useState(false)
 
-    // Fetch diary photos once
-    const fetchDiaryPhotos = useCallback(async () => {
+    // Fetch diary entries once
+    const fetchDiaryEntries = useCallback(async () => {
         if (!cat) return
         try {
             const { data } = await supabase
                 .from('diary_entries')
-                .select('image_url')
+                .select('*')
                 .eq('cat_id', cat.id)
-                .not('image_url', 'is', null)
+                .order('created_at', { ascending: false })
                 .limit(200)
             if (data) {
-                setDiaryPhotos(data.map((d) => d.image_url!).filter(Boolean))
+                setDiaryEntries(data)
             }
         } catch { /* silent */ }
     }, [cat])
 
-    useEffect(() => { fetchDiaryPhotos() }, [fetchDiaryPhotos])
+    useEffect(() => { fetchDiaryEntries() }, [fetchDiaryEntries])
 
     const openFeedModal = () => {
         setFeedModalOpen(true)
@@ -203,11 +203,11 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             pushToast('success', '想咪 +1 🥹')
             sendMissNotification(cat.id, cat.name).catch(() => { })
 
-            // Show a random diary photo
-            if (diaryPhotos.length > 0) {
-                const randomIndex = Math.floor(Math.random() * diaryPhotos.length)
-                setRandomPhotoUrl(diaryPhotos[randomIndex])
-                setRandomPhotoOpen(true)
+            // Show a random diary entry
+            if (diaryEntries.length > 0) {
+                const randomIndex = Math.floor(Math.random() * diaryEntries.length)
+                setRandomDiary(diaryEntries[randomIndex])
+                setRandomDiaryOpen(true)
             }
         } catch (err) {
             pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
@@ -343,11 +343,26 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                 </div>
             </Modal>
 
-            {/* Random Photo Modal ("想咪了") */}
-            <Modal isOpen={randomPhotoOpen} onClose={() => setRandomPhotoOpen(false)} title={`🥹 ${cat?.name || '猫咪'}的回忆`}>
-                {randomPhotoUrl && (
-                    <div className="miss-photo-container">
-                        <img src={randomPhotoUrl} alt="随机猫咪日记照片" className="miss-photo-img" loading="lazy" />
+            {/* Random Diary Modal ("想咪了") */}
+            <Modal isOpen={randomDiaryOpen} onClose={() => setRandomDiaryOpen(false)} title={`🥹 ${cat?.name || '猫咪'}的回忆`}>
+                {randomDiary && (
+                    <div className="miss-diary-container">
+                        {randomDiary.image_url && (
+                            <img src={randomDiary.image_url} alt="" className="miss-diary-img" loading="lazy" />
+                        )}
+                        {randomDiary.text && (
+                            <p className="miss-diary-text">{randomDiary.text}</p>
+                        )}
+                        {randomDiary.tags.length > 0 && (
+                            <div className="diary-tags">
+                                {randomDiary.tags.map((tag) => (
+                                    <span key={tag} className="tag">#{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                        <span className="text-muted text-xs">
+                            {format(new Date(randomDiary.created_at), 'yyyy/MM/dd HH:mm')}
+                        </span>
                     </div>
                 )}
             </Modal>

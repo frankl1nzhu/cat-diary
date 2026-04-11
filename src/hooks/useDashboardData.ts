@@ -261,7 +261,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
     }, [data.healthReminders])
 
     const urgentHealthReminders = useMemo(
-        () => healthReminderItems.filter((r) => r.daysLeft <= 7),
+        () => healthReminderItems.filter((r) => r.daysLeft <= 3),
         [healthReminderItems],
     )
 

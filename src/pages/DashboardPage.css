@@ -254,19 +254,100 @@
     color: #fff;
 }
 
-/* ── Miss Cat Photo ── */
-.miss-photo-container {
+/* ── Miss Cat Diary ── */
+.miss-diary-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    gap: var(--space-3);
     padding: var(--space-2) 0;
 }
 
-.miss-photo-img {
+.miss-diary-img {
     width: 100%;
-    max-height: min(65dvh, 480px);
+    max-height: min(55dvh, 400px);
     object-fit: contain;
     border-radius: var(--radius-lg);
     background: var(--color-bg-input);
+}
+
+.miss-diary-text {
+    font-size: var(--font-size-sm);
+    line-height: 1.7;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+}
+
+/* ── Health Notification Card ── */
+.health-notify-card {
+    margin-bottom: var(--space-3);
+}
+
+.health-notify-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.health-notify-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    border-left: 3px solid transparent;
+    background: var(--color-bg-input);
+}
+
+.health-notify-overdue {
+    border-left-color: var(--color-danger);
+    background: rgba(255, 99, 99, 0.08);
+}
+
+.health-notify-soon {
+    border-left-color: var(--color-warning);
+    background: rgba(255, 217, 61, 0.08);
+}
+
+.health-notify-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.health-notify-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.health-notify-days {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.health-notify-update-btn {
+    flex-shrink: 0;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-primary-light, rgba(99, 102, 241, 0.1));
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.health-notify-update-btn:active {
+    background: var(--color-primary);
+    color: #fff;
 }
 
 /* ── Quick Scoop Button ── */
