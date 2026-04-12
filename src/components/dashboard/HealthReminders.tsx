@@ -18,9 +18,11 @@ interface HealthRemindersProps {
         renewNotes: string
         setRenewNotes: (v: string) => void
         renewSaving: boolean
+        stopSaving: string | null
         openRenewModal: (record: HealthRecord) => void
         closeRenewModal: () => void
         handleRenewSave: () => Promise<void>
+        handleStop: (record: HealthRecord) => Promise<void>
     }
     online: boolean
 }
@@ -41,6 +43,7 @@ export const HealthReminders = memo(function HealthReminders({ items, renew, onl
                             const isUrgent = r.daysLeft <= 7
                             const icon = r.type === 'vaccine' ? '💉' : '💊'
                             const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
+                            const isStopping = renew.stopSaving === r.id
                             return (
                                 <div
                                     key={r.id}
@@ -59,13 +62,23 @@ export const HealthReminders = memo(function HealthReminders({ items, renew, onl
                                         {isPastDue ? `过期${Math.abs(r.daysLeft)}天` : `${r.daysLeft}天`}
                                     </span>
                                     {isPastDue && (
-                                        <button
-                                            type="button"
-                                            className="health-renew-btn"
-                                            onClick={() => renew.openRenewModal(r)}
-                                        >
-                                            🔄 续期
-                                        </button>
+                                        <div className="health-notify-actions">
+                                            <button
+                                                type="button"
+                                                className="health-renew-btn"
+                                                onClick={() => renew.openRenewModal(r)}
+                                            >
+                                                🔄 续期
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="health-notify-stop-btn"
+                                                disabled={isStopping || !online}
+                                                onClick={() => renew.handleStop(r)}
+                                            >
+                                                {isStopping ? '停止中...' : '停止'}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             )
@@ -92,3 +105,4 @@ export const HealthReminders = memo(function HealthReminders({ items, renew, onl
         </>
     )
 })
+

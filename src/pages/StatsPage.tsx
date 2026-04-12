@@ -1042,13 +1042,23 @@ export function StatsPage() {
                                                 )}
                                             </div>
                                             {isPastDue && (r.type === 'vaccine' || r.type === 'deworming') && (
-                                                <button
-                                                    type="button"
-                                                    className="health-renew-btn"
-                                                    onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
-                                                >
-                                                    🔄 续期
-                                                </button>
+                                                <div className="health-notify-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="health-renew-btn"
+                                                        onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
+                                                    >
+                                                        🔄 续期
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="health-notify-stop-btn"
+                                                        disabled={renew.stopSaving === r.id || !online}
+                                                        onClick={(e) => { e.stopPropagation(); renew.handleStop(r) }}
+                                                    >
+                                                        {renew.stopSaving === r.id ? '停止中...' : '停止'}
+                                                    </button>
+                                                </div>
                                             )}
                                         </button>
                                     </SwipeableRow>

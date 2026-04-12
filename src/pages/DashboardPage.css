@@ -350,6 +350,45 @@
     color: #fff;
 }
 
+/* ── Health Notify Actions Container ── */
+.health-notify-actions {
+    display: flex;
+    gap: var(--space-1);
+    flex-shrink: 0;
+}
+
+.health-notify-stop-btn {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted, #888);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.health-notify-stop-btn:hover {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+    background: rgba(255, 99, 99, 0.08);
+}
+
+.health-notify-stop-btn:active {
+    background: var(--color-danger);
+    color: #fff;
+    border-color: var(--color-danger);
+}
+
+.health-notify-stop-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* ── Quick Scoop Button ── */
 .quick-scoop-btn {
     width: 100%;

@@ -24,6 +24,7 @@ export function useRenewForm(opts: {
     const [renewNextDue, setRenewNextDue] = useState('')
     const [renewNotes, setRenewNotes] = useState('')
     const [renewSaving, setRenewSaving] = useState(false)
+    const [stopSaving, setStopSaving] = useState<string | null>(null)
 
     const openRenewModal = (record: HealthRecord) => {
         setRenewRecord(record)
@@ -67,6 +68,25 @@ export function useRenewForm(opts: {
         }
     }
 
+    const handleStop = async (record: HealthRecord) => {
+        if (!opts.catId || !user) return
+        setStopSaving(record.id)
+        try {
+            await supabase
+                .from('health_records')
+                .update({ next_due: null })
+                .eq('id', record.id)
+
+            await opts.onSuccess()
+            lightHaptic()
+            pushToast('success', '已停止提醒 ✅')
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, '操作失败，请稍后重试'))
+        } finally {
+            setStopSaving(null)
+        }
+    }
+
     return {
         renewModalOpen,
         renewRecord,
@@ -77,8 +97,10 @@ export function useRenewForm(opts: {
         renewNotes,
         setRenewNotes,
         renewSaving,
+        stopSaving,
         openRenewModal,
         closeRenewModal,
         handleRenewSave,
+        handleStop,
     } as const
 }
