@@ -6,6 +6,7 @@ import { useToastStore } from '../../stores/useToastStore'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
+import { useI18n } from '../../lib/i18n'
 import { format, getDate } from 'date-fns'
 import type { MoodType, Cat } from '../../types/database.types'
 
@@ -32,6 +33,7 @@ export function MoodCalendarSection({
     monthDays,
     onMoodSaved,
 }: MoodCalendarSectionProps) {
+    const { language } = useI18n()
     const { user } = useSession()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
@@ -39,6 +41,29 @@ export function MoodCalendarSection({
     const [moodSaving, setMoodSaving] = useState(false)
     const [optimisticMood, setOptimisticMood] = useOptimistic(todayMood)
     const [, startTransition] = useTransition()
+    const text = language === 'zh'
+        ? {
+            saved: '心情已记录',
+            saveFailed: '心情记录失败，请稍后重试',
+            cardAria: '记录心情',
+            todayMood: '今日心情',
+            moodSaved: (mood: MoodType) => `已记录：${mood}`,
+            moodUnsaved: '未记录',
+            edit: '修改',
+            moodPick: '心情选择',
+            noRecord: '无记录',
+        }
+        : {
+            saved: 'Mood saved',
+            saveFailed: 'Failed to save mood. Please try again later.',
+            cardAria: 'Record mood',
+            todayMood: 'Today mood',
+            moodSaved: (mood: MoodType) => `Saved: ${mood}`,
+            moodUnsaved: 'Not set',
+            edit: 'Edit',
+            moodPick: 'Mood picker',
+            noRecord: 'No record',
+        }
 
     const handleMoodPick = async (mood: MoodType) => {
         if (!cat || !user || moodSaving) return
@@ -56,9 +81,9 @@ export function MoodCalendarSection({
                 onMoodSaved(mood)
                 setMoodEditing(false)
                 lightHaptic()
-                pushToast('success', '心情已记录')
+                pushToast('success', text.saved)
             } catch (err) {
-                pushToast('error', getErrorMessage(err, '心情记录失败，请稍后重试'))
+                pushToast('error', getErrorMessage(err, text.saveFailed))
             } finally {
                 setMoodSaving(false)
             }
@@ -74,16 +99,16 @@ export function MoodCalendarSection({
 
     return (
         <div className="px-4 stagger-item" style={{ marginBottom: 'var(--space-3)' }}>
-            <Card variant="glass" padding="md" aria-label="记录心情">
+            <Card variant="glass" padding="md" aria-label={text.cardAria}>
                 <div className="mood-head-row">
-                    <div className="bento-label">今日心情</div>
+                    <div className="bento-label">{text.todayMood}</div>
                     <div className="mood-status-row">
                         <span className="text-sm text-secondary">
-                            {optimisticMood ? `已记录：${optimisticMood}` : '未记录'}
+                            {optimisticMood ? text.moodSaved(optimisticMood) : text.moodUnsaved}
                         </span>
                         {optimisticMood && !moodEditing && (
                             <button type="button" className="mood-edit-btn" onClick={() => setMoodEditing(true)}>
-                                修改
+                                {text.edit}
                             </button>
                         )}
                     </div>
@@ -92,7 +117,7 @@ export function MoodCalendarSection({
                     <div
                         className="mood-picker"
                         role="radiogroup"
-                        aria-label="心情选择"
+                        aria-label={text.moodPick}
                         onKeyDown={(event) => {
                             if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
                                 event.preventDefault()
@@ -127,7 +152,7 @@ export function MoodCalendarSection({
                             <div
                                 key={key}
                                 className={`mood-day ${mood ? moodColorMap[mood] : ''}`}
-                                title={`${format(day, 'MM/dd')} ${mood || '无记录'}`}
+                                title={`${format(day, 'MM/dd')} ${mood || text.noRecord}`}
                             >
                                 {getDate(day)}
                             </div>

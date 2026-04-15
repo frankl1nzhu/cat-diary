@@ -3,13 +3,34 @@ import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { differenceInDays } from 'date-fns'
 import type { Cat } from '../../types/database.types'
+import { useI18n } from '../../lib/i18n'
 
 interface CatProfileCardProps {
     cat: Cat | null
 }
 
 export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCardProps) {
+    const { language } = useI18n()
     const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false)
+    const text = language === 'zh'
+        ? {
+            previewAvatar: '查看猫咪头像大图',
+            addCat: '添加猫咪',
+            editProfileHint: '在设置中编辑档案',
+            daysAtHome: '来到这个家',
+            daysToBirthday: '下次生日',
+            avatarTitle: '猫咪头像',
+            avatarOf: (name: string) => `${name} 的头像`,
+        }
+        : {
+            previewAvatar: 'Preview cat avatar',
+            addCat: 'Add Cat',
+            editProfileHint: 'Edit profile in Settings',
+            daysAtHome: 'Days at home',
+            daysToBirthday: 'Next birthday',
+            avatarTitle: 'Cat avatar',
+            avatarOf: (name: string) => `${name}'s avatar`,
+        }
 
     const { daysHome, daysToBirthday } = useMemo(() => {
         if (!cat) return { daysHome: null, daysToBirthday: null }
@@ -42,7 +63,7 @@ export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCa
                                     type="button"
                                     className="avatar-preview-btn"
                                     onClick={() => setAvatarPreviewOpen(true)}
-                                    aria-label="查看猫咪头像大图"
+                                    aria-label={text.previewAvatar}
                                 >
                                     <img src={cat.avatar_url} alt={cat.name} className="avatar-img" loading="lazy" />
                                 </button>
@@ -51,26 +72,26 @@ export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCa
                             )}
                         </div>
                         <div className="profile-info">
-                            <h1 className="cat-name">{cat?.name || '添加猫咪'}</h1>
-                            <p className="cat-breed text-sm">{cat?.breed || '在设置中编辑档案'}</p>
+                            <h1 className="cat-name">{cat?.name || text.addCat}</h1>
+                            <p className="cat-breed text-sm">{cat?.breed || text.editProfileHint}</p>
                         </div>
                     </div>
                     <div className="countdown-row">
                         <div className="countdown-item">
-                            <span className="countdown-number">{daysHome !== null ? `${daysHome}天` : '—'}</span>
-                            <span className="countdown-label">来到这个家</span>
+                            <span className="countdown-number">{daysHome !== null ? (language === 'zh' ? `${daysHome}天` : `${daysHome}d`) : '—'}</span>
+                            <span className="countdown-label">{text.daysAtHome}</span>
                         </div>
                         <div className="countdown-item">
-                            <span className="countdown-number">{daysToBirthday !== null ? `${daysToBirthday}天` : '—'}</span>
-                            <span className="countdown-label">下次生日</span>
+                            <span className="countdown-number">{daysToBirthday !== null ? (language === 'zh' ? `${daysToBirthday}天` : `${daysToBirthday}d`) : '—'}</span>
+                            <span className="countdown-label">{text.daysToBirthday}</span>
                         </div>
                     </div>
                 </Card>
             </div>
 
-            <Modal isOpen={avatarPreviewOpen} onClose={() => setAvatarPreviewOpen(false)} title={cat?.name ? `${cat.name} 的头像` : '猫咪头像'}>
+            <Modal isOpen={avatarPreviewOpen} onClose={() => setAvatarPreviewOpen(false)} title={cat?.name ? text.avatarOf(cat.name) : text.avatarTitle}>
                 {cat?.avatar_url ? (
-                    <img src={cat.avatar_url} alt={cat.name || '猫咪头像'} className="avatar-preview-modal-img" loading="lazy" />
+                    <img src={cat.avatar_url} alt={cat.name || text.avatarTitle} className="avatar-preview-modal-img" loading="lazy" />
                 ) : null}
             </Modal>
         </>

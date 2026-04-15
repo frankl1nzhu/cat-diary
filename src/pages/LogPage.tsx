@@ -91,6 +91,31 @@ export function LogPage() {
             deleteHint: '此操作不可恢复，确认删除这条记录吗？',
             deleting: '删除中...',
             confirmDelete: '确认删除',
+            timelineLoadFailed: '时间线加载失败，请稍后重试',
+            actionFailed: '操作失败',
+            commentPublished: '评论已发布',
+            commentFailed: '评论失败',
+            commentDeleted: '评论已删除',
+            deleteFailed: '删除失败',
+            deleteFailedRetry: '删除失败，请稍后重试',
+            imageTooLarge: '图片大小不能超过 10MB',
+            diaryUpdatedSuccess: '日记已更新 📝',
+            diaryPublishedSuccess: '日记发布成功 📝',
+            diaryNotifyFailed: '日记已发布，但通知发送失败，请稍后重试',
+            diaryPublishFailed: '日记发布失败，请稍后重试',
+            weightRangeError: '体重需在 0.1 到 30kg 之间',
+            weightUpdatedSuccess: '体重已更新 ⚖️',
+            weightRecordedSuccess: '体重记录成功 ⚖️',
+            fallbackCatName: '猫咪',
+            weightSaveFailed: '体重记录失败，请稍后重试',
+            poopUpdatedSuccess: '便便记录已更新 💩',
+            updateFailedRetry: '更新失败，请稍后重试',
+            recordDeleted: '记录已删除',
+            poopKeyword: '便便',
+            weightKeyword: '体重',
+            dateRangeError: '结束日期必须晚于或等于开始日期',
+            collapse: '收起 ▲',
+            expand: '展开全文 ▼',
             colorLabels: {
                 brown: '棕色',
                 dark_brown: '深棕色',
@@ -152,6 +177,31 @@ export function LogPage() {
             deleteHint: 'This action cannot be undone. Delete this record?',
             deleting: 'Deleting...',
             confirmDelete: 'Confirm delete',
+            timelineLoadFailed: 'Failed to load timeline, please try again later',
+            actionFailed: 'Action failed',
+            commentPublished: 'Comment posted',
+            commentFailed: 'Failed to post comment',
+            commentDeleted: 'Comment deleted',
+            deleteFailed: 'Delete failed',
+            deleteFailedRetry: 'Delete failed, please try again later',
+            imageTooLarge: 'Image size must be less than 10MB',
+            diaryUpdatedSuccess: 'Diary updated 📝',
+            diaryPublishedSuccess: 'Diary posted 📝',
+            diaryNotifyFailed: 'Diary posted, but notification failed to send. Please try again later',
+            diaryPublishFailed: 'Failed to post diary, please try again later',
+            weightRangeError: 'Weight must be between 0.1 and 30kg',
+            weightUpdatedSuccess: 'Weight updated ⚖️',
+            weightRecordedSuccess: 'Weight logged ⚖️',
+            fallbackCatName: 'Cat',
+            weightSaveFailed: 'Failed to save weight, please try again later',
+            poopUpdatedSuccess: 'Poop log updated 💩',
+            updateFailedRetry: 'Update failed, please try again later',
+            recordDeleted: 'Record deleted',
+            poopKeyword: 'poop',
+            weightKeyword: 'weight',
+            dateRangeError: 'End date must be later than or equal to start date',
+            collapse: 'Collapse ▲',
+            expand: 'Read more ▼',
             colorLabels: {
                 brown: 'Brown',
                 dark_brown: 'Dark brown',
@@ -253,11 +303,11 @@ export function LogPage() {
             )
         } catch (err) {
             console.error('Failed to load timeline:', err)
-            pushToast('error', getErrorMessage(err, '时间线加载失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.timelineLoadFailed))
         } finally {
             setLoading(false)
         }
-    }, [catId, catLoading, loadLimit, pushToast])
+    }, [catId, catLoading, loadLimit, pushToast, text.timelineLoadFailed])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
@@ -361,18 +411,18 @@ export function LogPage() {
             }
             lightHaptic()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '操作失败'))
+            pushToast('error', getErrorMessage(err, text.actionFailed))
         }
     }
 
     const handleAddComment = async (diaryId: string) => {
         if (!user) return
-        const text = (commentInputs[diaryId] || '').trim()
-        if (!text) return
+        const commentText = (commentInputs[diaryId] || '').trim()
+        if (!commentText) return
         setCommentSaving(diaryId)
         try {
             const { data, error } = await supabase.from('diary_comments')
-                .insert({ diary_id: diaryId, user_id: user.id, text })
+                .insert({ diary_id: diaryId, user_id: user.id, text: commentText })
                 .select()
                 .single()
             if (error) throw error
@@ -384,7 +434,7 @@ export function LogPage() {
             }
             setCommentInputs((prev) => ({ ...prev, [diaryId]: '' }))
             lightHaptic()
-            pushToast('success', '评论已发布')
+            pushToast('success', text.commentPublished)
 
             // Notify diary author
             const diaryItem = timeline.find((t) => t.type === 'diary' && t.data.id === diaryId)
@@ -392,7 +442,7 @@ export function LogPage() {
                 sendCommentNotification(diaryItem.data.created_by, cat.name).catch(() => {/* silent */ })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '评论失败'))
+            pushToast('error', getErrorMessage(err, text.commentFailed))
         } finally {
             setCommentSaving(null)
         }
@@ -406,9 +456,9 @@ export function LogPage() {
                 [diaryId]: (prev[diaryId] || []).filter((c) => c.id !== commentId),
             }))
             lightHaptic()
-            pushToast('success', '评论已删除')
+            pushToast('success', text.commentDeleted)
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除失败'))
+            pushToast('error', getErrorMessage(err, text.deleteFailed))
         }
     }
 
@@ -472,7 +522,7 @@ export function LogPage() {
         const rawFile = e.target.files?.[0]
         if (!rawFile) return
         if (rawFile.size > 10 * 1024 * 1024) {
-            pushToast('error', '图片大小不能超过 10MB')
+            pushToast('error', text.imageTooLarge)
             e.target.value = ''
             return
         }
@@ -540,16 +590,16 @@ export function LogPage() {
             resetDiaryForm()
             await loadTimeline()
             lightHaptic()
-            pushToast('success', editingDiaryId ? '日记已更新 📝' : '日记发布成功 📝')
+            pushToast('success', editingDiaryId ? text.diaryUpdatedSuccess : text.diaryPublishedSuccess)
 
             // Notify family members on new diary (not edits)
             if (!editingDiaryId && cat) {
                 sendDiaryNotification(catId, cat.name).catch(() => {
-                    pushToast('info', '日记已发布，但通知发送失败，请稍后重试')
+                    pushToast('info', text.diaryNotifyFailed)
                 })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '日记发布失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.diaryPublishFailed))
         } finally {
             setDiarySaving(false)
         }
@@ -571,7 +621,7 @@ export function LogPage() {
         if (!catId || !user) return
         const kg = parseFloat(weightValue)
         if (isNaN(kg) || kg < 0.1 || kg > 30) {
-            setWeightError('体重需在 0.1 到 30kg 之间')
+            setWeightError(text.weightRangeError)
             return
         }
         setWeightError('')
@@ -596,12 +646,12 @@ export function LogPage() {
             setEditingWeightId(null)
             await loadTimeline()
             lightHaptic()
-            pushToast('success', editingWeightId ? '体重已更新 ⚖️' : '体重记录成功 ⚖️')
+            pushToast('success', editingWeightId ? text.weightUpdatedSuccess : text.weightRecordedSuccess)
             if (!editingWeightId && catId) {
-                sendWeightNotification(catId, cat?.name || '猫咪', kg).catch(() => { })
+                sendWeightNotification(catId, cat?.name || text.fallbackCatName, kg).catch(() => { })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '体重记录失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.weightSaveFailed))
         } finally {
             setWeightSaving(false)
         }
@@ -642,9 +692,9 @@ export function LogPage() {
             setEditingPoopId(null)
             await loadTimeline()
             lightHaptic()
-            pushToast('success', '便便记录已更新 💩')
+            pushToast('success', text.poopUpdatedSuccess)
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '更新失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.updateFailedRetry))
         } finally {
             setPoopSaving(false)
         }
@@ -663,10 +713,10 @@ export function LogPage() {
                 await supabase.from('weight_records').delete().eq('id', item.data.id)
             }
             lightHaptic()
-            pushToast('success', '记录已删除')
+            pushToast('success', text.recordDeleted)
             await loadTimeline()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.deleteFailedRetry))
         } finally {
             setDeleteSubmitting(false)
             setPendingDeleteItem(null)
@@ -691,14 +741,14 @@ export function LogPage() {
                 return text.includes(normalizedKeyword)
             }
             if (item.type === 'poop') {
-                return `便便 ${item.data.bristol_type} ${item.data.color}`.toLowerCase().includes(normalizedKeyword)
+                return `${text.poopKeyword} ${item.data.bristol_type} ${item.data.color}`.toLowerCase().includes(normalizedKeyword)
             }
             if (item.type === 'weight') {
-                return `体重 ${item.data.weight_kg}`.toLowerCase().includes(normalizedKeyword)
+                return `${text.weightKeyword} ${item.data.weight_kg}`.toLowerCase().includes(normalizedKeyword)
             }
             return false
         })
-    }, [dateEnd, dateStart, filterTypes, deferredKeyword, timeline])
+    }, [dateEnd, dateStart, filterTypes, deferredKeyword, timeline, text.poopKeyword, text.weightKeyword])
 
     const toggleTypeFilter = (type: TimelineItem['type']) => {
         setFilterTypes((prev) => {
@@ -719,7 +769,7 @@ export function LogPage() {
 
     const handleDateEndChange = (value: string) => {
         if (dateStart && value && value < dateStart) {
-            pushToast('error', '结束日期必须晚于或等于开始日期')
+            pushToast('error', text.dateRangeError)
             setDateEnd(dateStart)
             return
         }
@@ -774,7 +824,7 @@ export function LogPage() {
                         <div className="timeline-content">
                             {isAuthor && (
                                 <div className="timeline-actions">
-                                    <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>编辑</button>
+                                    <button className="timeline-action-btn" onClick={() => openEditDiary(item.data)}>{text.edit}</button>
                                 </div>
                             )}
                             <span className="diary-author text-xs text-secondary">{getUserName(item.data.created_by)}</span>
@@ -786,7 +836,7 @@ export function LogPage() {
                             <div className="text-sm diary-text-content">{displayText}</div>
                             {isLong && (
                                 <button className="diary-expand-btn" onClick={() => toggleDiaryExpand(item.data.id)}>
-                                    {isExpanded ? '收起 ▲' : '展开全文 ▼'}
+                                    {isExpanded ? text.collapse : text.expand}
                                 </button>
                             )}
                             {item.data.tags.length > 0 && (
@@ -898,7 +948,7 @@ export function LogPage() {
                             <div className="timeline-badge weight-badge">⚖️</div>
                             <div className="timeline-content">
                                 <div className="timeline-actions">
-                                    <button className="timeline-action-btn" onClick={() => openEditWeight(item.data)}>编辑</button>
+                                    <button className="timeline-action-btn" onClick={() => openEditWeight(item.data)}>{text.edit}</button>
                                 </div>
                                 <p className="text-sm font-semibold">{item.data.weight_kg} kg</p>
                                 <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>

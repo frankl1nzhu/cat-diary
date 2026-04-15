@@ -10,6 +10,7 @@ import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
 import { sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../../lib/constants'
+import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
 import { computeInventoryStatus } from '../../types/database.types'
@@ -30,6 +31,7 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: QuickActionsProps) {
+    const { language } = useI18n()
     const { user } = useSession()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
@@ -59,6 +61,92 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
     const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
     const [randomDiary, setRandomDiary] = useState<DiaryEntry | null>(null)
     const [randomDiaryOpen, setRandomDiaryOpen] = useState(false)
+    const text = language === 'zh'
+        ? {
+            feedSuccess: '喂食记录成功 🐾',
+            feedFail: '喂食记录失败，请稍后重试',
+            poopSuccess: '铲屎记录成功 💩',
+            poopNotifyFail: '铲屎记录已保存，但家庭通知发送失败',
+            poopFail: '铲屎记录失败，请稍后重试',
+            missSuccess: '想咪 +1 🥹',
+            missFail: '记录失败，请稍后重试',
+            scoopQuick: '一键铲屎',
+            missQuick: '想咪了',
+            inventoryHint: '记得补货！',
+            poopModalTitle: '💩 铲屎记录',
+            bristolClass: '布里斯托分类',
+            bristolAria: '布里斯托类型选择',
+            color: '颜色',
+            poopColorAria: '便便颜色选择',
+            typePrefix: '类型',
+            recording: '记录中...',
+            saveRecord: '保存记录',
+            feedModalTitle: '🍽️ 记录喂食',
+            chooseMeal: '选择餐次',
+            todayRecords: '今日记录',
+            confirmFeed: '确认喂食 🐾',
+            memoriesOf: (name: string) => `🥹 ${name}的回忆`,
+            defaultCatName: '猫咪',
+        }
+        : {
+            feedSuccess: 'Feeding saved 🐾',
+            feedFail: 'Failed to save feeding. Please try again later.',
+            poopSuccess: 'Poop log saved 💩',
+            poopNotifyFail: 'Poop log saved, but family notification failed.',
+            poopFail: 'Failed to save poop log. Please try again later.',
+            missSuccess: 'Missing-you +1 🥹',
+            missFail: 'Failed to save. Please try again later.',
+            scoopQuick: 'Quick scoop',
+            missQuick: 'I miss my cat',
+            inventoryHint: 'Restock soon!',
+            poopModalTitle: '💩 Poop Log',
+            bristolClass: 'Bristol type',
+            bristolAria: 'Choose bristol type',
+            color: 'Color',
+            poopColorAria: 'Choose poop color',
+            typePrefix: 'Type',
+            recording: 'Saving...',
+            saveRecord: 'Save record',
+            feedModalTitle: '🍽️ Feeding Log',
+            chooseMeal: 'Choose meal',
+            todayRecords: 'Today records',
+            confirmFeed: 'Confirm feeding 🐾',
+            memoriesOf: (name: string) => `🥹 ${name}'s memories`,
+            defaultCatName: 'cat',
+        }
+
+    const mealLabels = language === 'zh'
+        ? MEAL_LABELS
+        : {
+            breakfast: '🌅 Breakfast',
+            lunch: '☀️ Lunch',
+            dinner: '🌙 Dinner',
+            snack: '🍬 Snack',
+        }
+
+    const poopColorLabels = language === 'zh'
+        ? POOP_COLOR_LABELS
+        : {
+            brown: '🟫 Brown (normal)',
+            dark_brown: '⬛ Dark brown',
+            yellow: '🟨 Yellow',
+            green: '🟩 Green',
+            red: '🟥 Red ⚠️',
+            black: '⬛ Black ⚠️',
+            white: '⬜ White ⚠️',
+        }
+
+    const bristolLabels = language === 'zh'
+        ? BRISTOL_LABELS
+        : {
+            '1': 'Hard pellets',
+            '2': 'Lumpy sausage',
+            '3': 'Cracked sausage',
+            '4': 'Soft smooth log ✅',
+            '5': 'Soft blobs',
+            '6': 'Mushy',
+            '7': 'Watery',
+        }
 
     // Fetch diary entries once
     const fetchDiaryEntries = useCallback(async () => {
@@ -151,10 +239,10 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             await onDataChange()
             lightHaptic()
             triggerRewardBurst('🐾')
-            pushToast('success', '喂食记录成功 🐾')
-            sendFeedNotification(cat.id, cat.name, MEAL_LABELS[selectedMeal]).catch(() => { })
+            pushToast('success', text.feedSuccess)
+            sendFeedNotification(cat.id, cat.name, mealLabels[selectedMeal]).catch(() => { })
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '喂食记录失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.feedFail))
         } finally {
             setFeedLoading(false)
         }
@@ -176,15 +264,15 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             setSelectedColor('brown')
             lightHaptic()
             if (selectedBristol === '4') triggerRewardBurst('💖')
-            pushToast('success', '铲屎记录成功 💩')
+            pushToast('success', text.poopSuccess)
             sendScoopNotification(cat.id, cat.name).catch(() => {
-                pushToast('info', '铲屎记录已保存，但家庭通知发送失败')
+                pushToast('info', text.poopNotifyFail)
             })
             if (isAbnormalPoop(selectedBristol, selectedColor)) {
                 sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => { })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '铲屎记录失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.poopFail))
         } finally {
             setPoopSaving(false)
         }
@@ -200,7 +288,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             })
             lightHaptic()
             triggerRewardBurst('💖')
-            pushToast('success', '想咪 +1 🥹')
+            pushToast('success', text.missSuccess)
             sendMissNotification(cat.id, cat.name).catch(() => { })
 
             // Show a random diary entry
@@ -210,7 +298,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                 setRandomDiaryOpen(true)
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '记录失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.missFail))
         } finally {
             setMissSaving(false)
         }
@@ -246,7 +334,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         disabled={!cat || !online}
                     >
                         <span className="quick-scoop-icon">🧹</span>
-                        <span className="quick-scoop-text">一键铲屎</span>
+                        <span className="quick-scoop-text">{text.scoopQuick}</span>
                     </button>
                     <button
                         className="quick-scoop-btn quick-miss-btn"
@@ -254,7 +342,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         disabled={!cat || !online || missSaving}
                     >
                         <span className="quick-scoop-icon">🥹</span>
-                        <span className="quick-scoop-text">想咪了</span>
+                        <span className="quick-scoop-text">{text.missQuick}</span>
                     </button>
                 </div>
             </div>
@@ -262,32 +350,32 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             {/* Inventory Alert */}
             {lowInventory.length > 0 && (
                 <div className="inventory-alert mx-4">
-                    🛒 {lowInventory.map((i) => `${i.item_name}${computeInventoryStatus(i) === 'urgent' ? '🔴' : '🟡'}`).join('、')} — 记得补货！
+                    🛒 {lowInventory.map((i) => `${i.item_name}${computeInventoryStatus(i) === 'urgent' ? '🔴' : '🟡'}`).join(language === 'zh' ? '、' : ', ')} — {text.inventoryHint}
                 </div>
             )}
 
             {/* Poop Modal */}
-            <Modal isOpen={poopModalOpen} onClose={() => setPoopModalOpen(false)} title="💩 铲屎记录">
+            <Modal isOpen={poopModalOpen} onClose={() => setPoopModalOpen(false)} title={text.poopModalTitle}>
                 <div className="poop-form">
                     <div className="form-section">
-                        <label className="form-label">布里斯托分类</label>
+                        <label className="form-label">{text.bristolClass}</label>
                         <select
                             className="form-input"
-                            aria-label="布里斯托类型选择"
+                            aria-label={text.bristolAria}
                             value={selectedBristol}
                             onChange={(e) => setSelectedBristol(e.target.value as BristolType)}
                         >
                             {(['1', '2', '3', '4', '5', '6', '7'] as BristolType[]).map((type) => (
                                 <option key={type} value={type}>
-                                    类型 {type} · {BRISTOL_LABELS[type]}
+                                    {text.typePrefix} {type} · {bristolLabels[type]}
                                 </option>
                             ))}
                         </select>
                     </div>
                     <div className="form-section">
-                        <label className="form-label">颜色</label>
-                        <div className="color-grid compact" role="radiogroup" aria-label="便便颜色选择">
-                            {(Object.entries(POOP_COLOR_LABELS) as [PoopColor, string][]).map(([color, label]) => (
+                        <label className="form-label">{text.color}</label>
+                        <div className="color-grid compact" role="radiogroup" aria-label={text.poopColorAria}>
+                            {(Object.entries(poopColorLabels) as [PoopColor, string][]).map(([color, label]) => (
                                 <button
                                     key={color}
                                     className={`color-btn ${selectedColor === color ? 'color-btn-active' : ''}`}
@@ -301,15 +389,15 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         </div>
                     </div>
                     <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
-                        {poopSaving ? '记录中...' : '保存记录'}
+                        {poopSaving ? text.recording : text.saveRecord}
                     </Button>
                 </div>
             </Modal>
 
             {/* Feed Modal */}
-            <Modal isOpen={feedModalOpen} onClose={() => setFeedModalOpen(false)} title="🍽️ 记录喂食">
+            <Modal isOpen={feedModalOpen} onClose={() => setFeedModalOpen(false)} title={text.feedModalTitle}>
                 <div className="feed-form">
-                    <label className="form-label">选择餐次</label>
+                    <label className="form-label">{text.chooseMeal}</label>
                     <div className="meal-grid">
                         {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((meal) => (
                             <button
@@ -317,16 +405,16 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                                 className={`meal-btn ${selectedMeal === meal ? 'meal-btn-active' : ''}`}
                                 onClick={() => setSelectedMeal(meal)}
                             >
-                                {MEAL_LABELS[meal]}
+                                {mealLabels[meal]}
                             </button>
                         ))}
                     </div>
                     {optimisticFeeds.length > 0 && (
                         <div className="feed-history">
-                            <label className="form-label">今日记录</label>
+                            <label className="form-label">{text.todayRecords}</label>
                             {optimisticFeeds.map((f) => (
                                 <div key={f.id} className="feed-history-item">
-                                    <span>{MEAL_LABELS[f.meal_type]}</span>
+                                    <span>{mealLabels[f.meal_type]}</span>
                                     <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
                                 </div>
                             ))}
@@ -338,13 +426,13 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         onClick={handleFeedRecord}
                         disabled={feedLoading || !online}
                     >
-                        {feedLoading ? '记录中...' : '确认喂食 🐾'}
+                        {feedLoading ? text.recording : text.confirmFeed}
                     </Button>
                 </div>
             </Modal>
 
             {/* Random Diary Modal ("想咪了") */}
-            <Modal isOpen={randomDiaryOpen} onClose={() => setRandomDiaryOpen(false)} title={`🥹 ${cat?.name || '猫咪'}的回忆`}>
+            <Modal isOpen={randomDiaryOpen} onClose={() => setRandomDiaryOpen(false)} title={text.memoriesOf(cat?.name || text.defaultCatName)}>
                 {randomDiary && (
                     <div className="miss-diary-container">
                         {randomDiary.image_url && (

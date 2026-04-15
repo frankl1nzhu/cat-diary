@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -29,63 +29,91 @@ export function DashboardPage() {
     const { cat, catId, cats, setCatId, families, activeFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
-    const text = language === 'zh'
-        ? {
-            refreshing: '刷新中…',
-            releaseToRefresh: '松手刷新',
-            pullToRefresh: '下拉刷新',
-            onboardingWelcome: '欢迎来到喵记！',
-            familyOnboardingDesc: '首先创建或加入一个家庭',
-            createFamily: '创建家庭',
-            creating: '创建中...',
-            or: '或者',
-            joinFamily: '加入家庭',
-            joining: '加入中...',
-            familyNamePlaceholder: '输入家庭名称',
-            inviteCodePlaceholder: '输入邀请码',
-            catOnboardingDesc: '先来建立猫咪档案吧（可在设置页继续补充）',
-            catNameRequired: '猫咪名字 *',
-            catNamePlaceholder: '咪名',
-            breedOptional: '品种 / 花色（可选）',
-            breedPlaceholder: '咪族',
-            birthdayOptional: '生日（可选）',
-            adoptedOptional: '领养日（可选）',
-            finishEnterHome: '完成并进入首页',
-            creatingProfile: '创建中...',
-            recentActivity: '最近动态',
-            diaryNoText: '(无文字)',
-            collapse: '收起 ▲',
-            expand: '展开全文 ▼',
-            diaryEmpty: '还没有日记，去记录页添加第一条吧！',
-        }
-        : {
-            refreshing: 'Refreshing…',
-            releaseToRefresh: 'Release to refresh',
-            pullToRefresh: 'Pull to refresh',
-            onboardingWelcome: 'Welcome to Cat Diary!',
-            familyOnboardingDesc: 'Create or join a family first',
-            createFamily: 'Create family',
-            creating: 'Creating...',
-            or: 'or',
-            joinFamily: 'Join family',
-            joining: 'Joining...',
-            familyNamePlaceholder: 'Enter family name',
-            inviteCodePlaceholder: 'Enter invite code',
-            catOnboardingDesc: 'Create your cat profile first (you can complete details in Settings)',
-            catNameRequired: 'Cat name *',
-            catNamePlaceholder: 'Cat name',
-            breedOptional: 'Breed / coat (optional)',
-            breedPlaceholder: 'Breed',
-            birthdayOptional: 'Birthday (optional)',
-            adoptedOptional: 'Adoption date (optional)',
-            finishEnterHome: 'Finish and go to Home',
-            creatingProfile: 'Creating...',
-            recentActivity: 'Recent activity',
-            diaryNoText: '(No text)',
-            collapse: 'Collapse ▲',
-            expand: 'Read more ▼',
-            diaryEmpty: 'No diary yet. Add your first one in Log.',
-        }
+    const text = useMemo(
+        () =>
+            language === 'zh'
+                ? {
+                    refreshing: '刷新中…',
+                    releaseToRefresh: '松手刷新',
+                    pullToRefresh: '下拉刷新',
+                    onboardingWelcome: '欢迎来到喵记！',
+                    familyOnboardingDesc: '首先创建或加入一个家庭',
+                    createFamily: '创建家庭',
+                    creating: '创建中...',
+                    or: '或者',
+                    joinFamily: '加入家庭',
+                    joining: '加入中...',
+                    familyNamePlaceholder: '输入家庭名称',
+                    inviteCodePlaceholder: '输入邀请码',
+                    catOnboardingDesc: '先来建立猫咪档案吧（可在设置页继续补充）',
+                    catNameRequired: '猫咪名字 *',
+                    catNamePlaceholder: '咪名',
+                    breedOptional: '品种 / 花色（可选）',
+                    breedPlaceholder: '咪族',
+                    birthdayOptional: '生日（可选）',
+                    adoptedOptional: '领养日（可选）',
+                    finishEnterHome: '完成并进入首页',
+                    creatingProfile: '创建中...',
+                    recentActivity: '最近动态',
+                    diaryNoText: '(无文字)',
+                    collapse: '收起 ▲',
+                    expand: '展开全文 ▼',
+                    diaryEmpty: '还没有日记，去记录页添加第一条吧！',
+                    inventoryReplenished: '库存已补充 ✅',
+                    inventoryReplenishFailed: '补充失败，请稍后重试',
+                    markedDiscarded: '已标记为已丢弃',
+                    markedUsedUp: '已标记为已用完',
+                    reminderActionFailed: '处理失败，请稍后重试',
+                    inventoryNotificationTitle: '库存提醒',
+                    inventoryNotificationBody: '有物资已到紧急状态，记得补货。',
+                    expiryNotificationTitle: '物品过期提醒',
+                    expiryNotificationBody: (itemName: string, hours: number) => `「${itemName}」已过期 ${hours} 小时，请尽快处理。`,
+                    enterNameFirst: '请先填写猫咪名字',
+                    welcomeJoined: '欢迎加入喵记！🐱',
+                    createProfileFailed: '创建猫咪档案失败，请稍后重试',
+                }
+                : {
+                    refreshing: 'Refreshing…',
+                    releaseToRefresh: 'Release to refresh',
+                    pullToRefresh: 'Pull to refresh',
+                    onboardingWelcome: 'Welcome to Cat Diary!',
+                    familyOnboardingDesc: 'Create or join a family first',
+                    createFamily: 'Create family',
+                    creating: 'Creating...',
+                    or: 'or',
+                    joinFamily: 'Join family',
+                    joining: 'Joining...',
+                    familyNamePlaceholder: 'Enter family name',
+                    inviteCodePlaceholder: 'Enter invite code',
+                    catOnboardingDesc: 'Create your cat profile first (you can complete details in Settings)',
+                    catNameRequired: 'Cat name *',
+                    catNamePlaceholder: 'Cat name',
+                    breedOptional: 'Breed / coat (optional)',
+                    breedPlaceholder: 'Breed',
+                    birthdayOptional: 'Birthday (optional)',
+                    adoptedOptional: 'Adoption date (optional)',
+                    finishEnterHome: 'Finish and go to Home',
+                    creatingProfile: 'Creating...',
+                    recentActivity: 'Recent activity',
+                    diaryNoText: '(No text)',
+                    collapse: 'Collapse ▲',
+                    expand: 'Read more ▼',
+                    diaryEmpty: 'No diary yet. Add your first one in Log.',
+                    inventoryReplenished: 'Inventory replenished ✅',
+                    inventoryReplenishFailed: 'Replenish failed. Please try again later.',
+                    markedDiscarded: 'Marked as discarded',
+                    markedUsedUp: 'Marked as used up',
+                    reminderActionFailed: 'Action failed. Please try again later.',
+                    inventoryNotificationTitle: 'Inventory alert',
+                    inventoryNotificationBody: 'Some supplies are urgent. Please restock soon.',
+                    expiryNotificationTitle: 'Expiry alert',
+                    expiryNotificationBody: (itemName: string, hours: number) => `${itemName} expired ${hours} hours ago. Please handle it soon.`,
+                    enterNameFirst: 'Please enter cat name first',
+                    welcomeJoined: 'Welcome to Cat Diary! 🐱',
+                    createProfileFailed: 'Failed to create cat profile. Please try again later.',
+                },
+        [language],
+    )
 
     // ─── Centralized data hook ────────────────────
     const dashboard = useDashboardData(catId, catLoading)
@@ -111,10 +139,10 @@ export function DashboardPage() {
                 })
                 .eq('id', itemId)
             if (error) throw error
-            pushToast('success', '库存已补充 ✅')
+            pushToast('success', text.inventoryReplenished)
             await reload()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '补充失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.inventoryReplenishFailed))
         }
     }
 
@@ -146,10 +174,10 @@ export function DashboardPage() {
                 .eq('id', reminderId)
             if (error) throw error
 
-            pushToast('success', '已标记为已丢弃')
+            pushToast('success', text.markedDiscarded)
             await reload()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '处理失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.reminderActionFailed))
         } finally {
             setDiscardingExpiryId(null)
         }
@@ -165,10 +193,10 @@ export function DashboardPage() {
                 .eq('id', reminderId)
             if (error) throw error
 
-            pushToast('success', '已标记为已用完')
+            pushToast('success', text.markedUsedUp)
             await reload()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '处理失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.reminderActionFailed))
         } finally {
             setDiscardingExpiryId(null)
         }
@@ -182,7 +210,7 @@ export function DashboardPage() {
         if (lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')) {
             const key = STORAGE_KEYS.notifyInventory(todayKey)
             if (!localStorage.getItem(key)) {
-                new Notification('库存提醒', { body: '有物资已到紧急状态，记得补货。' })
+                new Notification(text.inventoryNotificationTitle, { body: text.inventoryNotificationBody })
                 localStorage.setItem(key, '1')
             }
         }
@@ -191,13 +219,13 @@ export function DashboardPage() {
         for (const item of overdueItems) {
             const key = STORAGE_KEYS.notifyExpiredInventory(item.id, todayKey)
             if (!localStorage.getItem(key)) {
-                new Notification('物品过期提醒', {
-                    body: `「${item.item_name}」已过期 ${Math.abs(item.hoursLeft)} 小时，请尽快处理。`,
+                new Notification(text.expiryNotificationTitle, {
+                    body: text.expiryNotificationBody(item.item_name, Math.abs(item.hoursLeft)),
                 })
                 localStorage.setItem(key, '1')
             }
         }
-    }, [allInventoryExpiryReminders, lowInventory])
+    }, [allInventoryExpiryReminders, lowInventory, text])
 
     // ─── Onboarding handlers ──────────────────────
     const handleObCreateFamily = async () => {
@@ -210,7 +238,7 @@ export function DashboardPage() {
 
     const handleOnboardingSave = async () => {
         if (!user || !onboardingName.trim()) {
-            pushToast('error', '请先填写猫咪名字')
+            pushToast('error', text.enterNameFirst)
             return
         }
         setOnboardingSaving(true)
@@ -232,10 +260,10 @@ export function DashboardPage() {
             if (data) {
                 setCatId(data.id)
                 reloadCatData()
-                pushToast('success', '欢迎加入喵记！🐱')
+                pushToast('success', text.welcomeJoined)
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '创建猫咪档案失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, text.createProfileFailed))
         } finally {
             setOnboardingSaving(false)
         }

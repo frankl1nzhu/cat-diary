@@ -38,12 +38,12 @@ function escapeHtml(str: string): string {
         .replace(/'/g, '&#039;')
 }
 
-/** Health type labels (module-level constant to avoid re-creation). */
-const HEALTH_TYPE_LABELS: Record<HealthFormType, { icon: string; label: string }> = {
-    vaccine: { icon: '💉', label: '疫苗' },
-    deworming: { icon: '💊', label: '驱虫' },
-    medical: { icon: '🏥', label: '就医' },
-    vomit: { icon: '🤮', label: '呕吐' },
+/** Health type icons (labels are translated at runtime). */
+const HEALTH_TYPE_ICONS: Record<HealthFormType, string> = {
+    vaccine: '💉',
+    deworming: '💊',
+    medical: '🏥',
+    vomit: '🤮',
 }
 
 /** Pie chart colors (module-level constant). */
@@ -52,6 +52,7 @@ const PIE_COLORS = ['var(--color-primary)', 'var(--color-secondary)', 'var(--col
 export function StatsPage() {
     const { user } = useSession()
     const { language } = useI18n()
+    const l = useCallback((zh: string, en: string) => (language === 'zh' ? zh : en), [language])
     const { cat, catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
@@ -218,11 +219,11 @@ export function StatsPage() {
             if (feedData.data) setFeeds(feedData.data)
         } catch (err) {
             console.error('Failed to load stats data:', err)
-            pushToast('error', getErrorMessage(err, '统计数据加载失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('统计数据加载失败，请稍后重试', 'Failed to load stats data, please try again later')))
         } finally {
             setLoading(false)
         }
-    }, [catId, catLoading, pushToast])
+    }, [catId, catLoading, l, pushToast])
 
     useEffect(() => { loadData() }, [loadData])
 
@@ -238,14 +239,17 @@ export function StatsPage() {
     }, [weightWindowDays, weights])
 
     const bristolDistributionData = useMemo(() => {
-        const counts = { 正常: 0, 异常: 0 }
+        const counts = {
+            [l('正常', 'Normal')]: 0,
+            [l('异常', 'Abnormal')]: 0,
+        }
         const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         poops.forEach((item) => {
             if (new Date(item.created_at).getTime() >= cutoff) {
                 if (isAbnormalPoop(item.bristol_type, item.color)) {
-                    counts.异常 += 1
+                    counts[l('异常', 'Abnormal')] += 1
                 } else {
-                    counts.正常 += 1
+                    counts[l('正常', 'Normal')] += 1
                 }
             }
         })
@@ -253,7 +257,7 @@ export function StatsPage() {
         return Object.entries(counts)
             .map(([name, value]) => ({ name, value }))
             .filter((item) => item.value > 0)
-    }, [poops])
+    }, [l, poops])
 
     const missTrendData = useMemo(() => {
         const dayMap = new Map<string, number>()
@@ -309,7 +313,7 @@ export function StatsPage() {
         if (!catId) return
         const selectedTypes = (Object.keys(exportTypes) as ExportTypeKey[]).filter((k) => exportTypes[k])
         if (selectedTypes.length === 0) {
-            pushToast('error', '请至少选择一种导出类型')
+            pushToast('error', l('请至少选择一种导出类型', 'Please select at least one export type'))
             return
         }
 
@@ -345,22 +349,23 @@ export function StatsPage() {
                     : Promise.resolve({ data: [] as FeedStatus[], error: null }),
             ])
 
+            const noRecord = `<li>${escapeHtml(l('暂无记录', 'No records'))}</li>`
             const htmlSections: string[] = []
-            if (exportTypes.weight) htmlSections.push(`<h2>⚖️ 体重记录</h2><ul>${(weightsRes.data || []).map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleString())}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.poop) htmlSections.push(`<h2>💩 便便记录</h2><ul>${(poopsRes.data || []).map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleString())}: Bristol ${escapeHtml(String(p.bristol_type))}, ${escapeHtml(p.color)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.miss) htmlSections.push(`<h2>🥹 咪被想次数</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.health) htmlSections.push(`<h2>💉 健康记录</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.inventory) htmlSections.push(`<h2>📦 物资库存</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.diary) htmlSections.push(`<h2>📝 日记</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || '(无文字)')}</div>${d.image_url ? `<div style="margin-top:6px;"><img src="${escapeHtml(d.image_url)}" alt="diary image" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;" /></div>` : ''}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.mood) htmlSections.push(`<h2>😺 心情</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
-            if (exportTypes.feed) htmlSections.push(`<h2>🍽️ 喂食</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || '<li>暂无记录</li>'}</ul>`)
+            if (exportTypes.weight) htmlSections.push(`<h2>${escapeHtml(l('⚖️ 体重记录', '⚖️ Weight Records'))}</h2><ul>${(weightsRes.data || []).map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleString())}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.poop) htmlSections.push(`<h2>${escapeHtml(l('💩 便便记录', '💩 Poop Records'))}</h2><ul>${(poopsRes.data || []).map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleString())}: Bristol ${escapeHtml(String(p.bristol_type))}, ${escapeHtml(p.color)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.miss) htmlSections.push(`<h2>${escapeHtml(l('🥹 咪被想次数', '🥹 Missing-you Records'))}</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.health) htmlSections.push(`<h2>${escapeHtml(l('💉 健康记录', '💉 Health Records'))}</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.inventory) htmlSections.push(`<h2>${escapeHtml(l('📦 物资库存', '📦 Inventory'))}</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.diary) htmlSections.push(`<h2>${escapeHtml(l('📝 日记', '📝 Diary'))}</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || l('(无文字)', '(No text)'))}</div>${d.image_url ? `<div style="margin-top:6px;"><img src="${escapeHtml(d.image_url)}" alt="diary image" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;" /></div>` : ''}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.mood) htmlSections.push(`<h2>${escapeHtml(l('😺 心情', '😺 Mood'))}</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.feed) htmlSections.push(`<h2>${escapeHtml(l('🍽️ 喂食', '🍽️ Feeding'))}</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || noRecord}</ul>`)
 
             const html = `
-            <html><head><meta charset="utf-8" /><title>记录导出</title>
+            <html><head><meta charset="utf-8" /><title>${escapeHtml(l('记录导出', 'Record Export'))}</title>
             <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
             </head><body>
-            <h1>🐱 全部记录导出</h1>
-            <div>时间跨度：最近 ${exportDays} 天</div>
+            <h1>${escapeHtml(l('🐱 全部记录导出', '🐱 Full Record Export'))}</h1>
+            <div>${escapeHtml(l(`时间跨度：最近 ${exportDays} 天`, `Range: last ${exportDays} days`))}</div>
             ${htmlSections.join('')}
             </body></html>`
 
@@ -393,7 +398,7 @@ export function StatsPage() {
                 cleanup()
                 const reportWindow = window.open('', '_blank')
                 if (!reportWindow) {
-                    pushToast('error', '导出窗口被拦截，请允许弹窗后重试')
+                    pushToast('error', l('导出窗口被拦截，请允许弹窗后重试', 'Export popup was blocked. Please allow popups and try again'))
                     return
                 }
                 reportWindow.document.write(html)
@@ -404,7 +409,7 @@ export function StatsPage() {
 
             setExportModalOpen(false)
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '导出失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('导出失败，请稍后重试', 'Export failed, please try again later')))
         } finally {
             setExporting(false)
         }
@@ -416,7 +421,7 @@ export function StatsPage() {
         setHealthSaving(true)
         try {
             const payloadType = healthType === 'vomit' ? 'medical' : healthType
-            const payloadName = healthType === 'vomit' ? '呕吐' : healthName.trim()
+            const payloadName = healthType === 'vomit' ? l('呕吐', 'Vomit') : healthName.trim()
             const payloadNextDue = payloadType === 'medical' ? null : (healthNextDue || null)
             if (editingHealthId) {
                 await supabase
@@ -444,13 +449,19 @@ export function StatsPage() {
             resetHealthForm()
             await loadData()
             lightHaptic()
-            pushToast('success', editingHealthId ? '健康记录已更新' : '健康记录已保存')
+            pushToast('success', editingHealthId ? l('健康记录已更新', 'Health record updated') : l('健康记录已保存', 'Health record saved'))
             if (!editingHealthId && catId) {
-                const typeLabel = healthType === 'vomit' ? '呕吐' : healthType === 'vaccine' ? '疫苗' : healthType === 'deworming' ? '驱虫' : '就医'
-                sendHealthNotification(catId, cat?.name || '猫咪', typeLabel, payloadName).catch(() => { })
+                const typeLabel = healthType === 'vomit'
+                    ? l('呕吐', 'Vomit')
+                    : healthType === 'vaccine'
+                        ? l('疫苗', 'Vaccine')
+                        : healthType === 'deworming'
+                            ? l('驱虫', 'Deworming')
+                            : l('就医', 'Medical')
+                sendHealthNotification(catId, cat?.name || l('猫咪', 'Cat'), typeLabel, payloadName).catch(() => { })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '健康记录保存失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('健康记录保存失败，请稍后重试', 'Failed to save health record, please try again later')))
         } finally {
             setHealthSaving(false)
         }
@@ -495,12 +506,12 @@ export function StatsPage() {
             resetInvForm()
             await loadData()
             lightHaptic()
-            pushToast('success', '库存已更新')
+            pushToast('success', l('库存已更新', 'Inventory updated'))
             if (!editingInvId && catId) {
-                sendInventoryNotification(catId, cat?.name || '猫咪', invItemName.trim()).catch(() => { })
+                sendInventoryNotification(catId, cat?.name || l('猫咪', 'Cat'), invItemName.trim()).catch(() => { })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '库存保存失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('库存保存失败，请稍后重试', 'Failed to save inventory, please try again later')))
         } finally {
             setInvSaving(false)
         }
@@ -524,7 +535,7 @@ export function StatsPage() {
 
         const hours = Math.floor(Number(expiryInHours))
         if (!Number.isFinite(hours) || hours <= 0) {
-            pushToast('error', '请填写大于 0 的过期小时数')
+            pushToast('error', l('请填写大于 0 的过期小时数', 'Please enter an expiry hour value greater than 0'))
             return
         }
 
@@ -544,9 +555,9 @@ export function StatsPage() {
             resetExpiryForm()
             await loadData()
             lightHaptic()
-            pushToast('success', '过期提醒已添加')
+            pushToast('success', l('过期提醒已添加', 'Expiry reminder added'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '过期提醒保存失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('过期提醒保存失败，请稍后重试', 'Failed to save expiry reminder, please try again later')))
         } finally {
             setExpirySaving(false)
         }
@@ -562,10 +573,10 @@ export function StatsPage() {
             if (error) throw error
 
             lightHaptic()
-            pushToast('success', '已标记为已丢弃')
+            pushToast('success', l('已标记为已丢弃', 'Marked as discarded'))
             await loadData()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '操作失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('操作失败，请稍后重试', 'Action failed, please try again later')))
         } finally {
             setDiscardingExpiryId(null)
         }
@@ -588,7 +599,7 @@ export function StatsPage() {
 
     const openEditHealth = (item: HealthRecord) => {
         setEditingHealthId(item.id)
-        if (item.type === 'medical' && item.name.includes('呕吐')) {
+        if (item.type === 'medical' && (item.name.includes('呕吐') || item.name.toLowerCase().includes('vomit'))) {
             setHealthType('vomit')
         } else {
             setHealthType(item.type)
@@ -598,9 +609,10 @@ export function StatsPage() {
         setHealthNextDue(item.next_due || '')
         setHealthNotes(item.notes || '')
         if (item.type === 'medical') {
-            if (item.name.includes('呕吐')) setHealthMedicalPreset('vomit')
-            else if (item.name.includes('咳嗽')) setHealthMedicalPreset('cough')
-            else if (item.name.includes('发热')) setHealthMedicalPreset('fever')
+            const normalized = item.name.toLowerCase()
+            if (item.name.includes('呕吐') || normalized.includes('vomit')) setHealthMedicalPreset('vomit')
+            else if (item.name.includes('咳嗽') || normalized.includes('cough')) setHealthMedicalPreset('cough')
+            else if (item.name.includes('发热') || normalized.includes('fever')) setHealthMedicalPreset('fever')
             else setHealthMedicalPreset('other')
         }
         setHealthModalOpen(true)
@@ -610,10 +622,10 @@ export function StatsPage() {
         try {
             await supabase.from('health_records').delete().eq('id', id)
             lightHaptic()
-            pushToast('success', '健康记录已删除')
+            pushToast('success', l('健康记录已删除', 'Health record deleted'))
             await loadData()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('删除失败，请稍后重试', 'Delete failed, please try again later')))
         }
     }
 
@@ -621,10 +633,10 @@ export function StatsPage() {
         try {
             await supabase.from('inventory').delete().eq('id', id)
             lightHaptic()
-            pushToast('success', '物资已删除')
+            pushToast('success', l('物资已删除', 'Inventory item deleted'))
             await loadData()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('删除失败，请稍后重试', 'Delete failed, please try again later')))
         }
     }
 
@@ -632,7 +644,7 @@ export function StatsPage() {
         if (!catId || !user) return
         const kg = parseFloat(weightValue)
         if (isNaN(kg) || kg < 0.1 || kg > 30) {
-            setWeightError('体重需在 0.1 到 30kg 之间')
+            setWeightError(l('体重需在 0.1 到 30kg 之间', 'Weight must be between 0.1 and 30kg'))
             return
         }
         setWeightError('')
@@ -660,12 +672,12 @@ export function StatsPage() {
             resetWeightForm()
             await loadData()
             lightHaptic()
-            pushToast('success', editingWeightId ? '体重已更新' : '体重记录已保存')
+            pushToast('success', editingWeightId ? l('体重已更新', 'Weight updated') : l('体重记录已保存', 'Weight record saved'))
             if (!editingWeightId && catId) {
-                sendWeightNotification(catId, cat?.name || '猫咪', kg).catch(() => { })
+                sendWeightNotification(catId, cat?.name || l('猫咪', 'Cat'), kg).catch(() => { })
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '体重保存失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('体重保存失败，请稍后重试', 'Failed to save weight, please try again later')))
         } finally {
             setWeightSaving(false)
         }
@@ -675,10 +687,10 @@ export function StatsPage() {
         try {
             await supabase.from('weight_records').delete().eq('id', id)
             lightHaptic()
-            pushToast('success', '体重记录已删除')
+            pushToast('success', l('体重记录已删除', 'Weight record deleted'))
             await loadData()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('删除失败，请稍后重试', 'Delete failed, please try again later')))
         }
     }
 
@@ -707,7 +719,7 @@ export function StatsPage() {
         const recentHealth = healthRecords.filter((h) => new Date(h.date).getTime() >= cutoff)
         const recentVomit = healthRecords.filter((h) => {
             const inRange = new Date(h.date).getTime() >= cutoff
-            const isVomit = h.type === 'medical' && h.name.includes('呕吐')
+            const isVomit = h.type === 'medical' && (h.name.includes('呕吐') || h.name.toLowerCase().includes('vomit'))
             return inRange && isVomit
         })
         const recentAbnormalPoops = poops.filter((p) => {
@@ -808,7 +820,12 @@ export function StatsPage() {
     }
 
     // ─── Health type labels ───────────────────────
-    const healthTypeLabels = HEALTH_TYPE_LABELS
+    const healthTypeLabels: Record<HealthFormType, { icon: string; label: string }> = {
+        vaccine: { icon: HEALTH_TYPE_ICONS.vaccine, label: l('疫苗', 'Vaccine') },
+        deworming: { icon: HEALTH_TYPE_ICONS.deworming, label: l('驱虫', 'Deworming') },
+        medical: { icon: HEALTH_TYPE_ICONS.medical, label: l('就医', 'Medical') },
+        vomit: { icon: HEALTH_TYPE_ICONS.vomit, label: l('呕吐', 'Vomit') },
+    }
 
     if (loading || catLoading) {
         return (
@@ -852,8 +869,8 @@ export function StatsPage() {
                 <h1 className="text-2xl font-bold">{text.title}</h1>
                 <p className="text-secondary text-sm">{text.subtitle}</p>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>导出就医报告（中文）</Button>
-                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>Export Vet Report (EN)</Button>
+                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>{l('导出就医报告（中文）', 'Export Vet Report (ZH)')}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>{l('导出就医报告（英文）', 'Export Vet Report (EN)')}</Button>
                     <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>{text.exportAll}</Button>
                 </div>
             </div>
@@ -1053,16 +1070,16 @@ export function StatsPage() {
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <div className="section-row">
-                        <h2 className="text-lg font-semibold">💉 健康记录</h2>
+                        <h2 className="text-lg font-semibold">{l('💉 健康记录', '💉 Health Records')}</h2>
                         <Button variant="ghost" size="sm" onClick={() => { resetHealthForm(); setHealthModalOpen(true) }}>
-                            + 添加
+                            {l('+ 添加', '+ Add')}
                         </Button>
                     </div>
 
                     {healthRecords.length > 0 ? (
                         <div className="health-list">
                             {healthRecords.map((r) => {
-                                const viewType: HealthFormType = (r.type === 'medical' && r.name.includes('呕吐')) ? 'vomit' : r.type
+                                const viewType: HealthFormType = (r.type === 'medical' && (r.name.includes('呕吐') || r.name.toLowerCase().includes('vomit'))) ? 'vomit' : r.type
                                 const config = healthTypeLabels[viewType]
                                 const isPastDue = r.next_due && new Date(r.next_due) < new Date()
                                 return (
@@ -1074,7 +1091,7 @@ export function StatsPage() {
                                                 <span className="text-muted text-xs">{config.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
                                                 {r.next_due && (
                                                     <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
-                                                        下次：{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? '⚠️ 已过期' : ''}
+                                                        {l('下次：', 'Next: ')}{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? l('⚠️ 已过期', '⚠️ Overdue') : ''}
                                                     </span>
                                                 )}
                                             </div>
@@ -1085,7 +1102,7 @@ export function StatsPage() {
                                                         className="health-renew-btn"
                                                         onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
                                                     >
-                                                        🔄 续期
+                                                        {l('🔄 续期', '🔄 Renew')}
                                                     </button>
                                                     <button
                                                         type="button"
@@ -1093,7 +1110,7 @@ export function StatsPage() {
                                                         disabled={renew.stopSaving === r.id || !online}
                                                         onClick={(e) => { e.stopPropagation(); renew.handleStop(r) }}
                                                     >
-                                                        {renew.stopSaving === r.id ? '停止中...' : '停止'}
+                                                        {renew.stopSaving === r.id ? l('停止中...', 'Stopping...') : l('停止', 'Stop')}
                                                     </button>
                                                 </div>
                                             )}
@@ -1104,7 +1121,7 @@ export function StatsPage() {
                         </div>
                     ) : (
                         <div className="empty-state-sm">
-                            <p className="text-secondary text-sm">暂无健康记录</p>
+                            <p className="text-secondary text-sm">{l('暂无健康记录', 'No health records yet')}</p>
                         </div>
                     )}
                 </Card>
@@ -1114,9 +1131,9 @@ export function StatsPage() {
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <div className="section-row">
-                        <h2 className="text-lg font-semibold">📦 物资库存</h2>
+                        <h2 className="text-lg font-semibold">{l('📦 物资库存', '📦 Inventory')}</h2>
                         <Button variant="ghost" size="sm" onClick={() => { resetInvForm(); setInventoryModalOpen(true) }}>
-                            + 添加
+                            {l('+ 添加', '+ Add')}
                         </Button>
                     </div>
 
@@ -1135,7 +1152,7 @@ export function StatsPage() {
                                             <div className="inventory-item-info">
                                                 <span className="text-sm">{item.icon ? `${item.icon} ` : ''}{item.item_name}</span>
                                                 {days != null && (
-                                                    <span className="text-xs text-muted">约剩 {Math.round(days)} 天</span>
+                                                    <span className="text-xs text-muted">{l(`约剩 ${Math.round(days)} 天`, `About ${Math.round(days)} days left`)}</span>
                                                 )}
                                             </div>
                                             <StatusBadge status={derivedStatus} size="sm" />
@@ -1147,7 +1164,7 @@ export function StatsPage() {
                     ) : (
                         <div className="empty-state-sm">
                             <div className="empty-illu-wrap"><EmptyCatIllustration mood="hungry" /></div>
-                            <p className="text-secondary text-sm">添加猫粮、猫砂等物资，管理库存状态</p>
+                            <p className="text-secondary text-sm">{l('添加猫粮、猫砂等物资，管理库存状态', 'Add cat food, litter and other items to manage stock status')}</p>
                         </div>
                     )}
                 </Card>
@@ -1157,9 +1174,9 @@ export function StatsPage() {
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <div className="section-row">
-                        <h2 className="text-lg font-semibold">🗑️ 物品过期提醒</h2>
+                        <h2 className="text-lg font-semibold">{l('🗑️ 物品过期提醒', '🗑️ Item Expiry Reminders')}</h2>
                         <Button variant="ghost" size="sm" onClick={() => { resetExpiryForm(); setExpiryModalOpen(true) }}>
-                            + 添加
+                            {l('+ 添加', '+ Add')}
                         </Button>
                     </div>
 
@@ -1169,10 +1186,10 @@ export function StatsPage() {
                                 const hoursLeft = computeInventoryExpiryHoursLeft(item)
                                 const isOverdue = new Date(item.expires_at).getTime() <= Date.now()
                                 const statusText = isOverdue
-                                    ? `已过期 ${Math.max(1, Math.abs(hoursLeft))} 小时`
+                                    ? l(`已过期 ${Math.max(1, Math.abs(hoursLeft))} 小时`, `Expired ${Math.max(1, Math.abs(hoursLeft))}h ago`)
                                     : hoursLeft === 0
-                                        ? '即将过期'
-                                        : `${hoursLeft} 小时后过期`
+                                        ? l('即将过期', 'Expiring soon')
+                                        : l(`${hoursLeft} 小时后过期`, `Expires in ${hoursLeft}h`)
 
                                 return (
                                     <div
@@ -1190,10 +1207,10 @@ export function StatsPage() {
                                                 onClick={() => { void markExpiryReminderDiscarded(item.id) }}
                                                 disabled={!online || discardingExpiryId === item.id}
                                             >
-                                                {discardingExpiryId === item.id ? '处理中...' : '已丢弃'}
+                                                {discardingExpiryId === item.id ? l('处理中...', 'Processing...') : l('已丢弃', 'Discarded')}
                                             </Button>
                                         ) : (
-                                            <span className="text-xs text-muted">待过期</span>
+                                            <span className="text-xs text-muted">{l('待过期', 'Pending expiry')}</span>
                                         )}
                                     </div>
                                 )
@@ -1201,17 +1218,17 @@ export function StatsPage() {
                         </div>
                     ) : (
                         <div className="empty-state-sm">
-                            <p className="text-secondary text-sm">添加湿粮、罐头等物品，到期后会显示提醒并可标记已丢弃</p>
+                            <p className="text-secondary text-sm">{l('添加湿粮、罐头等物品，到期后会显示提醒并可标记已丢弃', 'Add wet food or cans to get expiry alerts and mark them discarded')}</p>
                         </div>
                     )}
                 </Card>
             </div>
 
             {/* ── Health Modal ── */}
-            <Modal isOpen={healthModalOpen} onClose={() => { setHealthModalOpen(false); resetHealthForm() }} title={editingHealthId ? '💉 编辑健康记录' : '💉 添加健康记录'}>
+            <Modal isOpen={healthModalOpen} onClose={() => { setHealthModalOpen(false); resetHealthForm() }} title={editingHealthId ? l('💉 编辑健康记录', '💉 Edit Health Record') : l('💉 添加健康记录', '💉 Add Health Record')}>
                 <div className="health-form">
                     <div className="form-group">
-                        <label className="form-label">类型</label>
+                        <label className="form-label">{l('类型', 'Type')}</label>
                         <div className="health-type-grid">
                             {(['vaccine', 'deworming', 'medical', 'vomit'] as const).map((t) => (
                                 <button
@@ -1220,12 +1237,17 @@ export function StatsPage() {
                                     onClick={() => {
                                         setHealthType(t)
                                         if (t === 'medical') {
-                                            const map = { vomit: '呕吐', cough: '咳嗽', fever: '发热', other: '' }
+                                            const map = {
+                                                vomit: l('呕吐', 'Vomit'),
+                                                cough: l('咳嗽', 'Cough'),
+                                                fever: l('发热', 'Fever'),
+                                                other: '',
+                                            }
                                             setHealthName(map[healthMedicalPreset])
                                             setHealthNextDue('')
                                         }
                                         if (t === 'vomit') {
-                                            setHealthName('呕吐')
+                                            setHealthName(l('呕吐', 'Vomit'))
                                             setHealthNextDue('')
                                         }
                                     }}
@@ -1239,7 +1261,7 @@ export function StatsPage() {
                     {healthType === 'medical' ? (
                         <>
                             <div className="form-group">
-                                <label className="form-label" htmlFor="health-medical-preset">就医类型</label>
+                                <label className="form-label" htmlFor="health-medical-preset">{l('就医类型', 'Medical type')}</label>
                                 <select
                                     id="health-medical-preset"
                                     className="form-input"
@@ -1247,36 +1269,36 @@ export function StatsPage() {
                                     onChange={(e) => {
                                         const next = e.target.value as 'vomit' | 'cough' | 'fever' | 'other'
                                         setHealthMedicalPreset(next)
-                                        if (next === 'vomit') setHealthName('呕吐')
-                                        if (next === 'cough') setHealthName('咳嗽')
-                                        if (next === 'fever') setHealthName('发热')
+                                        if (next === 'vomit') setHealthName(l('呕吐', 'Vomit'))
+                                        if (next === 'cough') setHealthName(l('咳嗽', 'Cough'))
+                                        if (next === 'fever') setHealthName(l('发热', 'Fever'))
                                         if (next === 'other') setHealthName('')
                                     }}
                                 >
-                                    <option value="vomit">呕吐</option>
-                                    <option value="cough">咳嗽</option>
-                                    <option value="fever">发热</option>
-                                    <option value="other">其他</option>
+                                    <option value="vomit">{l('呕吐', 'Vomit')}</option>
+                                    <option value="cough">{l('咳嗽', 'Cough')}</option>
+                                    <option value="fever">{l('发热', 'Fever')}</option>
+                                    <option value="other">{l('其他', 'Other')}</option>
                                 </select>
                             </div>
                             {healthMedicalPreset === 'other' && (
                                 <div className="form-group">
-                                    <label className="form-label" htmlFor="health-name">症状名称</label>
+                                    <label className="form-label" htmlFor="health-name">{l('症状名称', 'Symptom name')}</label>
                                     <input
                                         id="health-name"
                                         className="form-input"
-                                        placeholder="请输入症状"
+                                        placeholder={l('请输入症状', 'Enter symptom')}
                                         value={healthName}
                                         onChange={(e) => setHealthName(e.target.value)}
                                     />
                                 </div>
                             )}
                             <div className="form-group">
-                                <label className="form-label" htmlFor="health-notes">症状备注</label>
+                                <label className="form-label" htmlFor="health-notes">{l('症状备注', 'Symptom notes')}</label>
                                 <textarea
                                     id="health-notes"
                                     className="form-input"
-                                    placeholder="可填写频次、状态、触发情况"
+                                    placeholder={l('可填写频次、状态、触发情况', 'Optional frequency, status and trigger notes')}
                                     rows={3}
                                     value={healthNotes}
                                     onChange={(e) => setHealthNotes(e.target.value)}
@@ -1285,11 +1307,11 @@ export function StatsPage() {
                         </>
                     ) : healthType === 'vomit' ? (
                         <div className="form-group">
-                            <label className="form-label" htmlFor="health-notes">呕吐备注</label>
+                            <label className="form-label" htmlFor="health-notes">{l('呕吐备注', 'Vomit notes')}</label>
                             <textarea
                                 id="health-notes"
                                 className="form-input"
-                                placeholder="可填写频次、状态、触发情况"
+                                placeholder={l('可填写频次、状态、触发情况', 'Optional frequency, status and trigger notes')}
                                 rows={3}
                                 value={healthNotes}
                                 onChange={(e) => setHealthNotes(e.target.value)}
@@ -1297,11 +1319,11 @@ export function StatsPage() {
                         </div>
                     ) : (
                         <div className="form-group">
-                            <label className="form-label" htmlFor="health-name">名称</label>
+                            <label className="form-label" htmlFor="health-name">{l('名称', 'Name')}</label>
                             <input
                                 id="health-name"
                                 className="form-input"
-                                placeholder={healthType === 'vaccine' ? '如：三联疫苗' : '如：大宠爱'}
+                                placeholder={healthType === 'vaccine' ? l('如：三联疫苗', 'e.g. FVRCP vaccine') : l('如：大宠爱', 'e.g. Broadline')}
                                 value={healthName}
                                 onChange={(e) => setHealthName(e.target.value)}
                             />
@@ -1310,7 +1332,7 @@ export function StatsPage() {
 
                     <div className="form-row">
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="health-date">日期</label>
+                            <label className="form-label" htmlFor="health-date">{l('日期', 'Date')}</label>
                             <input
                                 id="health-date"
                                 type="date"
@@ -1322,7 +1344,7 @@ export function StatsPage() {
                         </div>
                         {healthType === 'vaccine' || healthType === 'deworming' ? (
                             <div className="form-group flex-1">
-                                <label className="form-label" htmlFor="health-next">下次到期</label>
+                                <label className="form-label" htmlFor="health-next">{l('下次到期', 'Next due')}</label>
                                 <input
                                     id="health-next"
                                     type="date"
@@ -1336,27 +1358,27 @@ export function StatsPage() {
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleHealthSave} disabled={healthSaving || !online}>
-                        {healthSaving ? '保存中...' : editingHealthId ? '更新记录' : '保存记录'}
+                        {healthSaving ? l('保存中...', 'Saving...') : editingHealthId ? l('更新记录', 'Update record') : l('保存记录', 'Save record')}
                     </Button>
                 </div>
             </Modal>
 
             {/* ── Inventory Modal ── */}
-            <Modal isOpen={inventoryModalOpen} onClose={() => { setInventoryModalOpen(false); resetInvForm() }} title={editingInvId ? '📦 编辑库存' : '📦 添加物资'}>
+            <Modal isOpen={inventoryModalOpen} onClose={() => { setInventoryModalOpen(false); resetInvForm() }} title={editingInvId ? l('📦 编辑库存', '📦 Edit Inventory') : l('📦 添加物资', '📦 Add Inventory')}>
                 <div className="inv-form">
                     <div className="form-group">
-                        <label className="form-label" htmlFor="inv-name">物资名称</label>
+                        <label className="form-label" htmlFor="inv-name">{l('物资名称', 'Item name')}</label>
                         <input
                             id="inv-name"
                             className="form-input"
-                            placeholder="如：猫粮、猫砂、罐头"
+                            placeholder={l('如：猫粮、猫砂、罐头', 'e.g. Cat food, litter, canned food')}
                             value={invItemName}
                             onChange={(e) => setInvItemName(e.target.value)}
                         />
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">图标</label>
+                        <label className="form-label">{l('图标', 'Icon')}</label>
                         <div className="inv-icon-grid">
                             {INVENTORY_ICONS.map((opt) => (
                                 <button
@@ -1374,27 +1396,27 @@ export function StatsPage() {
 
                     <div className="form-row">
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="inv-total-qty">总量</label>
+                            <label className="form-label" htmlFor="inv-total-qty">{l('总量', 'Total quantity')}</label>
                             <input
                                 id="inv-total-qty"
                                 type="number"
                                 min="0"
                                 step="0.1"
                                 className="form-input"
-                                placeholder="如：10"
+                                placeholder={l('如：10', 'e.g. 10')}
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
                         </div>
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="inv-daily-consumption">每日消耗量</label>
+                            <label className="form-label" htmlFor="inv-daily-consumption">{l('每日消耗量', 'Daily consumption')}</label>
                             <input
                                 id="inv-daily-consumption"
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 className="form-input"
-                                placeholder="如：0.5"
+                                placeholder={l('如：0.5', 'e.g. 0.5')}
                                 value={invDailyConsumption}
                                 onChange={(e) => setInvDailyConsumption(e.target.value)}
                             />
@@ -1404,39 +1426,39 @@ export function StatsPage() {
                     {invTotalQty && invDailyConsumption && parseFloat(invDailyConsumption) > 0 && (
                         <div className="inv-preview" style={{ marginBottom: '12px', padding: '8px 12px', borderRadius: '8px', background: 'var(--glass-bg)' }}>
                             <p className="text-sm text-secondary">
-                                预计可用 <strong>{Math.round(parseFloat(invTotalQty) / parseFloat(invDailyConsumption))}</strong> 天
+                                {l('预计可用 ', 'Estimated available ')}<strong>{Math.round(parseFloat(invTotalQty) / parseFloat(invDailyConsumption))}</strong>{l(' 天', ' days')}
                                 {' · '}
                                 {(() => {
                                     const days = parseFloat(invTotalQty) / parseFloat(invDailyConsumption)
-                                    if (days < 3) return <span style={{ color: 'var(--color-danger)' }}>🔴 紧急</span>
-                                    if (days < 7) return <span style={{ color: 'var(--color-warning)' }}>🟡 快没了</span>
-                                    return <span style={{ color: 'var(--color-success)' }}>🟢 充足</span>
+                                    if (days < 3) return <span style={{ color: 'var(--color-danger)' }}>{l('🔴 紧急', '🔴 Urgent')}</span>
+                                    if (days < 7) return <span style={{ color: 'var(--color-warning)' }}>{l('🟡 快没了', '🟡 Running low')}</span>
+                                    return <span style={{ color: 'var(--color-success)' }}>{l('🟢 充足', '🟢 Sufficient')}</span>
                                 })()}
                             </p>
                         </div>
                     )}
 
                     <Button variant="primary" fullWidth onClick={handleInventorySave} disabled={invSaving || !online}>
-                        {invSaving ? '保存中...' : editingInvId ? '更新库存' : '添加物资'}
+                        {invSaving ? l('保存中...', 'Saving...') : editingInvId ? l('更新库存', 'Update inventory') : l('添加物资', 'Add inventory')}
                     </Button>
                 </div>
             </Modal>
 
-            <Modal isOpen={expiryModalOpen} onClose={() => { setExpiryModalOpen(false); resetExpiryForm() }} title="🗑️ 添加过期提醒">
+            <Modal isOpen={expiryModalOpen} onClose={() => { setExpiryModalOpen(false); resetExpiryForm() }} title={l('🗑️ 添加过期提醒', '🗑️ Add Expiry Reminder')}>
                 <div className="inv-form">
                     <div className="form-group">
-                        <label className="form-label" htmlFor="expiry-item-name">物品名称</label>
+                        <label className="form-label" htmlFor="expiry-item-name">{l('物品名称', 'Item name')}</label>
                         <input
                             id="expiry-item-name"
                             className="form-input"
-                            placeholder="如：湿粮、罐头、猫条"
+                            placeholder={l('如：湿粮、罐头、猫条', 'e.g. Wet food, canned food, treats')}
                             value={expiryItemName}
                             onChange={(e) => setExpiryItemName(e.target.value)}
                         />
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label" htmlFor="expiry-in-hours">多久后过期（小时）</label>
+                        <label className="form-label" htmlFor="expiry-in-hours">{l('多久后过期（小时）', 'Expires in (hours)')}</label>
                         <input
                             id="expiry-in-hours"
                             type="number"
@@ -1447,7 +1469,7 @@ export function StatsPage() {
                             onChange={(e) => setExpiryInHours(e.target.value)}
                         />
                         <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
-                            {expiryPreviewDateTime ? `预计过期时间：${expiryPreviewDateTime}` : '请输入有效小时数'}
+                            {expiryPreviewDateTime ? l(`预计过期时间：${expiryPreviewDateTime}`, `Estimated expiry time: ${expiryPreviewDateTime}`) : l('请输入有效小时数', 'Please enter valid hours')}
                         </p>
                     </div>
 
@@ -1457,16 +1479,16 @@ export function StatsPage() {
                         onClick={handleExpiryReminderSave}
                         disabled={expirySaving || !online || !expiryItemName.trim()}
                     >
-                        {expirySaving ? '保存中...' : '保存提醒'}
+                        {expirySaving ? l('保存中...', 'Saving...') : l('保存提醒', 'Save reminder')}
                     </Button>
                 </div>
             </Modal>
 
-            <Modal isOpen={weightModalOpen} onClose={() => { setWeightModalOpen(false); resetWeightForm() }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 添加体重'}>
+            <Modal isOpen={weightModalOpen} onClose={() => { setWeightModalOpen(false); resetWeightForm() }} title={editingWeightId ? l('⚖️ 编辑体重', '⚖️ Edit Weight') : l('⚖️ 添加体重', '⚖️ Add Weight')}>
                 <div className="weight-form">
                     <div className="form-row">
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="weight-value">体重 (kg)</label>
+                            <label className="form-label" htmlFor="weight-value">{l('体重 (kg)', 'Weight (kg)')}</label>
                             <input
                                 id="weight-value"
                                 type="number"
@@ -1484,7 +1506,7 @@ export function StatsPage() {
                             />
                         </div>
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="weight-date">日期</label>
+                            <label className="form-label" htmlFor="weight-date">{l('日期', 'Date')}</label>
                             <input
                                 id="weight-date"
                                 type="date"
@@ -1497,24 +1519,24 @@ export function StatsPage() {
                     </div>
                     {weightError && <p className="text-xs text-danger" id="stats-weight-error">{weightError}</p>}
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
-                        {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
+                        {weightSaving ? l('保存中...', 'Saving...') : editingWeightId ? l('更新体重', 'Update weight') : l('保存体重', 'Save weight')}
                     </Button>
                 </div>
             </Modal>
 
-            <Modal isOpen={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)} title="确认删除？">
+            <Modal isOpen={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)} title={l('确认删除？', 'Confirm delete?')}>
                 <div className="weight-form">
-                    <p className="text-sm text-secondary">此操作不可恢复，确认继续删除吗？</p>
+                    <p className="text-sm text-secondary">{l('此操作不可恢复，确认继续删除吗？', 'This action cannot be undone. Continue deleting?')}</p>
                     <Button variant="primary" fullWidth onClick={confirmDelete} disabled={deleteSubmitting}>
-                        {deleteSubmitting ? '删除中...' : '确认删除'}
+                        {deleteSubmitting ? l('删除中...', 'Deleting...') : l('确认删除', 'Confirm delete')}
                     </Button>
                 </div>
             </Modal>
 
-            <Modal isOpen={exportModalOpen} onClose={() => !exporting && setExportModalOpen(false)} title="导出全部记录">
+            <Modal isOpen={exportModalOpen} onClose={() => !exporting && setExportModalOpen(false)} title={l('导出全部记录', 'Export Records')}>
                 <div className="weight-form">
                     <div className="form-group">
-                        <label className="form-label" htmlFor="export-days">时间跨度：最近 {exportDays} 天（1 - {maxExportDays}）</label>
+                        <label className="form-label" htmlFor="export-days">{l(`时间跨度：最近 ${exportDays} 天（1 - ${maxExportDays}）`, `Range: last ${exportDays} days (1 - ${maxExportDays})`)}</label>
                         <input
                             id="export-days"
                             type="range"
@@ -1527,18 +1549,18 @@ export function StatsPage() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">导出类型（可多选）</label>
+                        <label className="form-label">{l('导出类型（可多选）', 'Export types (multi-select)')}</label>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             {(Object.keys(exportTypes) as ExportTypeKey[]).map((key) => {
                                 const labels: Record<ExportTypeKey, string> = {
-                                    weight: '体重',
-                                    poop: '便便',
-                                    miss: '咪被想',
-                                    health: '健康',
-                                    inventory: '库存',
-                                    diary: '日记',
-                                    mood: '心情',
-                                    feed: '喂食',
+                                    weight: l('体重', 'Weight'),
+                                    poop: l('便便', 'Poop'),
+                                    miss: l('咪被想', 'Missing-you'),
+                                    health: l('健康', 'Health'),
+                                    inventory: l('库存', 'Inventory'),
+                                    diary: l('日记', 'Diary'),
+                                    mood: l('心情', 'Mood'),
+                                    feed: l('喂食', 'Feeding'),
                                 }
 
                                 return (
@@ -1557,7 +1579,7 @@ export function StatsPage() {
                     </div>
 
                     <Button variant="primary" fullWidth onClick={exportSelectedRecords} disabled={exporting || !catId}>
-                        {exporting ? '导出中...' : '开始导出'}
+                        {exporting ? l('导出中...', 'Exporting...') : l('开始导出', 'Start export')}
                     </Button>
                 </div>
             </Modal>

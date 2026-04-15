@@ -4,6 +4,7 @@ import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import type { InventoryItem } from '../../types/database.types'
 import { computeInventoryStatus, computeDaysRemaining } from '../../types/database.types'
+import { useI18n } from '../../lib/i18n'
 
 interface InventoryAlertsProps {
     items: InventoryItem[]
@@ -12,11 +13,53 @@ interface InventoryAlertsProps {
 }
 
 export const InventoryAlerts = memo(function InventoryAlerts({ items, online, onReplenish }: InventoryAlertsProps) {
+    const { language } = useI18n()
     const [replenishModalOpen, setReplenishModalOpen] = useState(false)
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
     const [newTotalQty, setNewTotalQty] = useState('')
     const [newDailyCons, setNewDailyCons] = useState('')
     const [saving, setSaving] = useState(false)
+    const text = language === 'zh'
+        ? {
+            title: '🛒 库存预警',
+            daysLeft: (days: number) => `约剩 ${days} 天`,
+            urgent: '紧急',
+            low: '偏低',
+            urgentBadge: '🔴 紧急',
+            lowBadge: '🟡 偏低',
+            replenish: '补充',
+            replenishTitle: (name: string) => `🛒 补充 ${name}`,
+            defaultItem: '物资',
+            totalQty: '总量',
+            totalQtyPlaceholder: '例：28（袋/罐等）',
+            totalQtyHint: '重新设定当前库存总量',
+            dailyCons: '每日消耗',
+            dailyConsPlaceholder: '例：1',
+            dailyConsHint: '每日使用量，用于计算剩余天数',
+            availableDays: (days: number) => `预计可用 ${days} 天`,
+            updating: '更新中...',
+            confirm: '确认补充',
+        }
+        : {
+            title: '🛒 Inventory Alerts',
+            daysLeft: (days: number) => `${days} days left`,
+            urgent: 'Urgent',
+            low: 'Low',
+            urgentBadge: '🔴 Urgent',
+            lowBadge: '🟡 Low',
+            replenish: 'Refill',
+            replenishTitle: (name: string) => `🛒 Refill ${name}`,
+            defaultItem: 'item',
+            totalQty: 'Total quantity',
+            totalQtyPlaceholder: 'e.g. 28 (bags/cans)',
+            totalQtyHint: 'Reset current total inventory',
+            dailyCons: 'Daily consumption',
+            dailyConsPlaceholder: 'e.g. 1',
+            dailyConsHint: 'Used to calculate remaining days',
+            availableDays: (days: number) => `Estimated ${days} days available`,
+            updating: 'Updating...',
+            confirm: 'Confirm refill',
+        }
 
     if (items.length === 0) return null
 
@@ -49,7 +92,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
             <div className="px-4 stagger-item inventory-alert-card">
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold" style={{ marginBottom: 'var(--space-2)' }}>
-                        🛒 库存预警
+                        {text.title}
                     </h2>
                     <div className="inventory-alert-list">
                         {items.map((item) => {
@@ -67,14 +110,14 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                                         <span className="text-sm font-semibold">{item.item_name}</span>
                                         <span className="text-xs text-muted">
                                             {days != null
-                                                ? `约剩 ${Math.max(0, Math.round(days))} 天`
-                                                : status === 'urgent' ? '紧急' : '偏低'}
+                                                ? text.daysLeft(Math.max(0, Math.round(days)))
+                                                : status === 'urgent' ? text.urgent : text.low}
                                         </span>
                                     </div>
                                     <span
                                         className={`inventory-alert-status ${isUrgent ? 'text-danger' : 'text-warning'}`}
                                     >
-                                        {isUrgent ? '🔴 紧急' : '🟡 偏低'}
+                                        {isUrgent ? text.urgentBadge : text.lowBadge}
                                     </span>
                                     <button
                                         type="button"
@@ -82,7 +125,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                                         onClick={() => openReplenishModal(item)}
                                         disabled={!online}
                                     >
-                                        补充
+                                        {text.replenish}
                                     </button>
                                 </div>
                             )
@@ -94,12 +137,12 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
             <Modal
                 isOpen={replenishModalOpen}
                 onClose={() => setReplenishModalOpen(false)}
-                title={`🛒 补充 ${selectedItem?.item_name || '物资'}`}
+                title={text.replenishTitle(selectedItem?.item_name || text.defaultItem)}
             >
                 <div className="replenish-form">
                     <div className="form-section">
                         <label className="form-label" htmlFor="replenish-total-qty">
-                            总量
+                            {text.totalQty}
                         </label>
                         <input
                             id="replenish-total-qty"
@@ -108,15 +151,15 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             inputMode="decimal"
                             min="0"
                             step="0.1"
-                            placeholder="例：28（袋/罐等）"
+                            placeholder={text.totalQtyPlaceholder}
                             value={newTotalQty}
                             onChange={(e) => setNewTotalQty(e.target.value)}
                         />
-                        <span className="text-xs text-muted">重新设定当前库存总量</span>
+                        <span className="text-xs text-muted">{text.totalQtyHint}</span>
                     </div>
                     <div className="form-section">
                         <label className="form-label" htmlFor="replenish-daily-cons">
-                            每日消耗
+                            {text.dailyCons}
                         </label>
                         <input
                             id="replenish-daily-cons"
@@ -125,17 +168,17 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             inputMode="decimal"
                             min="0"
                             step="0.1"
-                            placeholder="例：1"
+                            placeholder={text.dailyConsPlaceholder}
                             value={newDailyCons}
                             onChange={(e) => setNewDailyCons(e.target.value)}
                         />
-                        <span className="text-xs text-muted">每日使用量，用于计算剩余天数</span>
+                        <span className="text-xs text-muted">{text.dailyConsHint}</span>
                     </div>
 
                     {newTotalQty && newDailyCons && parseFloat(newDailyCons) > 0 && (
                         <div className="replenish-preview">
                             <span className="text-sm">
-                                预计可用 <strong>{Math.round(parseFloat(newTotalQty) / parseFloat(newDailyCons))}</strong> 天
+                                {text.availableDays(Math.round(parseFloat(newTotalQty) / parseFloat(newDailyCons)))}
                             </span>
                         </div>
                     )}
@@ -146,7 +189,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                         onClick={handleReplenish}
                         disabled={saving || !online || !newTotalQty || !newDailyCons}
                     >
-                        {saving ? '更新中...' : '确认补充'}
+                        {saving ? text.updating : text.confirm}
                     </Button>
                 </div>
             </Modal>

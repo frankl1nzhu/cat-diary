@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -36,6 +36,7 @@ type FamilyJoinRequestWithProfile = FamilyJoinRequest & {
 
 export function SettingsPage() {
     const { language } = useI18n()
+    const l = useCallback((zh: string, en: string) => (language === 'zh' ? zh : en), [language])
     const { user } = useSession()
     const { cat, catId, families, activeFamilyId, setActiveFamilyId, myRole, loading: catLoading } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
@@ -324,22 +325,22 @@ export function SettingsPage() {
                             await savePushSubscription(user.id, result.subscription).catch(() => { })
                         }
                     }).catch(() => { })
-                    setNotificationHint('Web Push 已启用。')
+                    setNotificationHint(l('Web Push 已启用。', 'Web Push enabled.'))
                 } else {
-                    setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+                    setNotificationHint(l('等待配置 VAPID 公钥后启用 Web Push。', 'Waiting for VAPID public key before enabling Web Push.'))
                 }
             }).catch(() => {
-                setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
+                setNotificationHint(l('等待配置 VAPID 公钥后启用 Web Push。', 'Waiting for VAPID public key before enabling Web Push.'))
             })
         }
-    }, [user])
+    }, [l, user])
 
     // Upload avatar to Supabase Storage
     const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const rawFile = e.target.files?.[0]
         if (!rawFile) return
         if (rawFile.size > 10 * 1024 * 1024) {
-            pushToast('error', '图片大小不能超过 10MB')
+            pushToast('error', l('图片大小不能超过 10MB', 'Image size must be less than 10MB'))
             e.target.value = ''
             return
         }
@@ -372,9 +373,9 @@ export function SettingsPage() {
                 } catch { /* save with form later */ }
             }
 
-            pushToast('success', '头像上传成功！')
+            pushToast('success', l('头像上传成功！', 'Avatar uploaded successfully!'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '头像上传失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('头像上传失败，请稍后重试', 'Avatar upload failed, please try again later')))
         } finally {
             setUploading(false)
         }
@@ -384,11 +385,11 @@ export function SettingsPage() {
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!name.trim()) {
-            pushToast('error', '请输入猫咪名字')
+            pushToast('error', l('请输入猫咪名字', 'Please enter a cat name'))
             return
         }
         if (!selectedFamilyId) {
-            pushToast('error', '请选择猫咪所属家庭')
+            pushToast('error', l('请选择猫咪所属家庭', 'Please select the cat family'))
             return
         }
 
@@ -431,9 +432,9 @@ export function SettingsPage() {
             setCreateMode(false)
             setProfileLocked(true)
             reloadCatData()
-            pushToast('success', '档案保存成功！🎉')
+            pushToast('success', l('档案保存成功！🎉', 'Profile saved successfully! 🎉'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '档案保存失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('档案保存失败，请稍后重试', 'Failed to save profile, please try again later')))
         } finally {
             setSaving(false)
         }
@@ -443,7 +444,7 @@ export function SettingsPage() {
         try {
             await signOut()
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '退出登录失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('退出登录失败，请稍后重试', 'Sign out failed, please try again later')))
         }
     }
 
@@ -452,18 +453,18 @@ export function SettingsPage() {
             const result = await enablePushNotifications()
             if (!result.ok) {
                 if (result.reason === 'ios-add-to-home-screen') {
-                    pushToast('error', 'iPhone Safari 需先“添加到主屏幕”后才能开启通知（iOS 16.4+）')
+                    pushToast('error', l('iPhone Safari 需先“添加到主屏幕”后才能开启通知（iOS 16.4+）', 'On iPhone Safari, add to Home Screen first to enable notifications (iOS 16.4+)'))
                     return
                 }
                 if (result.reason === 'unsupported' || result.reason === 'unsupported-push') {
-                    pushToast('error', '当前浏览器不支持 Web Push 通知')
+                    pushToast('error', l('当前浏览器不支持 Web Push 通知', 'Current browser does not support Web Push notifications'))
                     return
                 }
                 if (result.reason === 'push-subscribe-failed') {
-                    pushToast('error', 'Web Push 订阅失败，请稍后重试')
+                    pushToast('error', l('Web Push 订阅失败，请稍后重试', 'Web Push subscription failed, please try again later'))
                     return
                 }
-                pushToast('error', '通知权限未开启')
+                pushToast('error', l('通知权限未开启', 'Notification permission is not enabled'))
                 return
             }
 
@@ -473,42 +474,42 @@ export function SettingsPage() {
                 if (user && result.subscription) {
                     await savePushSubscription(user.id, result.subscription)
                 }
-                setNotificationHint('Web Push 已启用。')
-                pushToast('success', '通知已开启（含 Web Push 订阅）')
+                setNotificationHint(l('Web Push 已启用。', 'Web Push enabled.'))
+                pushToast('success', l('通知已开启（含 Web Push 订阅）', 'Notifications enabled (including Web Push subscription)'))
             } else {
                 const vapidKey = await getVapidPublicKey()
                 if (vapidKey) {
-                    setNotificationHint('通知权限已开启，Web Push 订阅失败，请重试。')
-                    pushToast('error', 'Web Push 订阅失败，请重试')
+                    setNotificationHint(l('通知权限已开启，Web Push 订阅失败，请重试。', 'Notification permission granted, but Web Push subscription failed. Please retry.'))
+                    pushToast('error', l('Web Push 订阅失败，请重试', 'Web Push subscription failed, please retry'))
                 } else {
-                    setNotificationHint('等待配置 VAPID 公钥后启用 Web Push。')
-                    pushToast('info', '通知权限已开启，等待配置 VAPID 公钥后启用 Web Push')
+                    setNotificationHint(l('等待配置 VAPID 公钥后启用 Web Push。', 'Waiting for VAPID public key before enabling Web Push.'))
+                    pushToast('info', l('通知权限已开启，等待配置 VAPID 公钥后启用 Web Push', 'Notification permission granted. Waiting for VAPID public key to enable Web Push'))
                 }
             }
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '开启通知失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('开启通知失败，请稍后重试', 'Failed to enable notifications, please try again later')))
         }
     }
 
     const handleTestPush = async () => {
         if (typeof Notification === 'undefined') {
-            pushToast('error', '当前浏览器不支持系统通知')
+            pushToast('error', l('当前浏览器不支持系统通知', 'Current browser does not support system notifications'))
             return
         }
         try {
             await sendTestPush()
-            pushToast('success', '测试推送已发送，请稍候查看系统通知')
+            pushToast('success', l('测试推送已发送，请稍候查看系统通知', 'Test push sent, please check system notifications shortly'))
         } catch (err) {
-            const message = getErrorMessage(err, '测试推送发送失败')
+            const message = getErrorMessage(err, l('测试推送发送失败', 'Failed to send test push'))
             if (message.toLowerCase().includes('non-2xx') && Notification.permission === 'granted') {
                 try {
-                    new Notification('测试通知', {
-                        body: '这是一条本地测试通知。',
+                    new Notification(l('测试通知', 'Test notification'), {
+                        body: l('这是一条本地测试通知。', 'This is a local test notification.'),
                     })
                 } catch {
                     // ignore and still show success toast fallback
                 }
-                pushToast('success', '测试通知已发送')
+                pushToast('success', l('测试通知已发送', 'Test notification sent'))
                 return
             }
             pushToast('error', message)
@@ -550,15 +551,15 @@ export function SettingsPage() {
             if (error) throw error
 
             if (approve) {
-                sendFamilyMemberNotification(currentFamily.id, target?.requesterEmail || '新成员').catch(() => { })
-                pushToast('success', '已同意加入申请')
+                sendFamilyMemberNotification(currentFamily.id, target?.requesterEmail || l('新成员', 'new member')).catch(() => { })
+                pushToast('success', l('已同意加入申请', 'Join request approved'))
             } else {
-                pushToast('success', '已拒绝加入申请')
+                pushToast('success', l('已拒绝加入申请', 'Join request rejected'))
             }
 
             setPendingJoinRequests((prev) => prev.filter((item) => item.id !== requestId))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '处理申请失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('处理申请失败，请稍后重试', 'Failed to process request, please try again later')))
         } finally {
             setReviewingReqId(null)
         }
@@ -574,16 +575,16 @@ export function SettingsPage() {
             if (error) throw error
             setSelectedFamilyId(currentFamily.id)
             reloadCatData()
-            pushToast('success', '当前猫咪已归属到家庭')
+            pushToast('success', l('当前猫咪已归属到家庭', 'Current cat assigned to family'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '猫咪归属家庭失败'))
+            pushToast('error', getErrorMessage(err, l('猫咪归属家庭失败', 'Failed to assign cat to family')))
         }
     }
 
     const doLeaveFamily = async () => {
         if (!user || !currentFamily) return
         if (myRole === 'owner') {
-            pushToast('error', '家庭创建者不能退出，请先转让所有权或删除家庭')
+            pushToast('error', l('家庭创建者不能退出，请先转让所有权或删除家庭', 'Family owner cannot leave. Transfer ownership or dissolve the family first'))
             return
         }
         setLeavingFamily(true)
@@ -600,14 +601,14 @@ export function SettingsPage() {
                 setSelectedFamilyId('')
             }
 
-            sendFamilyMemberLeftNotification(currentFamily.id, user.email || '家庭成员').catch(() => { })
+            sendFamilyMemberLeftNotification(currentFamily.id, user.email || l('家庭成员', 'family member')).catch(() => { })
 
             setActiveFamilyId(null)
             setCurrentFamily(null)
             closeLeaveFamilyModal()
-            pushToast('success', '已退出家庭')
+            pushToast('success', l('已退出家庭', 'Left family successfully'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '退出家庭失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('退出家庭失败，请稍后重试', 'Failed to leave family, please try again later')))
         } finally {
             setLeavingFamily(false)
         }
@@ -634,7 +635,7 @@ export function SettingsPage() {
 
         const expected = user.email || ''
         if (leaveConfirmInput.trim() !== expected) {
-            pushToast('error', `请输入当前账号「${expected}」以确认退出`)
+            pushToast('error', l(`请输入当前账号「${expected}」以确认退出`, `Please enter current account "${expected}" to confirm leaving`))
             return
         }
 
@@ -649,7 +650,7 @@ export function SettingsPage() {
         }
         if (dissolveStep < 3) {
             if (dissolveConfirmInput.trim() !== currentFamily.name) {
-                pushToast('error', '请输入正确的家庭名称以确认')
+                pushToast('error', l('请输入正确的家庭名称以确认', 'Please enter the exact family name to confirm'))
                 return
             }
             setDissolveStep(3)
@@ -663,9 +664,9 @@ export function SettingsPage() {
             setCurrentFamily(null)
             setCurrentCatId(null)
             closeDissolveFamilyModal()
-            pushToast('success', '家庭已解散，所有猫咪数据已删除')
+            pushToast('success', l('家庭已解散，所有猫咪数据已删除', 'Family dissolved and all cat data deleted'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '解散家庭失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('解散家庭失败，请稍后重试', 'Failed to dissolve family, please try again later')))
         } finally {
             setDissolving(false)
         }
@@ -697,9 +698,9 @@ export function SettingsPage() {
             setFamilyMembers((prev) =>
                 prev.map((m) => m.id === memberId ? { ...m, role: newRole } : m)
             )
-            pushToast('success', newRole === 'admin' ? '已设为管理员' : '已取消管理员')
+            pushToast('success', newRole === 'admin' ? l('已设为管理员', 'Set as admin') : l('已取消管理员', 'Admin role removed'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '角色更新失败'))
+            pushToast('error', getErrorMessage(err, l('角色更新失败', 'Failed to update role')))
         } finally {
             setRoleSaving(null)
         }
@@ -725,7 +726,7 @@ export function SettingsPage() {
         }
         if (kickStep < 3) {
             if (kickConfirmInput.trim() !== kickTarget.email) {
-                pushToast('error', '请输入正确的成员邮箱以确认')
+                pushToast('error', l('请输入正确的成员邮箱以确认', 'Please enter the exact member email to confirm'))
                 return
             }
             setKickStep(3)
@@ -750,9 +751,9 @@ export function SettingsPage() {
 
             setFamilyMembers((prev) => prev.filter((m) => m.id !== kickTarget.id))
             closeKickModal()
-            pushToast('success', `已将 ${kickTarget.email} 移出家庭`)
+            pushToast('success', l(`已将 ${kickTarget.email} 移出家庭`, `${kickTarget.email} has been removed from family`))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '踢出成员失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('踢出成员失败，请稍后重试', 'Failed to remove member, please try again later')))
         } finally {
             setKicking(false)
         }
@@ -765,7 +766,7 @@ export function SettingsPage() {
             return
         }
         if (deleteConfirmInput.trim() !== (cat?.name || '')) {
-            pushToast('error', '请输入正确的猫咪名字以确认删除')
+            pushToast('error', l('请输入正确的猫咪名字以确认删除', 'Please enter the exact cat name to confirm deletion'))
             return
         }
         setDeletingCat(true)
@@ -781,9 +782,9 @@ export function SettingsPage() {
             setAvatarUrl(null)
             setSelectedFamilyId(currentFamily?.id || '')
             reloadCatData()
-            pushToast('success', '猫咪档案已删除')
+            pushToast('success', l('猫咪档案已删除', 'Cat profile deleted'))
         } catch (err) {
-            pushToast('error', getErrorMessage(err, '删除猫咪失败，请稍后重试'))
+            pushToast('error', getErrorMessage(err, l('删除猫咪失败，请稍后重试', 'Failed to delete cat, please try again later')))
         } finally {
             setDeletingCat(false)
         }
@@ -792,7 +793,7 @@ export function SettingsPage() {
     const onThemeChange = (preset: ThemePreset) => {
         setThemePreset(preset)
         applyThemePreset(preset)
-        pushToast('success', '主题已切换')
+        pushToast('success', l('主题已切换', 'Theme switched'))
     }
 
     const openDeleteCatModal = () => {
@@ -838,7 +839,7 @@ export function SettingsPage() {
                                         <p className="text-sm text-secondary">{text.profileSaved}</p>
                                         <div className="saved-row">
                                             <span className="text-secondary">{text.avatar}</span>
-                                            {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" /> : <span>—</span>}
+                                            {avatarUrl ? <img src={avatarUrl} alt={l('猫咪头像', 'Cat avatar')} className="avatar-preview" loading="lazy" /> : <span>—</span>}
                                         </div>
                                         <div className="saved-row"><span className="text-secondary">{text.name}</span><strong>{name || '—'}</strong></div>
                                         <div className="saved-row"><span className="text-secondary">{text.family}</span><strong>{families.find((f) => f.id === selectedFamilyId)?.name || text.unassigned}</strong></div>
@@ -863,7 +864,7 @@ export function SettingsPage() {
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
                                             >
                                                 {avatarUrl ? (
-                                                    <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" />
+                                                    <img src={avatarUrl} alt={l('猫咪头像', 'Cat avatar')} className="avatar-preview" loading="lazy" />
                                                 ) : (
                                                     <span className="avatar-upload-icon">📷</span>
                                                 )}
@@ -1082,13 +1083,13 @@ export function SettingsPage() {
                                 </>
                             ) : (
                                 <div className="family-actions">
-                                    <p className="text-secondary text-sm">你当前还没有加入家庭。</p>
-                                    <Button variant="secondary" onClick={openFamilySettingsModal}>家庭设置</Button>
+                                    <p className="text-secondary text-sm">{l('你当前还没有加入家庭。', 'You are not in a family yet.')}</p>
+                                    <Button variant="secondary" onClick={openFamilySettingsModal}>{l('家庭设置', 'Family settings')}</Button>
                                 </div>
                             )}
                             {user && (
                                 <p className="text-muted text-xs" style={{ marginTop: '8px' }}>
-                                    当前账号：{user.email}
+                                    {l('当前账号：', 'Current account: ')}{user.email}
                                 </p>
                             )}
                         </Card>
@@ -1097,13 +1098,13 @@ export function SettingsPage() {
                     {!isStandaloneMode && (
                         <div className="p-4">
                             <Card variant="glass" padding="md">
-                                <h2 className="text-lg font-semibold mb-3">📱 安装到桌面</h2>
+                                <h2 className="text-lg font-semibold mb-3">{l('📱 安装到桌面', '📱 Install to Home Screen')}</h2>
                                 <div className="install-steps">
                                     <p className="text-sm text-secondary">
-                                        <strong>iOS Safari：</strong>点击底部分享按钮 → 选择"添加到主屏幕"
+                                        <strong>{l('iOS Safari：', 'iOS Safari: ')}</strong>{l('点击底部分享按钮 → 选择"添加到主屏幕"', 'Tap Share at the bottom -> choose "Add to Home Screen"')}
                                     </p>
                                     <p className="text-sm text-secondary mt-2">
-                                        <strong>Android Chrome：</strong>点击右上角菜单 → 选择"安装应用"
+                                        <strong>{l('Android Chrome：', 'Android Chrome: ')}</strong>{l('点击右上角菜单 → 选择"安装应用"', 'Tap the top-right menu -> choose "Install app"')}
                                     </p>
                                 </div>
                             </Card>
@@ -1113,13 +1114,13 @@ export function SettingsPage() {
                     {notificationPermission !== 'granted' && (
                         <div className="p-4">
                             <Card variant="default" padding="md">
-                                <h2 className="text-lg font-semibold mb-3">🔔 智能提醒</h2>
-                                <p className="text-secondary text-sm">开启系统通知后，可接收库存告急和临近驱虫提醒。</p>
+                                <h2 className="text-lg font-semibold mb-3">{l('🔔 智能提醒', '🔔 Smart Alerts')}</h2>
+                                <p className="text-secondary text-sm">{l('开启系统通知后，可接收库存告急和临近驱虫提醒。', 'Enable system notifications to receive low-stock and deworming alerts.')}</p>
                                 <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     <Button variant="secondary" onClick={handleEnableNotifications}>
-                                        开启通知权限
+                                        {l('开启通知权限', 'Enable notifications')}
                                     </Button>
-                                    <Button variant="ghost" onClick={handleTestPush}>发送测试推送</Button>
+                                    <Button variant="ghost" onClick={handleTestPush}>{l('发送测试推送', 'Send test push')}</Button>
                                 </div>
                             </Card>
                         </div>
@@ -1127,13 +1128,13 @@ export function SettingsPage() {
 
                     <div className="p-4">
                         <Card variant="default" padding="md">
-                            <h2 className="text-lg font-semibold mb-3">🎨 主题色</h2>
+                            <h2 className="text-lg font-semibold mb-3">{l('🎨 主题色', '🎨 Theme')}</h2>
                             <div className="theme-grid">
                                 {([
-                                    { value: 'pink' as const, label: '粉色（默认）' },
-                                    { value: 'orange' as const, label: '橘猫主题' },
-                                    { value: 'blue' as const, label: '蓝猫主题' },
-                                    { value: 'midnight' as const, label: '暗夜紫主题' },
+                                    { value: 'pink' as const, label: l('粉色（默认）', 'Pink (Default)') },
+                                    { value: 'orange' as const, label: l('橘猫主题', 'Orange Cat') },
+                                    { value: 'blue' as const, label: l('蓝猫主题', 'Blue Cat') },
+                                    { value: 'midnight' as const, label: l('暗夜紫主题', 'Midnight Purple') },
                                 ]).map((item) => (
                                     <button
                                         key={item.value}
@@ -1150,97 +1151,97 @@ export function SettingsPage() {
                     {/* Sign Out */}
                     <div className="p-4">
                         <Button variant="ghost" fullWidth onClick={() => setSignOutConfirmOpen(true)}>
-                            退出登录
+                            {l('退出登录', 'Sign out')}
                         </Button>
                     </div>
 
-                    <Modal isOpen={signOutConfirmOpen} onClose={() => setSignOutConfirmOpen(false)} title="确认退出登录？">
+                    <Modal isOpen={signOutConfirmOpen} onClose={() => setSignOutConfirmOpen(false)} title={l('确认退出登录？', 'Confirm sign out?')}>
                         <div className="settings-confirm">
-                            <p className="text-sm text-secondary">确认要退出当前账号吗？</p>
+                            <p className="text-sm text-secondary">{l('确认要退出当前账号吗？', 'Do you want to sign out of the current account?')}</p>
                             <Button variant="primary" fullWidth onClick={handleSignOut}>
-                                确认退出
+                                {l('确认退出', 'Confirm sign out')}
                             </Button>
                         </div>
                     </Modal>
 
-                    <Modal isOpen={deleteCatConfirmOpen} onClose={closeDeleteCatModal} title="确认删除猫咪？">
+                    <Modal isOpen={deleteCatConfirmOpen} onClose={closeDeleteCatModal} title={l('确认删除猫咪？', 'Confirm delete cat?')}>
                         <div className="settings-confirm">
                             {deleteStep === 1 ? (
                                 <>
-                                    <p className="text-sm text-secondary">删除后将清空该猫咪全部记录，此操作不可恢复。</p>
+                                    <p className="text-sm text-secondary">{l('删除后将清空该猫咪全部记录，此操作不可恢复。', 'Deleting will clear all records of this cat. This cannot be undone.')}</p>
                                     <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
-                                        下一步
+                                        {l('下一步', 'Next')}
                                     </Button>
                                 </>
                             ) : (
                                 <>
-                                    <p className="text-sm text-secondary">请输入猫咪名字「{cat?.name || ''}」以确认删除。</p>
+                                    <p className="text-sm text-secondary">{l(`请输入猫咪名字「${cat?.name || ''}」以确认删除。`, `Please enter cat name "${cat?.name || ''}" to confirm deletion.`)}</p>
                                     <input
                                         className="form-input"
                                         value={deleteConfirmInput}
                                         onChange={(event) => setDeleteConfirmInput(event.target.value)}
-                                        placeholder="输入猫咪名字确认"
+                                        placeholder={l('输入猫咪名字确认', 'Enter cat name to confirm')}
                                     />
                                     <Button variant="primary" fullWidth onClick={handleDeleteCat} disabled={deletingCat}>
-                                        {deletingCat ? '删除中...' : '确认删除'}
+                                        {deletingCat ? l('删除中...', 'Deleting...') : l('确认删除', 'Confirm delete')}
                                     </Button>
                                 </>
                             )}
                         </div>
                     </Modal>
 
-                    <Modal isOpen={dissolveFamilyOpen} onClose={closeDissolveFamilyModal} title="⚠️ 解散家庭">
+                    <Modal isOpen={dissolveFamilyOpen} onClose={closeDissolveFamilyModal} title={l('⚠️ 解散家庭', '⚠️ Dissolve Family')}>
                         <div className="settings-confirm">
                             {dissolveStep === 1 && (
                                 <>
                                     <p className="text-sm text-secondary">
-                                        解散家庭「{currentFamily?.name}」将<strong className="text-danger">永久删除</strong>该家庭下的所有猫咪和全部记录数据。此操作不可恢复。
+                                        {l(`解散家庭「${currentFamily?.name}」将`, `Dissolving family "${currentFamily?.name}" will `)}<strong className="text-danger">{l('永久删除', 'permanently delete')}</strong>{l('该家庭下的所有猫咪和全部记录数据。此操作不可恢复。', ' all cats and records in this family. This cannot be undone.')}
                                     </p>
-                                    <p className="text-sm text-secondary">所有家庭成员将被移出。</p>
+                                    <p className="text-sm text-secondary">{l('所有家庭成员将被移出。', 'All family members will be removed.')}</p>
                                     <Button variant="danger" fullWidth onClick={handleDissolveFamily}>
-                                        我了解，继续
+                                        {l('我了解，继续', 'I understand, continue')}
                                     </Button>
                                 </>
                             )}
                             {dissolveStep === 2 && (
                                 <>
                                     <p className="text-sm text-secondary">
-                                        请输入家庭名称「{currentFamily?.name}」以确认解散。
+                                        {l(`请输入家庭名称「${currentFamily?.name}」以确认解散。`, `Please enter family name "${currentFamily?.name}" to confirm.`)}
                                     </p>
                                     <input
                                         className="form-input"
                                         value={dissolveConfirmInput}
                                         onChange={(e) => setDissolveConfirmInput(e.target.value)}
-                                        placeholder="输入家庭名称确认"
+                                        placeholder={l('输入家庭名称确认', 'Enter family name to confirm')}
                                     />
                                     <Button variant="danger" fullWidth onClick={handleDissolveFamily}>
-                                        确认名称
+                                        {l('确认名称', 'Confirm name')}
                                     </Button>
                                 </>
                             )}
                             {dissolveStep === 3 && (
                                 <>
                                     <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
-                                        最终确认：点击后将立即解散家庭并删除所有数据！
+                                        {l('最终确认：点击后将立即解散家庭并删除所有数据！', 'Final confirmation: clicking will dissolve family and delete all data immediately!')}
                                     </p>
                                     <Button variant="danger" fullWidth onClick={handleDissolveFamily} disabled={dissolving}>
-                                        {dissolving ? '解散中...' : '确认解散家庭'}
+                                        {dissolving ? l('解散中...', 'Dissolving...') : l('确认解散家庭', 'Confirm dissolve family')}
                                     </Button>
                                 </>
                             )}
                         </div>
                     </Modal>
 
-                    <Modal isOpen={familySettingsOpen} onClose={() => setFamilySettingsOpen(false)} title="家庭设置">
+                    <Modal isOpen={familySettingsOpen} onClose={() => setFamilySettingsOpen(false)} title={l('家庭设置', 'Family settings')}>
                         <div className="settings-confirm">
                             {currentFamily && myRole !== 'owner' && (
                                 <Button variant="secondary" fullWidth onClick={openLeaveFamilyModal}>
-                                    退出家庭
+                                    {l('退出家庭', 'Leave family')}
                                 </Button>
                             )}
                             {currentFamily && myRole === 'owner' && (
                                 <Button variant="danger" fullWidth onClick={openDissolveFamilyModal}>
-                                    解散家庭
+                                    {l('解散家庭', 'Dissolve family')}
                                 </Button>
                             )}
 
@@ -1255,24 +1256,24 @@ export function SettingsPage() {
                                         }}
                                         disabled={isFamilySaving || !online}
                                     >
-                                        {currentFamily ? '创建新家庭' : '创建家庭'}
+                                        {currentFamily ? l('创建新家庭', 'Create new family') : l('创建家庭', 'Create family')}
                                     </Button>
                                 ) : (
                                     <>
-                                        <label className="form-label" htmlFor="family-settings-create">{currentFamily ? '创建新家庭' : '创建家庭'}</label>
+                                        <label className="form-label" htmlFor="family-settings-create">{currentFamily ? l('创建新家庭', 'Create new family') : l('创建家庭', 'Create family')}</label>
                                         <input
                                             id="family-settings-create"
                                             className="form-input"
-                                            placeholder="输入家庭名称"
+                                            placeholder={l('输入家庭名称', 'Enter family name')}
                                             value={familyName}
                                             onChange={(e) => setFamilyName(e.target.value)}
                                         />
                                         <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                                             <Button variant="secondary" onClick={handleCreateFamily} disabled={isFamilySaving || !online}>
-                                                {isFamilySaving ? '处理中...' : '确认创建'}
+                                                {isFamilySaving ? l('处理中...', 'Processing...') : l('确认创建', 'Confirm create')}
                                             </Button>
                                             <Button variant="ghost" onClick={() => { setShowCreateFamilyInput(false); setFamilyName('') }} disabled={isFamilySaving}>
-                                                取消
+                                                {l('取消', 'Cancel')}
                                             </Button>
                                         </div>
                                     </>
@@ -1290,24 +1291,24 @@ export function SettingsPage() {
                                         }}
                                         disabled={isFamilySaving || !online}
                                     >
-                                        {currentFamily ? '加入其他家庭' : '加入家庭'}
+                                        {currentFamily ? l('加入其他家庭', 'Join another family') : l('加入家庭', 'Join family')}
                                     </Button>
                                 ) : (
                                     <>
-                                        <label className="form-label" htmlFor="family-settings-join">{currentFamily ? '加入其他家庭' : '加入家庭'}</label>
+                                        <label className="form-label" htmlFor="family-settings-join">{currentFamily ? l('加入其他家庭', 'Join another family') : l('加入家庭', 'Join family')}</label>
                                         <input
                                             id="family-settings-join"
                                             className="form-input"
-                                            placeholder="输入邀请码"
+                                            placeholder={l('输入邀请码', 'Enter invite code')}
                                             value={joinCode}
                                             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                                         />
                                         <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                                             <Button variant="secondary" onClick={handleJoinFamily} disabled={isFamilySaving || !online}>
-                                                {isFamilySaving ? '处理中...' : '确认加入'}
+                                                {isFamilySaving ? l('处理中...', 'Processing...') : l('确认加入', 'Confirm join')}
                                             </Button>
                                             <Button variant="ghost" onClick={() => { setShowJoinFamilyInput(false); setJoinCode('') }} disabled={isFamilySaving}>
-                                                取消
+                                                {l('取消', 'Cancel')}
                                             </Button>
                                         </div>
                                     </>
@@ -1316,68 +1317,68 @@ export function SettingsPage() {
                         </div>
                     </Modal>
 
-                    <Modal isOpen={leaveFamilyOpen} onClose={closeLeaveFamilyModal} title="确认退出家庭？">
+                    <Modal isOpen={leaveFamilyOpen} onClose={closeLeaveFamilyModal} title={l('确认退出家庭？', 'Confirm leave family?')}>
                         <div className="settings-confirm">
                             {leaveStep === 1 ? (
                                 <>
-                                    <p className="text-sm text-secondary">退出后你将不再属于家庭「{currentFamily?.name}」，并失去该家庭协作权限。</p>
+                                    <p className="text-sm text-secondary">{l(`退出后你将不再属于家庭「${currentFamily?.name}」，并失去该家庭协作权限。`, `After leaving, you will no longer belong to family "${currentFamily?.name}" and lose collaboration permissions.`)}</p>
                                     <Button variant="secondary" fullWidth onClick={handleLeaveFamily} disabled={leavingFamily}>
-                                        我了解，继续
+                                        {l('我了解，继续', 'I understand, continue')}
                                     </Button>
                                 </>
                             ) : (
                                 <>
-                                    <p className="text-sm text-secondary">请输入当前账号邮箱「{user?.email || ''}」以确认退出。</p>
+                                    <p className="text-sm text-secondary">{l(`请输入当前账号邮箱「${user?.email || ''}」以确认退出。`, `Please enter current account email "${user?.email || ''}" to confirm.`)}</p>
                                     <input
                                         className="form-input"
                                         value={leaveConfirmInput}
                                         onChange={(event) => setLeaveConfirmInput(event.target.value)}
-                                        placeholder="输入当前账号邮箱"
+                                        placeholder={l('输入当前账号邮箱', 'Enter current account email')}
                                     />
                                     <Button variant="secondary" fullWidth onClick={handleLeaveFamily} disabled={leavingFamily}>
-                                        {leavingFamily ? '处理中...' : '确认退出家庭'}
+                                        {leavingFamily ? l('处理中...', 'Processing...') : l('确认退出家庭', 'Confirm leave family')}
                                     </Button>
                                 </>
                             )}
                         </div>
                     </Modal>
 
-                    <Modal isOpen={Boolean(kickTarget)} onClose={closeKickModal} title="⚠️ 踢出家庭成员">
+                    <Modal isOpen={Boolean(kickTarget)} onClose={closeKickModal} title={l('⚠️ 踢出家庭成员', '⚠️ Remove Family Member')}>
                         <div className="settings-confirm">
                             {kickStep === 1 && (
                                 <>
                                     <p className="text-sm text-secondary">
-                                        确认要将 <strong>{kickTarget?.email}</strong> 从家庭「{currentFamily?.name}」中移除吗？
+                                        {l('确认要将 ', 'Confirm removing ')}<strong>{kickTarget?.email}</strong>{l(` 从家庭「${currentFamily?.name}」中移除吗？`, ` from family "${currentFamily?.name}"?`)}
                                     </p>
-                                    <p className="text-sm text-secondary">该成员创建的猫咪将留在该家庭。</p>
+                                    <p className="text-sm text-secondary">{l('该成员创建的猫咪将留在该家庭。', 'Cats created by this member will remain in this family.')}</p>
                                     <Button variant="danger" fullWidth onClick={handleKickMember}>
-                                        我了解，继续
+                                        {l('我了解，继续', 'I understand, continue')}
                                     </Button>
                                 </>
                             )}
                             {kickStep === 2 && (
                                 <>
                                     <p className="text-sm text-secondary">
-                                        请输入该成员邮箱「{kickTarget?.email}」以确认踢出。
+                                        {l(`请输入该成员邮箱「${kickTarget?.email}」以确认踢出。`, `Please enter member email "${kickTarget?.email}" to confirm.`)}
                                     </p>
                                     <input
                                         className="form-input"
                                         value={kickConfirmInput}
                                         onChange={(e) => setKickConfirmInput(e.target.value)}
-                                        placeholder="输入成员邮箱确认"
+                                        placeholder={l('输入成员邮箱确认', 'Enter member email to confirm')}
                                     />
                                     <Button variant="danger" fullWidth onClick={handleKickMember}>
-                                        确认邮箱
+                                        {l('确认邮箱', 'Confirm email')}
                                     </Button>
                                 </>
                             )}
                             {kickStep === 3 && (
                                 <>
                                     <p className="text-sm" style={{ color: 'var(--color-danger)' }}>
-                                        最终确认：点击后将立即移除该成员！
+                                        {l('最终确认：点击后将立即移除该成员！', 'Final confirmation: clicking will remove this member immediately!')}
                                     </p>
                                     <Button variant="danger" fullWidth onClick={handleKickMember} disabled={kicking}>
-                                        {kicking ? '移除中...' : '确认踢出'}
+                                        {kicking ? l('移除中...', 'Removing...') : l('确认踢出', 'Confirm remove')}
                                     </Button>
                                 </>
                             )}

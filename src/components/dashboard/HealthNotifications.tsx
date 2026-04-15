@@ -3,6 +3,7 @@ import { Card } from '../ui/Card'
 import { RenewModal } from '../ui/RenewModal'
 import { format } from 'date-fns'
 import type { HealthRecord } from '../../types/database.types'
+import { useI18n } from '../../lib/i18n'
 
 export type HealthNotifyItem = HealthRecord & { daysLeft: number }
 
@@ -28,6 +29,31 @@ interface HealthNotificationsProps {
 }
 
 export const HealthNotifications = memo(function HealthNotifications({ items, renew, online }: HealthNotificationsProps) {
+    const { language } = useI18n()
+    const text = language === 'zh'
+        ? {
+            title: '🩺 疫苗 / 驱虫到期通知',
+            vaccine: '疫苗',
+            deworming: '驱虫',
+            dueAt: '到期',
+            overdueDays: (days: number) => `已过期${days}天`,
+            dueInDays: (days: number) => `${days}天后`,
+            update: '更新',
+            stopping: '停止中...',
+            stop: '停止',
+        }
+        : {
+            title: '🩺 Vaccine / Deworming Alerts',
+            vaccine: 'Vaccine',
+            deworming: 'Deworming',
+            dueAt: 'Due',
+            overdueDays: (days: number) => `Overdue ${days} days`,
+            dueInDays: (days: number) => `In ${days} days`,
+            update: 'Update',
+            stopping: 'Stopping...',
+            stop: 'Stop',
+        }
+
     if (items.length === 0) return null
 
     return (
@@ -35,13 +61,13 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             <div className="px-4 stagger-item health-notify-card">
                 <Card variant="default" padding="md">
                     <h2 className="text-lg font-semibold" style={{ marginBottom: 'var(--space-2)' }}>
-                        🩺 疫苗 / 驱虫到期通知
+                        {text.title}
                     </h2>
                     <div className="health-notify-list">
                         {items.map((r) => {
                             const isPastDue = r.daysLeft <= 0
                             const icon = r.type === 'vaccine' ? '💉' : '💊'
-                            const typeLabel = r.type === 'vaccine' ? '疫苗' : '驱虫'
+                            const typeLabel = r.type === 'vaccine' ? text.vaccine : text.deworming
                             const isStopping = renew.stopSaving === r.id
                             return (
                                 <div
@@ -52,13 +78,13 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                     <div className="health-notify-info">
                                         <span className="text-sm font-semibold">{r.name}</span>
                                         <span className="text-xs text-muted">
-                                            {typeLabel} · 到期：{format(new Date(r.next_due!), 'yyyy/MM/dd')}
+                                            {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
                                         </span>
                                     </div>
                                     <span
                                         className={`health-notify-days ${isPastDue ? 'text-danger' : 'text-warning'}`}
                                     >
-                                        {isPastDue ? `已过期${Math.abs(r.daysLeft)}天` : `${r.daysLeft}天后`}
+                                        {isPastDue ? text.overdueDays(Math.abs(r.daysLeft)) : text.dueInDays(r.daysLeft)}
                                     </span>
                                     <div className="health-notify-actions">
                                         <button
@@ -66,7 +92,7 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                             className="health-notify-update-btn"
                                             onClick={() => renew.openRenewModal(r)}
                                         >
-                                            更新
+                                            {text.update}
                                         </button>
                                         <button
                                             type="button"
@@ -74,7 +100,7 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                             disabled={isStopping || !online}
                                             onClick={() => renew.handleStop(r)}
                                         >
-                                            {isStopping ? '停止中...' : '停止'}
+                                            {isStopping ? text.stopping : text.stop}
                                         </button>
                                     </div>
                                 </div>

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { LanguageProvider } from '../../lib/i18n'
 import { QuickActions } from './QuickActions'
 
 vi.mock('../../lib/auth', () => ({
@@ -40,27 +41,35 @@ describe('QuickActions', () => {
         onDataChange: vi.fn().mockResolvedValue(undefined),
     }
 
+    beforeEach(() => {
+        window.localStorage.setItem('cat_diary_language', 'zh')
+    })
+
     it('opens the poop modal from the scoop button', () => {
         render(
-            <MemoryRouter>
-                <QuickActions {...baseProps} />
-            </MemoryRouter>
+            <LanguageProvider>
+                <MemoryRouter>
+                    <QuickActions {...baseProps} />
+                </MemoryRouter>
+            </LanguageProvider>
         )
 
-        fireEvent.click(screen.getByRole('button', { name: '🧹一键铲屎' }))
+        fireEvent.click(screen.getByRole('button', { name: /🧹\s*(一键铲屎|Quick scoop)/ }))
 
-        expect(screen.getByText('💩 铲屎记录')).toBeInTheDocument()
+        expect(screen.getByText(/💩\s*(铲屎记录|Poop Log)/)).toBeInTheDocument()
     })
 
     it('opens the feed modal from the quick URL param', async () => {
         render(
-            <MemoryRouter initialEntries={['/?quick=feed']}>
-                <QuickActions {...baseProps} />
-            </MemoryRouter>
+            <LanguageProvider>
+                <MemoryRouter initialEntries={['/?quick=feed']}>
+                    <QuickActions {...baseProps} />
+                </MemoryRouter>
+            </LanguageProvider>
         )
 
         await waitFor(() => {
-            expect(screen.getByText('🍽️ 记录喂食')).toBeInTheDocument()
+            expect(screen.getByText(/🍽️\s*(记录喂食|Feeding Log)/)).toBeInTheDocument()
         })
     })
 })
