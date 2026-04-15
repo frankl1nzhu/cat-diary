@@ -48,6 +48,26 @@ export const MEAL_LABELS: Record<'breakfast' | 'lunch' | 'dinner' | 'snack', str
 /** Pre-defined diary tags. */
 export const DIARY_TAGS = ['睡觉', '干饭', '捣乱', '便便', '玩耍', '撒娇'] as const
 
+type DiaryTag = (typeof DIARY_TAGS)[number]
+
+/** Diary tag display labels by language, while keeping stored values unchanged. */
+export const DIARY_TAG_LABELS: Record<DiaryTag, { zh: string; en: string }> = {
+    睡觉: { zh: '睡觉', en: 'Sleep' },
+    干饭: { zh: '干饭', en: 'Meal' },
+    捣乱: { zh: '捣乱', en: 'Chaos' },
+    便便: { zh: '便便', en: 'Poop' },
+    玩耍: { zh: '玩耍', en: 'Play' },
+    撒娇: { zh: '撒娇', en: 'Cuddle' },
+}
+
+/** Resolve diary tag label for current language, with fallback for historical custom values. */
+export function getDiaryTagLabel(tag: string, language: 'zh' | 'en'): string {
+    const key = tag as DiaryTag
+    const labels = DIARY_TAG_LABELS[key]
+    if (!labels) return tag
+    return labels[language]
+}
+
 /** Inventory icon options for different food / supply types. */
 export const INVENTORY_ICONS = [
     { value: '🐟', label: '鱼' },

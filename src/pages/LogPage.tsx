@@ -19,7 +19,7 @@ import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
 import { withTimeout } from '../lib/promiseTimeout'
 import { sendDiaryNotification, sendCommentNotification, sendWeightNotification } from '../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
+import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
@@ -737,7 +737,8 @@ export function LogPage() {
             if (!normalizedKeyword) return true
 
             if (item.type === 'diary') {
-                const text = `${item.data.text || ''} ${(item.data.tags || []).join(' ')}`.toLowerCase()
+                const translatedTags = (item.data.tags || []).map((tag) => getDiaryTagLabel(tag, language))
+                const text = `${item.data.text || ''} ${(item.data.tags || []).join(' ')} ${translatedTags.join(' ')}`.toLowerCase()
                 return text.includes(normalizedKeyword)
             }
             if (item.type === 'poop') {
@@ -748,7 +749,7 @@ export function LogPage() {
             }
             return false
         })
-    }, [dateEnd, dateStart, filterTypes, deferredKeyword, timeline, text.poopKeyword, text.weightKeyword])
+    }, [dateEnd, dateStart, filterTypes, deferredKeyword, language, timeline, text.poopKeyword, text.weightKeyword])
 
     const toggleTypeFilter = (type: TimelineItem['type']) => {
         setFilterTypes((prev) => {
@@ -841,7 +842,7 @@ export function LogPage() {
                             )}
                             {item.data.tags.length > 0 && (
                                 <div className="timeline-tags">
-                                    {item.data.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
+                                    {item.data.tags.map((t) => <span key={t} className="tag">#{getDiaryTagLabel(t, language)}</span>)}
                                 </div>
                             )}
                             <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
@@ -1087,7 +1088,7 @@ export function LogPage() {
                                     className={`tag-btn ${diaryTags.includes(tag) ? 'tag-btn-active' : ''}`}
                                     onClick={() => toggleTag(tag)}
                                 >
-                                    #{tag}
+                                    #{getDiaryTagLabel(tag, language)}
                                 </button>
                             ))}
                         </div>

@@ -9,7 +9,7 @@ import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
 import { sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop } from '../../lib/constants'
+import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop, getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
@@ -444,7 +444,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
                         {randomDiary.tags.length > 0 && (
                             <div className="diary-tags">
                                 {randomDiary.tags.map((tag) => (
-                                    <span key={tag} className="tag">#{tag}</span>
+                                    <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
                                 ))}
                             </div>
                         )}

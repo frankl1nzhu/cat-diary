@@ -17,7 +17,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
-import { STORAGE_KEYS } from '../lib/constants'
+import { STORAGE_KEYS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
 
@@ -426,7 +426,7 @@ export function DashboardPage() {
                                 {latestDiary.tags.length > 0 && (
                                     <div className="diary-tags">
                                         {latestDiary.tags.map((tag) => (
-                                            <span key={tag} className="tag">#{tag}</span>
+                                            <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
                                         ))}
                                     </div>
                                 )}
