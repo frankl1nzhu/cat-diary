@@ -1,9 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 import { useCat } from '../../lib/useCat'
+import { useI18n } from '../../lib/i18n'
+import { LanguageToggle } from '../ui/LanguageToggle'
 import './CatSwitcher.css'
 
 export function CatSwitcher() {
     const navigate = useNavigate()
+    const { t } = useI18n()
     const { cats, catId, setCatId } = useCat()
 
     return (
@@ -12,10 +15,10 @@ export function CatSwitcher() {
                 className="cat-switcher"
                 value={catId || ''}
                 onChange={(e) => setCatId(e.target.value || null)}
-                aria-label="选择猫咪"
+                aria-label={t('cat.select')}
             >
                 {cats.length === 0 ? (
-                    <option value="">暂无猫咪</option>
+                    <option value="">{t('cat.none')}</option>
                 ) : (
                     cats.map((item) => (
                         <option key={item.id} value={item.id}>
@@ -24,9 +27,10 @@ export function CatSwitcher() {
                     ))
                 )}
             </select>
-            <button type="button" className="cat-add-btn" onClick={() => navigate('/settings?mode=new')} aria-label="新增猫咪">
+            <button type="button" className="cat-add-btn" onClick={() => navigate('/settings?mode=new')} aria-label={t('cat.add')}>
                 ＋
             </button>
+            <LanguageToggle className="cat-language-toggle" />
         </div>
     )
 }

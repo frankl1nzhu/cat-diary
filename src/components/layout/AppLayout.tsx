@@ -3,9 +3,11 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { CatSwitcher } from './CatSwitcher'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
+import { useI18n } from '../../lib/i18n'
 import './AppLayout.css'
 
 export function AppLayout() {
+    const { t } = useI18n()
     const navigate = useNavigate()
     const online = useOnlineStatus()
     const mainRef = useRef<HTMLElement>(null)
@@ -91,16 +93,16 @@ export function AppLayout() {
 
     return (
         <div className="app-layout">
-            <a href="#main-content" className="skip-link">跳转到主要内容</a>
+            <a href="#main-content" className="skip-link">{t('layout.skipToContent')}</a>
             <CatSwitcher />
-            {!online && <div className="offline-banner" role="alert">📡 当前离线，暂不可提交新记录</div>}
+            {!online && <div className="offline-banner" role="alert">{t('layout.offlineBanner')}</div>}
             <main ref={mainRef} id="main-content" className="app-main safe-area-inline safe-area-padding-bottom scroll-area">
                 <Outlet />
             </main>
             <button
                 className={`scroll-top-btn ${showScrollTop ? 'visible' : ''}`}
                 onClick={scrollToTop}
-                aria-label="回到顶部"
+                aria-label={t('layout.scrollTop')}
             >
                 ↑
             </button>

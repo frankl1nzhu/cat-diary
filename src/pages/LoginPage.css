@@ -1,5 +1,6 @@
 .login-page {
     min-height: 100dvh;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -11,6 +12,13 @@
             var(--color-bg) 0%,
             var(--color-bg-elevated) 50%,
             var(--color-bg) 100%);
+}
+
+.login-language-toggle-wrap {
+    position: fixed;
+    top: calc(var(--safe-top) + var(--space-4));
+    right: var(--space-4);
+    z-index: 20;
 }
 
 .login-container {

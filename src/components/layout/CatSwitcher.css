@@ -58,3 +58,7 @@
 .cat-add-btn:active {
     transform: scale(0.88);
 }
+
+.cat-language-toggle {
+    flex-shrink: 0;
+}

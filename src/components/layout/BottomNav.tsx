@@ -2,29 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { prefetchRoute } from '../../lib/prefetch'
 import { lightHaptic } from '../../lib/haptics'
+import { useI18n } from '../../lib/i18n'
 import './BottomNav.css'
 
 const leftItems = [
-    { to: '/', icon: '🏠', label: '首页' },
-    { to: '/log', icon: '📝', label: '记录' },
+    { to: '/', icon: '🏠', labelKey: 'nav.home' },
+    { to: '/log', icon: '📝', labelKey: 'nav.log' },
 ]
 
 const rightItems = [
-    { to: '/stats', icon: '📊', label: '统计' },
-    { to: '/settings', icon: '⚙️', label: '设置' },
+    { to: '/stats', icon: '📊', labelKey: 'nav.stats' },
+    { to: '/settings', icon: '⚙️', labelKey: 'nav.settings' },
 ]
 
 const quickActions = [
-    { label: '📝', sublabel: '写日记', path: '/log?quick=diary' as const, type: 'path' as const },
-    { label: '💩', sublabel: '记便便', path: '/?quick=poop' as const, type: 'path' as const },
-    { label: '🍽️', sublabel: '记喂食', path: '/?quick=feed' as const, type: 'path' as const },
-    { label: '⚖️', sublabel: '记体重', path: '/log?quick=weight' as const, type: 'path' as const },
-    { label: '🛒', sublabel: '新增库存', path: '/stats?quick=inventory' as const, type: 'path' as const },
-    { label: '🩺', sublabel: '健康记录', path: '/stats?quick=health' as const, type: 'path' as const },
-    { label: '🗑️', sublabel: '过期提醒', path: '/stats?quick=expiry' as const, type: 'path' as const },
+    { label: '📝', sublabelKey: 'quick.writeDiary', path: '/log?quick=diary' as const, type: 'path' as const },
+    { label: '💩', sublabelKey: 'quick.logPoop', path: '/?quick=poop' as const, type: 'path' as const },
+    { label: '🍽️', sublabelKey: 'quick.logFeed', path: '/?quick=feed' as const, type: 'path' as const },
+    { label: '⚖️', sublabelKey: 'quick.logWeight', path: '/log?quick=weight' as const, type: 'path' as const },
+    { label: '🛒', sublabelKey: 'quick.addInventory', path: '/stats?quick=inventory' as const, type: 'path' as const },
+    { label: '🩺', sublabelKey: 'quick.healthRecord', path: '/stats?quick=health' as const, type: 'path' as const },
+    { label: '🗑️', sublabelKey: 'quick.expiryReminder', path: '/stats?quick=expiry' as const, type: 'path' as const },
 ] as const
 
 export function BottomNav({ hidden }: { hidden?: boolean }) {
+    const { t } = useI18n()
     const navigate = useNavigate()
     const [quickOpen, setQuickOpen] = useState(false)
     const quickSheetRef = useRef<HTMLDivElement>(null)
@@ -71,10 +73,10 @@ export function BottomNav({ hidden }: { hidden?: boolean }) {
 
     return (
         <>
-            {quickOpen && <div className="quick-backdrop" onClick={() => setQuickOpen(false)} onKeyDown={(e) => { if (e.key === 'Escape') setQuickOpen(false) }} role="button" tabIndex={-1} aria-label="关闭快速记录" />}
+            {quickOpen && <div className="quick-backdrop" onClick={() => setQuickOpen(false)} onKeyDown={(e) => { if (e.key === 'Escape') setQuickOpen(false) }} role="button" tabIndex={-1} aria-label={t('quick.close')} />}
             {quickOpen && (
-                <div className="quick-sheet fade-in" ref={quickSheetRef} role="dialog" aria-modal="true" aria-label="快速记录菜单">
-                    <div className="quick-sheet-title">快速记录</div>
+                <div className="quick-sheet fade-in" ref={quickSheetRef} role="dialog" aria-modal="true" aria-label={t('quick.menu')}>
+                    <div className="quick-sheet-title">{t('quick.title')}</div>
                     <div className="quick-grid">
                         {quickActions.map((action) => (
                             <button
@@ -83,7 +85,7 @@ export function BottomNav({ hidden }: { hidden?: boolean }) {
                                 onClick={() => onQuickAction(action)}
                             >
                                 <span style={{ fontSize: '1.5rem' }}>{action.label}</span>
-                                <span>{action.sublabel}</span>
+                                <span>{t(action.sublabelKey)}</span>
                             </button>
                         ))}
                     </div>
@@ -105,11 +107,11 @@ export function BottomNav({ hidden }: { hidden?: boolean }) {
                         onClick={() => lightHaptic()}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
-                        <span className="bottom-nav-label">{item.label}</span>
+                        <span className="bottom-nav-label">{t(item.labelKey)}</span>
                     </NavLink>
                 ))}
 
-                <button className="bottom-nav-plus" onClick={() => { lightHaptic(); setQuickOpen((v) => !v) }} aria-label="快速记录">
+                <button className="bottom-nav-plus" onClick={() => { lightHaptic(); setQuickOpen((v) => !v) }} aria-label={t('quick.open')}>
                     ＋
                 </button>
 
@@ -126,7 +128,7 @@ export function BottomNav({ hidden }: { hidden?: boolean }) {
                         onClick={() => lightHaptic()}
                     >
                         <span className="bottom-nav-icon">{item.icon}</span>
-                        <span className="bottom-nav-label">{item.label}</span>
+                        <span className="bottom-nav-label">{t(item.labelKey)}</span>
                     </NavLink>
                 ))}
             </nav>

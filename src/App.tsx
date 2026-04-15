@@ -15,6 +15,7 @@ import { Button } from './components/ui/Button'
 import { useToastStore } from './stores/useToastStore'
 import { getErrorMessage } from './lib/errorMessage'
 import { STORAGE_KEYS } from './lib/constants'
+import { useI18n } from './lib/i18n'
 import './App.css'
 
 // Route-level code splitting
@@ -25,6 +26,8 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ defa
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })))
 
 function PageLoader() {
+  const { t } = useI18n()
+
   return (
     <div className="loading-screen">
       <div className="loading-cat">🐱</div>
@@ -33,7 +36,7 @@ function PageLoader() {
         <span className="loading-dot" />
         <span className="loading-dot" />
       </div>
-      <p className="text-secondary text-sm">加载中…</p>
+      <p className="text-secondary text-sm">{t('app.loading')}</p>
     </div>
   )
 }
@@ -54,6 +57,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PasswordResetModal() {
   const { isPasswordRecovery, clearPasswordRecovery } = useSession()
+  const { t } = useI18n()
   const pushToast = useToastStore((s) => s.pushToast)
   const [newPwd, setNewPwd] = useState('')
   const [confirmPwd, setConfirmPwd] = useState('')
@@ -62,24 +66,24 @@ function PasswordResetModal() {
 
   const handleSave = async () => {
     setError('')
-    if (newPwd.length < 6) { setError('密码至少6位'); return }
-    if (newPwd !== confirmPwd) { setError('两次输入的密码不一致'); return }
+    if (newPwd.length < 6) { setError(t('reset.error.minLength')); return }
+    if (newPwd !== confirmPwd) { setError(t('reset.error.mismatch')); return }
     setSaving(true)
     try {
       await updatePassword(newPwd)
-      pushToast('success', '密码已重置')
+      pushToast('success', t('reset.toast.success'))
       clearPasswordRecovery()
       setNewPwd('')
       setConfirmPwd('')
     } catch (err) {
-      setError(getErrorMessage(err, '密码重置失败'))
+      setError(getErrorMessage(err, t('reset.error.fallback')))
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal isOpen={isPasswordRecovery} onClose={clearPasswordRecovery} title="🔒 重置密码">
+    <Modal isOpen={isPasswordRecovery} onClose={clearPasswordRecovery} title={t('reset.title')}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {error && (
           <div style={{ background: 'rgba(255,107,107,0.1)', border: '1px solid rgba(255,107,107,0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-3) var(--space-4)', fontSize: 'var(--font-size-sm)', color: 'var(--color-danger)' }}>
@@ -87,15 +91,15 @@ function PasswordResetModal() {
           </div>
         )}
         <div className="form-group">
-          <label className="form-label" htmlFor="reset-new-pwd">新密码</label>
-          <input id="reset-new-pwd" type="password" className="form-input" placeholder="至少6位" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
+          <label className="form-label" htmlFor="reset-new-pwd">{t('reset.newPassword.label')}</label>
+          <input id="reset-new-pwd" type="password" className="form-input" placeholder={t('reset.newPassword.placeholder')} value={newPwd} onChange={(e) => setNewPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
         </div>
         <div className="form-group">
-          <label className="form-label" htmlFor="reset-confirm-pwd">确认新密码</label>
-          <input id="reset-confirm-pwd" type="password" className="form-input" placeholder="再次输入新密码" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
+          <label className="form-label" htmlFor="reset-confirm-pwd">{t('reset.confirmPassword.label')}</label>
+          <input id="reset-confirm-pwd" type="password" className="form-input" placeholder={t('reset.confirmPassword.placeholder')} value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} autoComplete="new-password" aria-invalid={error ? true : undefined} />
         </div>
         <Button variant="primary" fullWidth onClick={handleSave} disabled={saving}>
-          {saving ? '保存中...' : '确认重置'}
+          {saving ? t('reset.button.saving') : t('reset.button.confirm')}
         </Button>
       </div>
     </Modal>

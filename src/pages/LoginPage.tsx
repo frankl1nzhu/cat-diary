@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
+import { LanguageToggle } from '../components/ui/LanguageToggle'
 import { signIn, signUp, resetPassword, useSession } from '../lib/auth'
 import { useToastStore } from '../stores/useToastStore'
 import { getErrorMessage } from '../lib/errorMessage'
+import { useI18n } from '../lib/i18n'
 import './LoginPage.css'
 
 type AuthTab = 'login' | 'register' | 'forgot'
@@ -11,6 +13,7 @@ type AuthTab = 'login' | 'register' | 'forgot'
 export function LoginPage() {
     const navigate = useNavigate()
     const { user } = useSession()
+    const { t } = useI18n()
     const pushToast = useToastStore((s) => s.pushToast)
 
     const [tab, setTab] = useState<AuthTab>('login')
@@ -49,7 +52,7 @@ export function LoginPage() {
         try {
             await signIn(identifier, password)
         } catch (err) {
-            const message = getErrorMessage(err, '登录失败，请检查账号和密码')
+            const message = getErrorMessage(err, t('login.error.signIn'))
             setError(message)
             pushToast('error', message)
         } finally {
@@ -61,16 +64,16 @@ export function LoginPage() {
         e.preventDefault()
         setError(null)
 
-        if (!username.trim()) { setError('请输入用户名'); return }
-        if (username.trim().length < 2) { setError('用户名至少2个字符'); return }
-        if (password.length < 6) { setError('密码至少6位'); return }
+        if (!username.trim()) { setError(t('login.error.usernameRequired')); return }
+        if (username.trim().length < 2) { setError(t('login.error.usernameMin')); return }
+        if (password.length < 6) { setError(t('login.error.passwordMin')); return }
 
         setLoading(true)
         try {
             await signUp(email, password, username.trim(), phone.trim())
-            pushToast('success', '注册成功！请查收验证邮件')
+            pushToast('success', t('login.toast.registerSuccess'))
         } catch (err) {
-            const message = getErrorMessage(err, '注册失败，请稍后重试')
+            const message = getErrorMessage(err, t('login.error.register'))
             setError(message)
             pushToast('error', message)
         } finally {
@@ -81,13 +84,13 @@ export function LoginPage() {
     const handleForgot = async (e: React.FormEvent) => {
         e.preventDefault()
         setError(null)
-        if (!email) { setError('请输入邮箱'); return }
+        if (!email) { setError(t('login.error.emailRequired')); return }
         setLoading(true)
         try {
             await resetPassword(email)
-            pushToast('success', '重置邮件已发送，请查收')
+            pushToast('success', t('login.toast.resetSent'))
         } catch (err) {
-            const message = getErrorMessage(err, '发送失败，请稍后重试')
+            const message = getErrorMessage(err, t('login.error.resetSend'))
             setError(message)
             pushToast('error', message)
         } finally {
@@ -97,6 +100,9 @@ export function LoginPage() {
 
     return (
         <div className="login-page">
+            <div className="login-language-toggle-wrap">
+                <LanguageToggle />
+            </div>
             <div className="login-container fade-in">
                 <div className="login-header">
                     <div className="login-logo">🐱</div>
@@ -110,13 +116,13 @@ export function LoginPage() {
                         className={`auth-tab ${tab === 'login' ? 'auth-tab-active' : ''}`}
                         onClick={() => handleTabSwitch('login')}
                     >
-                        登录
+                        {t('login.tab.login')}
                     </button>
                     <button
                         className={`auth-tab ${tab === 'register' ? 'auth-tab-active' : ''}`}
                         onClick={() => handleTabSwitch('register')}
                     >
-                        注册
+                        {t('login.tab.register')}
                     </button>
                 </div>
 
@@ -129,13 +135,13 @@ export function LoginPage() {
                         )}
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="login-id">邮箱 / 用户名 / 手机号</label>
+                            <label className="form-label" htmlFor="login-id">{t('login.label.identifier')}</label>
                             <input
                                 id="login-id"
                                 type="text"
                                 inputMode="email"
                                 className="form-input"
-                                placeholder="输入邮箱、用户名或手机号"
+                                placeholder={t('login.placeholder.identifier')}
                                 value={identifier}
                                 onChange={(e) => setIdentifier(e.target.value)}
                                 required
@@ -145,12 +151,12 @@ export function LoginPage() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="login-password">密码</label>
+                            <label className="form-label" htmlFor="login-password">{t('login.label.password')}</label>
                             <input
                                 id="login-password"
                                 type="password"
                                 className="form-input"
-                                placeholder="输入密码"
+                                placeholder={t('login.placeholder.password')}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
@@ -160,11 +166,11 @@ export function LoginPage() {
                         </div>
 
                         <Button type="submit" variant="primary" size="lg" fullWidth disabled={loading}>
-                            {loading ? '登录中...' : '登录 🐾'}
+                            {loading ? t('login.button.loginLoading') : t('login.button.login')}
                         </Button>
 
                         <button type="button" className="forgot-link" onClick={() => handleTabSwitch('forgot')}>
-                            忘记密码？
+                            {t('login.link.forgot')}
                         </button>
                     </form>
                 )}
@@ -178,27 +184,27 @@ export function LoginPage() {
                         )}
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="reg-username">用户名 *</label>
+                            <label className="form-label" htmlFor="reg-username">{t('login.label.usernameRequired')}</label>
                             <input
                                 id="reg-username"
                                 type="text"
                                 className="form-input"
-                                placeholder="唯一用户名"
+                                placeholder={t('login.placeholder.username')}
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 required
                                 autoComplete="username"
-                                aria-invalid={error?.includes('用户名') ? true : undefined}
+                                aria-invalid={error ? true : undefined}
                             />
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="reg-email">邮箱 *</label>
+                            <label className="form-label" htmlFor="reg-email">{t('login.label.emailRequired')}</label>
                             <input
                                 id="reg-email"
                                 type="email"
                                 className="form-input"
-                                placeholder="your@email.com"
+                                placeholder={t('login.placeholder.email')}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -207,12 +213,12 @@ export function LoginPage() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="reg-phone">手机号</label>
+                            <label className="form-label" htmlFor="reg-phone">{t('login.label.phone')}</label>
                             <input
                                 id="reg-phone"
                                 type="tel"
                                 className="form-input"
-                                placeholder="可选，如 13812345678"
+                                placeholder={t('login.placeholder.phone')}
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 autoComplete="tel"
@@ -220,23 +226,23 @@ export function LoginPage() {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="reg-password">密码 *</label>
+                            <label className="form-label" htmlFor="reg-password">{t('login.label.passwordRequired')}</label>
                             <input
                                 id="reg-password"
                                 type="password"
                                 className="form-input"
-                                placeholder="至少6位"
+                                placeholder={t('login.placeholder.passwordMin')}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
                                 minLength={6}
                                 autoComplete="new-password"
-                                aria-invalid={error?.includes('密码') ? true : undefined}
+                                aria-invalid={error ? true : undefined}
                             />
                         </div>
 
                         <Button type="submit" variant="primary" size="lg" fullWidth disabled={loading}>
-                            {loading ? '注册中...' : '注册 🐾'}
+                            {loading ? t('login.button.registerLoading') : t('login.button.register')}
                         </Button>
                     </form>
                 )}
@@ -250,16 +256,16 @@ export function LoginPage() {
                         )}
 
                         <p className="text-secondary text-sm" style={{ marginBottom: 'var(--space-4)' }}>
-                            输入注册邮箱，我们将发送重置密码链接。
+                            {t('login.forgot.desc')}
                         </p>
 
                         <div className="form-group">
-                            <label className="form-label" htmlFor="forgot-email">邮箱</label>
+                            <label className="form-label" htmlFor="forgot-email">{t('login.label.forgotEmail')}</label>
                             <input
                                 id="forgot-email"
                                 type="email"
                                 className="form-input"
-                                placeholder="your@email.com"
+                                placeholder={t('login.placeholder.email')}
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
@@ -268,17 +274,17 @@ export function LoginPage() {
                         </div>
 
                         <Button type="submit" variant="primary" size="lg" fullWidth disabled={loading}>
-                            {loading ? '发送中...' : '发送重置邮件'}
+                            {loading ? t('login.button.sendLoading') : t('login.button.sendReset')}
                         </Button>
 
                         <button type="button" className="forgot-link" onClick={() => handleTabSwitch('login')}>
-                            返回登录
+                            {t('login.link.backToLogin')}
                         </button>
                     </form>
                 )}
 
                 <p className="login-footer text-muted text-xs">
-                    极简记录，实时同步 ✨
+                    {t('login.footer')}
                 </p>
             </div>
         </div>
