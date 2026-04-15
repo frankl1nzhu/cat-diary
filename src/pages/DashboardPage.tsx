@@ -271,6 +271,13 @@ export function DashboardPage() {
 
             <CatProfileCard cat={cat} />
 
+            <QuickActions
+                cat={cat}
+                todayFeeds={data.todayFeeds}
+                lowInventory={lowInventory}
+                onDataChange={reload}
+            />
+
             <ExpiryReminders
                 items={allInventoryExpiryReminders}
                 online={online}
@@ -289,13 +296,6 @@ export function DashboardPage() {
                 items={lowInventory}
                 online={online}
                 onReplenish={handleReplenishInventory}
-            />
-
-            <QuickActions
-                cat={cat}
-                todayFeeds={data.todayFeeds}
-                lowInventory={lowInventory}
-                onDataChange={reload}
             />
 
             <MoodCalendarSection
