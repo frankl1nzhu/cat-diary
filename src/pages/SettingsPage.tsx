@@ -16,6 +16,7 @@ import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } f
 import { savePushSubscription, sendTestPush, sendCatProfileNotification, sendNewCatNotification, sendFamilyMemberNotification, sendFamilyMemberLeftNotification } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
+import { useI18n } from '../lib/i18n'
 import type { Family, FamilyMemberWithEmail } from '../types/database.types'
 import './SettingsPage.css'
 
@@ -34,6 +35,7 @@ type FamilyJoinRequestWithProfile = FamilyJoinRequest & {
 }
 
 export function SettingsPage() {
+    const { language } = useI18n()
     const { user } = useSession()
     const { cat, catId, families, activeFamilyId, setActiveFamilyId, myRole, loading: catLoading } = useCat()
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
@@ -86,6 +88,108 @@ export function SettingsPage() {
     const [reviewingReqId, setReviewingReqId] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
+    const text = language === 'zh'
+        ? {
+            loading: '加载中...',
+            title: '⚙️ 设置',
+            subtitle: '管理猫咪档案和账号',
+            catProfile: '😺 猫咪档案',
+            profileSaved: '已保存档案',
+            avatar: '头像',
+            name: '名字',
+            family: '家庭',
+            unassigned: '未分配',
+            breed: '品种',
+            birthday: '生日',
+            adoptedAt: '领养日',
+            editProfile: '编辑档案',
+            avatarLabel: '头像',
+            uploading: '上传中...',
+            clickToUpload: '点击上传照片',
+            nameRequired: '名字 *',
+            namePlaceholder: '输入猫咪名字',
+            familyRequired: '家庭 *',
+            selectFamily: '请选择家庭',
+            noFamily: '暂无家庭，请先创建或加入',
+            breedLabel: '品种',
+            breedPlaceholder: '如：英短、美短、橘猫',
+            birthdayLabel: '生日',
+            adoptedLabel: '领养日',
+            saving: '保存中...',
+            addCat: '新增猫咪',
+            saveProfile: '保存档案',
+            deleteCat: '删除猫咪',
+            familyMgmt: '👨‍👩‍👧 家庭管理',
+            currentFamily: '当前家庭：',
+            yourRole: '你的角色：',
+            roleOwner: '创建者',
+            roleAdmin: '管理员',
+            roleMember: '成员',
+            inviteCode: '邀请码：',
+            switchFamily: '切换家庭',
+            members: '家庭成员',
+            noMembers: '暂无成员数据',
+            pendingJoin: '待审核加入申请',
+            noPendingJoin: '暂无待审核申请',
+            approve: '同意',
+            reject: '拒绝',
+            removeAdmin: '取消管理员',
+            setAdmin: '设为管理员',
+            kick: '踢出',
+            assignCurrentCat: '将当前猫咪归属到该家庭',
+            familySettings: '家庭设置',
+        }
+        : {
+            loading: 'Loading...',
+            title: '⚙️ Settings',
+            subtitle: 'Manage cat profile and account',
+            catProfile: '😺 Cat Profile',
+            profileSaved: 'Profile saved',
+            avatar: 'Avatar',
+            name: 'Name',
+            family: 'Family',
+            unassigned: 'Unassigned',
+            breed: 'Breed',
+            birthday: 'Birthday',
+            adoptedAt: 'Adoption date',
+            editProfile: 'Edit profile',
+            avatarLabel: 'Avatar',
+            uploading: 'Uploading...',
+            clickToUpload: 'Tap to upload photo',
+            nameRequired: 'Name *',
+            namePlaceholder: 'Enter cat name',
+            familyRequired: 'Family *',
+            selectFamily: 'Please select a family',
+            noFamily: 'No family yet, create or join one first',
+            breedLabel: 'Breed',
+            breedPlaceholder: 'e.g. British Shorthair, American Shorthair, Tabby',
+            birthdayLabel: 'Birthday',
+            adoptedLabel: 'Adoption date',
+            saving: 'Saving...',
+            addCat: 'Add cat',
+            saveProfile: 'Save profile',
+            deleteCat: 'Delete cat',
+            familyMgmt: '👨‍👩‍👧 Family Management',
+            currentFamily: 'Current family: ',
+            yourRole: 'Your role: ',
+            roleOwner: 'Owner',
+            roleAdmin: 'Admin',
+            roleMember: 'Member',
+            inviteCode: 'Invite code: ',
+            switchFamily: 'Switch family',
+            members: 'Family members',
+            noMembers: 'No member data yet',
+            pendingJoin: 'Pending join requests',
+            noPendingJoin: 'No pending requests',
+            approve: 'Approve',
+            reject: 'Reject',
+            removeAdmin: 'Remove admin',
+            setAdmin: 'Set as admin',
+            kick: 'Remove',
+            assignCurrentCat: 'Assign current cat to this family',
+            familySettings: 'Family settings',
+        }
+    const roleText = myRole === 'owner' ? text.roleOwner : myRole === 'admin' ? text.roleAdmin : text.roleMember
 
     // Derive currentFamily from useCat's families + activeFamilyId
     useEffect(() => {
@@ -714,43 +818,43 @@ export function SettingsPage() {
             {catLoading && !createMode ? (
                 <div className="p-4">
                     <Card variant="default" padding="md">
-                        <p className="text-secondary text-sm">加载中...</p>
+                        <p className="text-secondary text-sm">{text.loading}</p>
                     </Card>
                 </div>
             ) : (
                 <>
                     <div className="page-header p-4">
-                        <h1 className="text-2xl font-bold">⚙️ 设置</h1>
-                        <p className="text-secondary text-sm">管理猫咪档案和账号</p>
+                        <h1 className="text-2xl font-bold">{text.title}</h1>
+                        <p className="text-secondary text-sm">{text.subtitle}</p>
                     </div>
 
                     {/* Cat Profile Editor */}
                     <form onSubmit={handleSave}>
                         <div className="p-4">
                             <Card variant="default" padding="md">
-                                <h2 className="text-lg font-semibold mb-3">😺 猫咪档案</h2>
+                                <h2 className="text-lg font-semibold mb-3">{text.catProfile}</h2>
                                 {profileLocked && !createMode ? (
                                     <div className="profile-saved-view">
-                                        <p className="text-sm text-secondary">已保存档案</p>
+                                        <p className="text-sm text-secondary">{text.profileSaved}</p>
                                         <div className="saved-row">
-                                            <span className="text-secondary">头像</span>
+                                            <span className="text-secondary">{text.avatar}</span>
                                             {avatarUrl ? <img src={avatarUrl} alt="猫咪头像" className="avatar-preview" loading="lazy" /> : <span>—</span>}
                                         </div>
-                                        <div className="saved-row"><span className="text-secondary">名字</span><strong>{name || '—'}</strong></div>
-                                        <div className="saved-row"><span className="text-secondary">家庭</span><strong>{families.find((f) => f.id === selectedFamilyId)?.name || '未分配'}</strong></div>
-                                        <div className="saved-row"><span className="text-secondary">品种</span><strong>{breed || '—'}</strong></div>
-                                        <div className="saved-row"><span className="text-secondary">生日</span><strong>{birthday || '—'}</strong></div>
-                                        <div className="saved-row"><span className="text-secondary">领养日</span><strong>{adoptedAt || '—'}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">{text.name}</span><strong>{name || '—'}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">{text.family}</span><strong>{families.find((f) => f.id === selectedFamilyId)?.name || text.unassigned}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">{text.breed}</span><strong>{breed || '—'}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">{text.birthday}</span><strong>{birthday || '—'}</strong></div>
+                                        <div className="saved-row"><span className="text-secondary">{text.adoptedAt}</span><strong>{adoptedAt || '—'}</strong></div>
                                         <div className="cat-actions-row">
                                             <Button type="button" variant="secondary" fullWidth onClick={() => setProfileLocked(false)} disabled={myRole !== 'owner' && myRole !== 'admin'}>
-                                                编辑档案
+                                                {text.editProfile}
                                             </Button>
                                         </div>
                                     </div>
                                 ) : (
                                     <>
                                         <div className="form-group">
-                                            <label className="form-label">头像</label>
+                                            <label className="form-label">{text.avatarLabel}</label>
                                             <div
                                                 className="avatar-upload"
                                                 role="button"
@@ -764,7 +868,7 @@ export function SettingsPage() {
                                                     <span className="avatar-upload-icon">📷</span>
                                                 )}
                                                 <span className="text-sm text-secondary">
-                                                    {uploading ? '上传中...' : '点击上传照片'}
+                                                    {uploading ? text.uploading : text.clickToUpload}
                                                 </span>
                                             </div>
                                             <input
@@ -778,19 +882,19 @@ export function SettingsPage() {
                                         </div>
 
                                         <div className="form-group">
-                                            <label className="form-label" htmlFor="cat-name">名字 *</label>
+                                            <label className="form-label" htmlFor="cat-name">{text.nameRequired}</label>
                                             <input
                                                 id="cat-name"
                                                 type="text"
                                                 className="form-input"
-                                                placeholder="输入猫咪名字"
+                                                placeholder={text.namePlaceholder}
                                                 value={name}
                                                 onChange={(e) => setName(e.target.value)}
                                                 required
                                             />
                                         </div>
                                         <div className="form-group">
-                                            <label className="form-label" htmlFor="cat-family">家庭 *</label>
+                                            <label className="form-label" htmlFor="cat-family">{text.familyRequired}</label>
                                             <select
                                                 id="cat-family"
                                                 className="form-input"
@@ -798,26 +902,26 @@ export function SettingsPage() {
                                                 onChange={(e) => setSelectedFamilyId(e.target.value)}
                                                 required
                                             >
-                                                <option value="">{families.length > 0 ? '请选择家庭' : '暂无家庭，请先创建或加入'}</option>
+                                                <option value="">{families.length > 0 ? text.selectFamily : text.noFamily}</option>
                                                 {families.map((family) => (
                                                     <option key={family.id} value={family.id}>{family.name}</option>
                                                 ))}
                                             </select>
                                         </div>
                                         <div className="form-group">
-                                            <label className="form-label" htmlFor="cat-breed">品种</label>
+                                            <label className="form-label" htmlFor="cat-breed">{text.breedLabel}</label>
                                             <input
                                                 id="cat-breed"
                                                 type="text"
                                                 className="form-input"
-                                                placeholder="如：英短、美短、橘猫"
+                                                placeholder={text.breedPlaceholder}
                                                 value={breed}
                                                 onChange={(e) => setBreed(e.target.value)}
                                             />
                                         </div>
                                         <div className="form-row">
                                             <div className="form-group flex-1">
-                                                <label className="form-label" htmlFor="cat-birthday">生日</label>
+                                                <label className="form-label" htmlFor="cat-birthday">{text.birthdayLabel}</label>
                                                 <input
                                                     id="cat-birthday"
                                                     type="date"
@@ -827,7 +931,7 @@ export function SettingsPage() {
                                                 />
                                             </div>
                                             <div className="form-group flex-1">
-                                                <label className="form-label" htmlFor="cat-adopted">领养日</label>
+                                                <label className="form-label" htmlFor="cat-adopted">{text.adoptedLabel}</label>
                                                 <input
                                                     id="cat-adopted"
                                                     type="date"
@@ -839,7 +943,7 @@ export function SettingsPage() {
                                         </div>
                                         <div className="cat-actions-row">
                                             <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
-                                                {saving ? '保存中...' : createMode ? '新增猫咪' : '保存档案'}
+                                                {saving ? text.saving : createMode ? text.addCat : text.saveProfile}
                                             </Button>
                                             <Button
                                                 type="button"
@@ -848,7 +952,7 @@ export function SettingsPage() {
                                                 onClick={openDeleteCatModal}
                                                 disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin')}
                                             >
-                                                删除猫咪
+                                                {text.deleteCat}
                                             </Button>
                                         </div>
                                     </>
@@ -860,17 +964,17 @@ export function SettingsPage() {
                     {/* Family Members */}
                     <div className="p-4">
                         <Card variant="default" padding="md">
-                            <h2 className="text-lg font-semibold mb-3">👨‍👩‍👧 家庭管理</h2>
+                            <h2 className="text-lg font-semibold mb-3">{text.familyMgmt}</h2>
                             {currentFamily ? (
                                 <>
-                                    <p className="text-secondary text-sm">当前家庭：{currentFamily.name}</p>
+                                    <p className="text-secondary text-sm">{text.currentFamily}{currentFamily.name}</p>
                                     <p className="text-muted text-xs" style={{ marginTop: '4px' }}>
-                                        你的角色：{myRole === 'owner' ? '创建者' : myRole === 'admin' ? '管理员' : '成员'}
+                                        {text.yourRole}{roleText}
                                     </p>
-                                    <p className="text-muted text-xs" style={{ marginTop: '4px' }}>邀请码：{currentFamily.invite_code}</p>
+                                    <p className="text-muted text-xs" style={{ marginTop: '4px' }}>{text.inviteCode}{currentFamily.invite_code}</p>
                                     {families.length > 1 && (
                                         <div className="form-group" style={{ marginTop: '12px' }}>
-                                            <label className="form-label">切换家庭</label>
+                                            <label className="form-label">{text.switchFamily}</label>
                                             <select
                                                 className="form-input"
                                                 value={activeFamilyId || ''}
@@ -888,11 +992,11 @@ export function SettingsPage() {
                                     {/* Member list for owner/admin */}
                                     {(myRole === 'owner' || myRole === 'admin') && (
                                         <div className="member-list-section">
-                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>家庭成员</h3>
+                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>{text.members}</h3>
                                             {membersLoading ? (
-                                                <p className="text-muted text-xs">加载中...</p>
+                                                <p className="text-muted text-xs">{text.loading}</p>
                                             ) : familyMembers.length === 0 ? (
-                                                <p className="text-muted text-xs">暂无成员数据</p>
+                                                <p className="text-muted text-xs">{text.noMembers}</p>
                                             ) : (
                                                 <div className="member-list">
                                                     {familyMembers.map((member) => (
@@ -900,7 +1004,7 @@ export function SettingsPage() {
                                                             <div className="member-info">
                                                                 <span className="member-email text-sm">{member.email}</span>
                                                                 <span className={`member-role-badge role-${member.role}`}>
-                                                                    {member.role === 'owner' ? '创建者' : member.role === 'admin' ? '管理员' : '成员'}
+                                                                    {member.role === 'owner' ? text.roleOwner : member.role === 'admin' ? text.roleAdmin : text.roleMember}
                                                                 </span>
                                                             </div>
                                                             {myRole === 'owner' && member.user_id !== user?.id && (
@@ -911,14 +1015,14 @@ export function SettingsPage() {
                                                                         onClick={() => handleToggleAdmin(member.id, member.user_id, member.role)}
                                                                         disabled={roleSaving === member.id}
                                                                     >
-                                                                        {roleSaving === member.id ? '...' : member.role === 'admin' ? '取消管理员' : '设为管理员'}
+                                                                        {roleSaving === member.id ? '...' : member.role === 'admin' ? text.removeAdmin : text.setAdmin}
                                                                     </Button>
                                                                     <Button
                                                                         variant="danger"
                                                                         size="sm"
                                                                         onClick={() => openKickModal(member)}
                                                                     >
-                                                                        踢出
+                                                                        {text.kick}
                                                                     </Button>
                                                                 </div>
                                                             )}
@@ -930,11 +1034,11 @@ export function SettingsPage() {
                                     )}
                                     {(myRole === 'owner' || myRole === 'admin') && (
                                         <div className="member-list-section" style={{ marginTop: '12px' }}>
-                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>待审核加入申请</h3>
+                                            <h3 className="text-sm font-semibold" style={{ marginBottom: '8px' }}>{text.pendingJoin}</h3>
                                             {joinReqLoading ? (
-                                                <p className="text-muted text-xs">加载中...</p>
+                                                <p className="text-muted text-xs">{text.loading}</p>
                                             ) : pendingJoinRequests.length === 0 ? (
-                                                <p className="text-muted text-xs">暂无待审核申请</p>
+                                                <p className="text-muted text-xs">{text.noPendingJoin}</p>
                                             ) : (
                                                 <div className="member-list">
                                                     {pendingJoinRequests.map((req) => (
@@ -950,7 +1054,7 @@ export function SettingsPage() {
                                                                     onClick={() => handleReviewJoinRequest(req.id, true)}
                                                                     disabled={reviewingReqId === req.id}
                                                                 >
-                                                                    同意
+                                                                    {text.approve}
                                                                 </Button>
                                                                 <Button
                                                                     variant="danger"
@@ -958,7 +1062,7 @@ export function SettingsPage() {
                                                                     onClick={() => handleReviewJoinRequest(req.id, false)}
                                                                     disabled={reviewingReqId === req.id}
                                                                 >
-                                                                    拒绝
+                                                                    {text.reject}
                                                                 </Button>
                                                             </div>
                                                         </div>
@@ -969,11 +1073,11 @@ export function SettingsPage() {
                                     )}
                                     {cat && cat.family_id !== currentFamily.id && (
                                         <div style={{ marginTop: '12px' }}>
-                                            <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>将当前猫咪归属到该家庭</Button>
+                                            <Button variant="ghost" onClick={handleAssignCurrentCatToFamily}>{text.assignCurrentCat}</Button>
                                         </div>
                                     )}
                                     <div style={{ marginTop: '12px' }}>
-                                        <Button variant="secondary" onClick={openFamilySettingsModal}>家庭设置</Button>
+                                        <Button variant="secondary" onClick={openFamilySettingsModal}>{text.familySettings}</Button>
                                     </div>
                                 </>
                             ) : (

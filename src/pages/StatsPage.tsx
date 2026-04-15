@@ -18,6 +18,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useRenewForm } from '../lib/useRenewForm'
 import { sendHealthNotification, sendInventoryNotification, sendWeightNotification } from '../lib/pushServer'
 import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
+import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
@@ -50,10 +51,46 @@ const PIE_COLORS = ['var(--color-primary)', 'var(--color-secondary)', 'var(--col
 
 export function StatsPage() {
     const { user } = useSession()
+    const { language } = useI18n()
     const { cat, catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
+    const text = language === 'zh'
+        ? {
+            title: '📊 统计',
+            subtitle: '健康数据与库存管理',
+            exportAll: '导出全部记录',
+            weightTrend: '⚖️ 体重趋势',
+            add: '+ 添加',
+            rangeLabel: (days: number) => `趋势区间：近 ${days} 天`,
+            weightName: '体重',
+            currentWeight: (weight: number) => `当前体重：${weight} kg，再记一次就能看趋势图了`,
+            noWeight: '还没有体重记录，去记录页添加吧',
+            poopDistribution: '🧻 便便分布（近30天）',
+            noPoop: '近30天暂无便便记录',
+            missCount: '🥹 咪被想次数',
+            missCountName: '咪被想次数',
+            feedCount: '🍽️ 喂食次数',
+            feedCountName: '喂食次数',
+        }
+        : {
+            title: '📊 Stats',
+            subtitle: 'Health data and inventory management',
+            exportAll: 'Export all records',
+            weightTrend: '⚖️ Weight Trend',
+            add: '+ Add',
+            rangeLabel: (days: number) => `Range: last ${days} days`,
+            weightName: 'Weight',
+            currentWeight: (weight: number) => `Current weight: ${weight} kg. Add one more to view the trend chart.`,
+            noWeight: 'No weight records yet. Add one from Logs.',
+            poopDistribution: '🧻 Poop Distribution (30 days)',
+            noPoop: 'No poop records in the last 30 days',
+            missCount: '🥹 Missing-you Count',
+            missCountName: 'Missing-you count',
+            feedCount: '🍽️ Feeding Count',
+            feedCountName: 'Feeding count',
+        }
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])
@@ -812,12 +849,12 @@ export function StatsPage() {
     return (
         <div className="stats-page fade-in">
             <div className="page-header p-4">
-                <h1 className="text-2xl font-bold">📊 统计</h1>
-                <p className="text-secondary text-sm">健康数据与库存管理</p>
+                <h1 className="text-2xl font-bold">{text.title}</h1>
+                <p className="text-secondary text-sm">{text.subtitle}</p>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>导出就医报告（中文）</Button>
                     <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>Export Vet Report (EN)</Button>
-                    <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>导出全部记录</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>{text.exportAll}</Button>
                 </div>
             </div>
 
@@ -825,13 +862,13 @@ export function StatsPage() {
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <div className="section-row">
-                        <h2 className="text-lg font-semibold">⚖️ 体重趋势</h2>
+                        <h2 className="text-lg font-semibold">{text.weightTrend}</h2>
                         <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
-                            + 添加
+                            {text.add}
                         </Button>
                     </div>
                     <div className="weight-window-row">
-                        <label className="text-sm text-secondary" htmlFor="weight-window-range">趋势区间：近 {weightWindowDays} 天</label>
+                        <label className="text-sm text-secondary" htmlFor="weight-window-range">{text.rangeLabel(weightWindowDays)}</label>
                         <input
                             id="weight-window-range"
                             type="range"
@@ -872,7 +909,7 @@ export function StatsPage() {
                                         strokeWidth={2.5}
                                         dot={{ fill: 'var(--color-primary)', r: 4 }}
                                         activeDot={{ r: 6 }}
-                                        name="体重"
+                                        name={text.weightName}
                                         unit=" kg"
                                     />
                                 </LineChart>
@@ -883,14 +920,14 @@ export function StatsPage() {
                             <div className="empty-illu-wrap"><EmptyCatIllustration mood="play" /></div>
                             <p className="text-secondary text-sm">
                                 {chartData.length === 1
-                                    ? `当前体重：${chartData[0].weight} kg，再记一次就能看趋势图了`
-                                    : '还没有体重记录，去记录页添加吧'}
+                                    ? text.currentWeight(chartData[0].weight)
+                                    : text.noWeight}
                             </p>
                         </div>
                     )}
 
                     <div className="poop-charts-wrap">
-                        <h3 className="text-base font-semibold">🧻 便便分布（近30天）</h3>
+                        <h3 className="text-base font-semibold">{text.poopDistribution}</h3>
                         <div className="chart-container">
                             {bristolDistributionData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={220}>
@@ -925,14 +962,14 @@ export function StatsPage() {
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="empty-state-sm">
-                                    <p className="text-secondary text-sm">近30天暂无便便记录</p>
+                                    <p className="text-secondary text-sm">{text.noPoop}</p>
                                 </div>
                             )}
                         </div>
 
-                        <h3 className="text-base font-semibold">🥹 咪被想次数</h3>
+                        <h3 className="text-base font-semibold">{text.missCount}</h3>
                         <div className="weight-window-row">
-                            <label className="text-sm text-secondary" htmlFor="miss-window-range">趋势区间：近 {missWindowDays} 天</label>
+                            <label className="text-sm text-secondary" htmlFor="miss-window-range">{text.rangeLabel(missWindowDays)}</label>
                             <input
                                 id="miss-window-range"
                                 type="range"
@@ -963,15 +1000,15 @@ export function StatsPage() {
                                         strokeWidth={2.5}
                                         dot={{ fill: 'var(--color-accent)', r: 3 }}
                                         activeDot={{ r: 5 }}
-                                        name="咪被想次数"
+                                        name={text.missCountName}
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
 
-                        <h3 className="text-base font-semibold">🍽️ 喂食次数</h3>
+                        <h3 className="text-base font-semibold">{text.feedCount}</h3>
                         <div className="weight-window-row">
-                            <label className="text-sm text-secondary" htmlFor="feed-window-range">趋势区间：近 {feedWindowDays} 天</label>
+                            <label className="text-sm text-secondary" htmlFor="feed-window-range">{text.rangeLabel(feedWindowDays)}</label>
                             <input
                                 id="feed-window-range"
                                 type="range"
@@ -1002,7 +1039,7 @@ export function StatsPage() {
                                         strokeWidth={2.5}
                                         dot={{ fill: 'var(--color-secondary)', r: 3 }}
                                         activeDot={{ r: 5 }}
-                                        name="喂食次数"
+                                        name={text.feedCountName}
                                     />
                                 </LineChart>
                             </ResponsiveContainer>

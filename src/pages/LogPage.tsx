@@ -20,6 +20,7 @@ import { lightHaptic } from '../lib/haptics'
 import { withTimeout } from '../lib/promiseTimeout'
 import { sendDiaryNotification, sendCommentNotification, sendWeightNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS } from '../lib/constants'
+import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
 import './LogPage.css'
@@ -33,10 +34,134 @@ const TAGS = DIARY_TAGS
 
 export function LogPage() {
     const { user } = useSession()
+    const { language } = useI18n()
     const { cat, catId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
+    const text = language === 'zh'
+        ? {
+            anonymous: '匿名',
+            edit: '编辑',
+            comments: '评论',
+            commentsSuffix: ' 条评论',
+            commentPlaceholder: '写评论...',
+            send: '发送',
+            bristolType: '布里斯托',
+            abnormal: '⚠️ 异常',
+            pullRefreshing: '刷新中…',
+            pullReady: '松手刷新',
+            pullHint: '下拉刷新',
+            title: '📝 记录',
+            subtitle: '所有猫咪动态',
+            searchPlaceholder: '搜索记录关键字',
+            searchAria: '搜索记录',
+            filterAria: '记录类型筛选',
+            diaryType: '📝 日记',
+            poopType: '💩 便便',
+            weightType: '⚖️ 体重',
+            startDateAria: '开始日期',
+            endDateAria: '结束日期',
+            to: '至',
+            all: '全部',
+            emptyFiltered: '没有符合筛选条件的记录',
+            loadingMore: '加载中...',
+            loadMore: '加载更多',
+            saving: '保存中...',
+            diaryModalEdit: '📝 编辑日记',
+            diaryModalCreate: '📝 写日记',
+            diaryPlaceholder: '今天猫咪做了什么...',
+            tagsLabel: '标签',
+            photosLabel: '照片',
+            pickPhoto: '📷 选择照片',
+            saveChanges: '保存修改',
+            publish: '发布 🐾',
+            weightModalEdit: '⚖️ 编辑体重',
+            weightModalCreate: '⚖️ 记录体重',
+            weightLabel: '体重 (kg)',
+            updateWeight: '更新体重',
+            saveWeight: '保存体重',
+            poopModalTitle: '💩 编辑便便记录',
+            poopTypeLabel: '布里斯托类型',
+            poopColorLabel: '颜色',
+            typePrefix: '类型',
+            poopUpdate: '更新便便记录',
+            lightboxAlt: '日记图片预览',
+            deleteTitle: '确认删除？',
+            deleteHint: '此操作不可恢复，确认删除这条记录吗？',
+            deleting: '删除中...',
+            confirmDelete: '确认删除',
+            colorLabels: {
+                brown: '棕色',
+                dark_brown: '深棕色',
+                yellow: '黄色',
+                green: '绿色',
+                red: '红色',
+                black: '黑色',
+                white: '白色',
+            },
+        }
+        : {
+            anonymous: 'Anonymous',
+            edit: 'Edit',
+            comments: 'Comments',
+            commentsSuffix: ' comments',
+            commentPlaceholder: 'Write a comment...',
+            send: 'Send',
+            bristolType: 'Bristol',
+            abnormal: '⚠️ Abnormal',
+            pullRefreshing: 'Refreshing…',
+            pullReady: 'Release to refresh',
+            pullHint: 'Pull to refresh',
+            title: '📝 Logs',
+            subtitle: 'All cat activities',
+            searchPlaceholder: 'Search logs',
+            searchAria: 'Search logs',
+            filterAria: 'Log type filters',
+            diaryType: '📝 Diary',
+            poopType: '💩 Poop',
+            weightType: '⚖️ Weight',
+            startDateAria: 'Start date',
+            endDateAria: 'End date',
+            to: 'to',
+            all: 'All',
+            emptyFiltered: 'No records match current filters',
+            loadingMore: 'Loading...',
+            loadMore: 'Load more',
+            saving: 'Saving...',
+            diaryModalEdit: '📝 Edit Diary',
+            diaryModalCreate: '📝 New Diary',
+            diaryPlaceholder: 'What did your cat do today...',
+            tagsLabel: 'Tags',
+            photosLabel: 'Photo',
+            pickPhoto: '📷 Choose photo',
+            saveChanges: 'Save changes',
+            publish: 'Publish 🐾',
+            weightModalEdit: '⚖️ Edit Weight',
+            weightModalCreate: '⚖️ Log Weight',
+            weightLabel: 'Weight (kg)',
+            updateWeight: 'Update weight',
+            saveWeight: 'Save weight',
+            poopModalTitle: '💩 Edit Poop Log',
+            poopTypeLabel: 'Bristol type',
+            poopColorLabel: 'Color',
+            typePrefix: 'Type',
+            poopUpdate: 'Update poop log',
+            lightboxAlt: 'Diary image preview',
+            deleteTitle: 'Confirm delete?',
+            deleteHint: 'This action cannot be undone. Delete this record?',
+            deleting: 'Deleting...',
+            confirmDelete: 'Confirm delete',
+            colorLabels: {
+                brown: 'Brown',
+                dark_brown: 'Dark brown',
+                yellow: 'Yellow',
+                green: 'Green',
+                red: 'Red',
+                black: 'Black',
+                white: 'White',
+            },
+        }
 
     const [timeline, setTimeline] = useState<TimelineItem[]>([])
     const [loading, setLoading] = useState(true)
@@ -191,7 +316,7 @@ export function LogPage() {
             })
     }, [timeline, diaryComments])
 
-    const getUserName = (userId: string) => userProfiles[userId] || '匿名'
+    const getUserName = (userId: string) => userProfiles[userId] || text.anonymous
 
     const toggleDiaryExpand = (id: string) => {
         setExpandedDiaries((prev) => {
@@ -689,7 +814,7 @@ export function LogPage() {
 
                             {/* Comments toggle */}
                             <button className="diary-comment-toggle" onClick={() => toggleShowComments(item.data.id)}>
-                                💬 {comments.length > 0 ? `${comments.length} 条评论` : '评论'}
+                                💬 {comments.length > 0 ? `${comments.length}${text.commentsSuffix}` : text.comments}
                                 {commentsVisible ? ' ▲' : ' ▼'}
                             </button>
 
@@ -711,7 +836,7 @@ export function LogPage() {
                                         <input
                                             type="text"
                                             className="form-input diary-comment-input"
-                                            placeholder="写评论..."
+                                            placeholder={text.commentPlaceholder}
                                             value={commentInputs[item.data.id] || ''}
                                             onChange={(e) => setCommentInputs((prev) => ({ ...prev, [item.data.id]: e.target.value }))}
                                             onKeyDown={(e) => {
@@ -727,7 +852,7 @@ export function LogPage() {
                                             onClick={() => handleAddComment(item.data.id)}
                                             disabled={commentSaving === item.data.id}
                                         >
-                                            {commentSaving === item.data.id ? '...' : '发送'}
+                                            {commentSaving === item.data.id ? '...' : text.send}
                                         </button>
                                     </div>
                                 </div>
@@ -753,12 +878,12 @@ export function LogPage() {
                             <div className="timeline-badge poop-badge">💩</div>
                             <div className="timeline-content">
                                 <div className="timeline-actions">
-                                    <button className="timeline-action-btn" onClick={() => openEditPoop(item.data)}>编辑</button>
+                                    <button className="timeline-action-btn" onClick={() => openEditPoop(item.data)}>{text.edit}</button>
                                 </div>
                                 <p className="text-sm">
-                                    布里斯托 {item.data.bristol_type} 型 · {bristolLabels[item.data.bristol_type]}
+                                    {text.bristolType} {item.data.bristol_type} · {bristolLabels[item.data.bristol_type]}
                                     {' '}{colorEmojis[item.data.color]}
-                                    {abnormal && <span className="warn-tag">⚠️ 异常</span>}
+                                    {abnormal && <span className="warn-tag">{text.abnormal}</span>}
                                 </p>
                                 <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
                             </div>
@@ -796,12 +921,12 @@ export function LogPage() {
                 style={{ height: pullToRefresh.pullDistance > 0 ? `${pullToRefresh.pullDistance}px` : undefined }}
             >
                 <span className="pull-indicator-icon">{pullToRefresh.refreshing ? '🔄' : '↓'}</span>
-                <span>{pullToRefresh.refreshing ? '刷新中…' : pullToRefresh.isReady ? '松手刷新' : '下拉刷新'}</span>
+                <span>{pullToRefresh.refreshing ? text.pullRefreshing : pullToRefresh.isReady ? text.pullReady : text.pullHint}</span>
             </div>
 
             <div className="page-header p-4">
-                <h1 className="text-2xl font-bold">📝 记录</h1>
-                <p className="text-secondary text-sm">所有猫咪动态</p>
+                <h1 className="text-2xl font-bold">{text.title}</h1>
+                <p className="text-secondary text-sm">{text.subtitle}</p>
             </div>
 
             <div className="px-4">
@@ -809,16 +934,16 @@ export function LogPage() {
                     <input
                         type="search"
                         className="form-input"
-                        placeholder="搜索记录关键字"
+                        placeholder={text.searchPlaceholder}
                         value={keyword}
                         onChange={(event) => setKeyword(event.target.value)}
-                        aria-label="搜索记录"
+                        aria-label={text.searchAria}
                     />
-                    <div className="timeline-chip-row" role="group" aria-label="记录类型筛选">
+                    <div className="timeline-chip-row" role="group" aria-label={text.filterAria}>
                         {([
-                            { key: 'diary' as const, label: '📝 日记' },
-                            { key: 'poop' as const, label: '💩 便便' },
-                            { key: 'weight' as const, label: '⚖️ 体重' },
+                            { key: 'diary' as const, label: text.diaryType },
+                            { key: 'poop' as const, label: text.poopType },
+                            { key: 'weight' as const, label: text.weightType },
                         ]).map((item) => (
                             <button
                                 key={item.key}
@@ -836,18 +961,18 @@ export function LogPage() {
                             className="form-input"
                             value={dateStart}
                             onChange={(event) => handleDateStartChange(event.target.value)}
-                            aria-label="开始日期"
+                            aria-label={text.startDateAria}
                         />
-                        <span className="text-secondary text-sm">至</span>
+                        <span className="text-secondary text-sm">{text.to}</span>
                         <input
                             type="date"
                             className="form-input"
                             value={dateEnd}
                             onChange={(event) => handleDateEndChange(event.target.value)}
                             min={dateStart || undefined}
-                            aria-label="结束日期"
+                            aria-label={text.endDateAria}
                         />
-                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>全部</button>
+                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>{text.all}</button>
                     </div>
                 </Card>
             </div>
@@ -869,7 +994,7 @@ export function LogPage() {
                 ) : filteredTimeline.length === 0 ? (
                     <div className="empty-state">
                         <EmptyCatIllustration mood="play" />
-                        <p className="text-secondary text-sm">没有符合筛选条件的记录</p>
+                        <p className="text-secondary text-sm">{text.emptyFiltered}</p>
                     </div>
                 ) : (
                     <div className="timeline-list">
@@ -883,18 +1008,18 @@ export function LogPage() {
 
                 {!loading && hasMore && (
                     <Button variant="secondary" onClick={handleLoadMore} disabled={loadingMore}>
-                        {loadingMore ? '加载中...' : '加载更多'}
+                        {loadingMore ? text.loadingMore : text.loadMore}
                     </Button>
                 )}
             </div>
 
             {/* Diary Modal */}
-            <Modal isOpen={diaryOpen} onClose={() => { setDiaryOpen(false); resetDiaryForm() }} title={editingDiaryId ? '📝 编辑日记' : '📝 写日记'}>
+            <Modal isOpen={diaryOpen} onClose={() => { setDiaryOpen(false); resetDiaryForm() }} title={editingDiaryId ? text.diaryModalEdit : text.diaryModalCreate}>
                 <div className="diary-form">
                     <div className="form-group">
                         <textarea
                             className="form-input diary-textarea"
-                            placeholder="今天猫咪做了什么..."
+                            placeholder={text.diaryPlaceholder}
                             value={diaryText}
                             onChange={(e) => setDiaryText(e.target.value)}
                             maxLength={500}
@@ -904,7 +1029,7 @@ export function LogPage() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">标签</label>
+                        <label className="form-label">{text.tagsLabel}</label>
                         <div className="tag-picker">
                             {TAGS.map((tag) => (
                                 <button
@@ -919,7 +1044,7 @@ export function LogPage() {
                     </div>
 
                     <div className="form-group">
-                        <label className="form-label">照片</label>
+                        <label className="form-label">{text.photosLabel}</label>
                         {diaryImagePreview ? (
                             <div className="image-preview-container">
                                 <img src={diaryImagePreview} alt="" className="image-preview" loading="lazy" />
@@ -927,7 +1052,7 @@ export function LogPage() {
                             </div>
                         ) : (
                             <button className="photo-upload-btn" onClick={() => fileInputRef.current?.click()}>
-                                📷 选择照片
+                                {text.pickPhoto}
                             </button>
                         )}
                         <input
@@ -940,16 +1065,16 @@ export function LogPage() {
                     </div>
 
                     <Button variant="primary" fullWidth onClick={handleDiarySave} disabled={diarySaving || !online}>
-                        {diarySaving ? '保存中...' : editingDiaryId ? '保存修改' : '发布 🐾'}
+                        {diarySaving ? text.saving : editingDiaryId ? text.saveChanges : text.publish}
                     </Button>
                 </div>
             </Modal>
 
             {/* Weight Modal */}
-            <Modal isOpen={weightOpen} onClose={() => { setWeightOpen(false); setEditingWeightId(null); setWeightValue(''); setWeightError('') }} title={editingWeightId ? '⚖️ 编辑体重' : '⚖️ 记录体重'}>
+            <Modal isOpen={weightOpen} onClose={() => { setWeightOpen(false); setEditingWeightId(null); setWeightValue(''); setWeightError('') }} title={editingWeightId ? text.weightModalEdit : text.weightModalCreate}>
                 <div className="weight-form">
                     <div className="form-group">
-                        <label className="form-label">体重 (kg)</label>
+                        <label className="form-label">{text.weightLabel}</label>
                         <input
                             type="number"
                             step="0.01"
@@ -968,63 +1093,63 @@ export function LogPage() {
                         {weightError && <p className="text-xs text-danger" id="weight-error">{weightError}</p>}
                     </div>
                     <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
-                        {weightSaving ? '保存中...' : editingWeightId ? '更新体重' : '保存体重'}
+                        {weightSaving ? text.saving : editingWeightId ? text.updateWeight : text.saveWeight}
                     </Button>
                 </div>
             </Modal>
 
-            <Modal isOpen={poopOpen} onClose={() => { setPoopOpen(false); setEditingPoopId(null) }} title="💩 编辑便便记录">
+            <Modal isOpen={poopOpen} onClose={() => { setPoopOpen(false); setEditingPoopId(null) }} title={text.poopModalTitle}>
                 <div className="weight-form">
                     <div className="form-group">
-                        <label className="form-label">布里斯托类型</label>
+                        <label className="form-label">{text.poopTypeLabel}</label>
                         <select
                             className="form-input"
                             value={poopBristol}
                             onChange={(e) => setPoopBristol(e.target.value as '1' | '2' | '3' | '4' | '5' | '6' | '7')}
                         >
                             {(['1', '2', '3', '4', '5', '6', '7'] as const).map((type) => (
-                                <option key={type} value={type}>类型 {type} · {bristolLabels[type]}</option>
+                                <option key={type} value={type}>{text.typePrefix} {type} · {bristolLabels[type]}</option>
                             ))}
                         </select>
                     </div>
                     <div className="form-group">
-                        <label className="form-label">颜色</label>
+                        <label className="form-label">{text.poopColorLabel}</label>
                         <select
                             className="form-input"
                             value={poopColor}
                             onChange={(e) => setPoopColor(e.target.value as 'brown' | 'dark_brown' | 'yellow' | 'green' | 'red' | 'black' | 'white')}
                         >
                             {([
-                                { value: 'brown', label: '棕色' },
-                                { value: 'dark_brown', label: '深棕色' },
-                                { value: 'yellow', label: '黄色' },
-                                { value: 'green', label: '绿色' },
-                                { value: 'red', label: '红色' },
-                                { value: 'black', label: '黑色' },
-                                { value: 'white', label: '白色' },
+                                { value: 'brown', label: text.colorLabels.brown },
+                                { value: 'dark_brown', label: text.colorLabels.dark_brown },
+                                { value: 'yellow', label: text.colorLabels.yellow },
+                                { value: 'green', label: text.colorLabels.green },
+                                { value: 'red', label: text.colorLabels.red },
+                                { value: 'black', label: text.colorLabels.black },
+                                { value: 'white', label: text.colorLabels.white },
                             ] as const).map((option) => (
                                 <option key={option.value} value={option.value}>{option.label}</option>
                             ))}
                         </select>
                     </div>
                     <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
-                        {poopSaving ? '保存中...' : '更新便便记录'}
+                        {poopSaving ? text.saving : text.poopUpdate}
                     </Button>
                 </div>
             </Modal>
 
-            <ImageLightbox src={imageLightbox} alt="日记图片预览" onClose={closeLightbox} />
+            <ImageLightbox src={imageLightbox} alt={text.lightboxAlt} onClose={closeLightbox} />
 
-            <Modal isOpen={Boolean(pendingDeleteItem)} onClose={() => setPendingDeleteItem(null)} title="确认删除？">
+            <Modal isOpen={Boolean(pendingDeleteItem)} onClose={() => setPendingDeleteItem(null)} title={text.deleteTitle}>
                 <div className="weight-form">
-                    <p className="text-sm text-secondary">此操作不可恢复，确认删除这条记录吗？</p>
+                    <p className="text-sm text-secondary">{text.deleteHint}</p>
                     <Button
                         variant="primary"
                         fullWidth
                         onClick={() => pendingDeleteItem && deleteTimelineItem(pendingDeleteItem)}
                         disabled={deleteSubmitting}
                     >
-                        {deleteSubmitting ? '删除中...' : '确认删除'}
+                        {deleteSubmitting ? text.deleting : text.confirmDelete}
                     </Button>
                 </div>
             </Modal>

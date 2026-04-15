@@ -18,15 +18,74 @@ import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
 import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS } from '../lib/constants'
+import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
 
 const DIARY_SNIPPET_LIMIT = 100
 
 export function DashboardPage() {
     const { user } = useSession()
+    const { language } = useI18n()
     const { cat, catId, cats, setCatId, families, activeFamilyId, loading: catLoading } = useCat()
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
+    const text = language === 'zh'
+        ? {
+            refreshing: '刷新中…',
+            releaseToRefresh: '松手刷新',
+            pullToRefresh: '下拉刷新',
+            onboardingWelcome: '欢迎来到喵记！',
+            familyOnboardingDesc: '首先创建或加入一个家庭',
+            createFamily: '创建家庭',
+            creating: '创建中...',
+            or: '或者',
+            joinFamily: '加入家庭',
+            joining: '加入中...',
+            familyNamePlaceholder: '输入家庭名称',
+            inviteCodePlaceholder: '输入邀请码',
+            catOnboardingDesc: '先来建立猫咪档案吧（可在设置页继续补充）',
+            catNameRequired: '猫咪名字 *',
+            catNamePlaceholder: '咪名',
+            breedOptional: '品种 / 花色（可选）',
+            breedPlaceholder: '咪族',
+            birthdayOptional: '生日（可选）',
+            adoptedOptional: '领养日（可选）',
+            finishEnterHome: '完成并进入首页',
+            creatingProfile: '创建中...',
+            recentActivity: '最近动态',
+            diaryNoText: '(无文字)',
+            collapse: '收起 ▲',
+            expand: '展开全文 ▼',
+            diaryEmpty: '还没有日记，去记录页添加第一条吧！',
+        }
+        : {
+            refreshing: 'Refreshing…',
+            releaseToRefresh: 'Release to refresh',
+            pullToRefresh: 'Pull to refresh',
+            onboardingWelcome: 'Welcome to Cat Diary!',
+            familyOnboardingDesc: 'Create or join a family first',
+            createFamily: 'Create family',
+            creating: 'Creating...',
+            or: 'or',
+            joinFamily: 'Join family',
+            joining: 'Joining...',
+            familyNamePlaceholder: 'Enter family name',
+            inviteCodePlaceholder: 'Enter invite code',
+            catOnboardingDesc: 'Create your cat profile first (you can complete details in Settings)',
+            catNameRequired: 'Cat name *',
+            catNamePlaceholder: 'Cat name',
+            breedOptional: 'Breed / coat (optional)',
+            breedPlaceholder: 'Breed',
+            birthdayOptional: 'Birthday (optional)',
+            adoptedOptional: 'Adoption date (optional)',
+            finishEnterHome: 'Finish and go to Home',
+            creatingProfile: 'Creating...',
+            recentActivity: 'Recent activity',
+            diaryNoText: '(No text)',
+            collapse: 'Collapse ▲',
+            expand: 'Read more ▼',
+            diaryEmpty: 'No diary yet. Add your first one in Log.',
+        }
 
     // ─── Centralized data hook ────────────────────
     const dashboard = useDashboardData(catId, catLoading)
@@ -206,19 +265,19 @@ export function DashboardPage() {
         return (
             <div className="dashboard fade-in onboarding-page">
                 <Card variant="accent" padding="lg" className="onboarding-card">
-                    <h1 className="text-2xl font-bold">欢迎来到喵记！</h1>
-                    <p className="text-sm text-secondary">首先创建或加入一个家庭</p>
+                    <h1 className="text-2xl font-bold">{text.onboardingWelcome}</h1>
+                    <p className="text-sm text-secondary">{text.familyOnboardingDesc}</p>
                     <div className="onboarding-form">
-                        <label className="form-label" htmlFor="ob-family-name">创建家庭</label>
-                        <input id="ob-family-name" className="form-input" placeholder="输入家庭名称" value={obFamilyName} onChange={(e) => setObFamilyName(e.target.value)} />
+                        <label className="form-label" htmlFor="ob-family-name">{text.createFamily}</label>
+                        <input id="ob-family-name" className="form-input" placeholder={text.familyNamePlaceholder} value={obFamilyName} onChange={(e) => setObFamilyName(e.target.value)} />
                         <Button variant="primary" fullWidth onClick={handleObCreateFamily} disabled={obFamilySaving || !online}>
-                            {obFamilySaving ? '创建中...' : '创建家庭'}
+                            {obFamilySaving ? text.creating : text.createFamily}
                         </Button>
-                        <div className="onboarding-divider"><span>或者</span></div>
-                        <label className="form-label" htmlFor="ob-join-code">加入家庭</label>
-                        <input id="ob-join-code" className="form-input" placeholder="输入邀请码" value={obJoinCode} onChange={(e) => setObJoinCode(e.target.value.toUpperCase())} />
+                        <div className="onboarding-divider"><span>{text.or}</span></div>
+                        <label className="form-label" htmlFor="ob-join-code">{text.joinFamily}</label>
+                        <input id="ob-join-code" className="form-input" placeholder={text.inviteCodePlaceholder} value={obJoinCode} onChange={(e) => setObJoinCode(e.target.value.toUpperCase())} />
                         <Button variant="secondary" fullWidth onClick={handleObJoinFamily} disabled={obFamilySaving || !online}>
-                            {obFamilySaving ? '加入中...' : '加入家庭'}
+                            {obFamilySaving ? text.joining : text.joinFamily}
                         </Button>
                     </div>
                 </Card>
@@ -231,19 +290,19 @@ export function DashboardPage() {
         return (
             <div className="dashboard fade-in onboarding-page">
                 <Card variant="accent" padding="lg" className="onboarding-card">
-                    <h1 className="text-2xl font-bold">欢迎来到喵记！</h1>
-                    <p className="text-sm text-secondary">先来建立猫咪档案吧（可在设置页继续补充）</p>
+                    <h1 className="text-2xl font-bold">{text.onboardingWelcome}</h1>
+                    <p className="text-sm text-secondary">{text.catOnboardingDesc}</p>
                     <div className="onboarding-form">
-                        <label className="form-label" htmlFor="onboarding-name">猫咪名字 *</label>
-                        <input id="onboarding-name" className="form-input" placeholder="咪名" value={onboardingName} onChange={(e) => setOnboardingName(e.target.value)} />
-                        <label className="form-label" htmlFor="onboarding-breed">品种 / 花色（可选）</label>
-                        <input id="onboarding-breed" className="form-input" placeholder="咪族" value={onboardingBreed} onChange={(e) => setOnboardingBreed(e.target.value)} />
-                        <label className="form-label" htmlFor="onboarding-birthday">生日（可选）</label>
+                        <label className="form-label" htmlFor="onboarding-name">{text.catNameRequired}</label>
+                        <input id="onboarding-name" className="form-input" placeholder={text.catNamePlaceholder} value={onboardingName} onChange={(e) => setOnboardingName(e.target.value)} />
+                        <label className="form-label" htmlFor="onboarding-breed">{text.breedOptional}</label>
+                        <input id="onboarding-breed" className="form-input" placeholder={text.breedPlaceholder} value={onboardingBreed} onChange={(e) => setOnboardingBreed(e.target.value)} />
+                        <label className="form-label" htmlFor="onboarding-birthday">{text.birthdayOptional}</label>
                         <input id="onboarding-birthday" className="form-input" type="date" value={onboardingBirthday} onChange={(e) => setOnboardingBirthday(e.target.value)} />
-                        <label className="form-label" htmlFor="onboarding-adopted">领养日（可选）</label>
+                        <label className="form-label" htmlFor="onboarding-adopted">{text.adoptedOptional}</label>
                         <input id="onboarding-adopted" className="form-input" type="date" value={onboardingAdoptedAt} onChange={(e) => setOnboardingAdoptedAt(e.target.value)} />
                         <Button variant="primary" fullWidth onClick={handleOnboardingSave} disabled={onboardingSaving || !online}>
-                            {onboardingSaving ? '创建中...' : '完成并进入首页'}
+                            {onboardingSaving ? text.creatingProfile : text.finishEnterHome}
                         </Button>
                     </div>
                 </Card>
@@ -266,7 +325,7 @@ export function DashboardPage() {
                 style={{ height: pullToRefresh.pullDistance > 0 ? `${pullToRefresh.pullDistance}px` : undefined }}
             >
                 <span className="pull-indicator-icon">{pullToRefresh.refreshing ? '⟳' : '↓'}</span>
-                <span>{pullToRefresh.refreshing ? '刷新中…' : pullToRefresh.isReady ? '松手刷新' : '下拉刷新'}</span>
+                <span>{pullToRefresh.refreshing ? text.refreshing : pullToRefresh.isReady ? text.releaseToRefresh : text.pullToRefresh}</span>
             </div>
 
             <CatProfileCard cat={cat} />
@@ -309,7 +368,7 @@ export function DashboardPage() {
 
             {/* ── Weekly Summary + Latest Diary ── */}
             <div className="section-header px-4 stagger-item">
-                <h2 className="text-lg font-semibold">最近动态</h2>
+                <h2 className="text-lg font-semibold">{text.recentActivity}</h2>
             </div>
 
             <WeeklySummaryCard
@@ -322,7 +381,7 @@ export function DashboardPage() {
             <div className="px-4 stagger-item" style={{ marginTop: 'var(--space-3)' }}>
                 <Card variant="default" padding="md">
                     {latestDiary ? (() => {
-                        const fullText = latestDiary.text || '(无文字)'
+                        const fullText = latestDiary.text || text.diaryNoText
                         const isLong = fullText.length > DIARY_SNIPPET_LIMIT
                         const displayText = isLong && !latestDiaryExpanded ? fullText.slice(0, DIARY_SNIPPET_LIMIT) + '...' : fullText
                         return (
@@ -333,7 +392,7 @@ export function DashboardPage() {
                                 <p className="text-sm diary-snippet-text">{displayText}</p>
                                 {isLong && (
                                     <button className="diary-expand-btn" onClick={() => setLatestDiaryExpanded(!latestDiaryExpanded)}>
-                                        {latestDiaryExpanded ? '收起 ▲' : '展开全文 ▼'}
+                                        {latestDiaryExpanded ? text.collapse : text.expand}
                                     </button>
                                 )}
                                 {latestDiary.tags.length > 0 && (
@@ -351,7 +410,7 @@ export function DashboardPage() {
                     })() : (
                         <div className="empty-state">
                             <span className="empty-icon">📸</span>
-                            <p className="text-secondary text-sm">还没有日记，去记录页添加第一条吧！</p>
+                            <p className="text-secondary text-sm">{text.diaryEmpty}</p>
                         </div>
                     )}
                 </Card>
