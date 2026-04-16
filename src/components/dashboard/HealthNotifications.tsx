@@ -90,38 +90,36 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                             return (
                                 <div
                                     key={r.id}
-                                    className={`health-notify-item health-notify-item-vertical ${isPastDue ? 'health-notify-overdue' : 'health-notify-soon'}`}
+                                    className={`health-notify-item ${isPastDue ? 'health-notify-overdue' : 'health-notify-soon'}`}
                                 >
-                                    <div className="health-notify-top">
-                                        <span className="health-notify-icon">{icon}</span>
-                                        <div className="health-notify-info">
+                                    <span className="health-notify-icon">{icon}</span>
+                                    <div className="health-notify-body">
+                                        <div className="health-notify-name-row">
                                             <span className="text-sm font-semibold">{r.name}</span>
-                                            <span className="text-xs text-muted">
-                                                {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
+                                            <span className={`health-notify-days ${isPastDue ? 'text-danger' : 'text-warning'}`}>
+                                                {isPastDue ? text.overdueDays(Math.abs(r.daysLeft)) : text.dueInDays(r.daysLeft)}
                                             </span>
                                         </div>
-                                    </div>
-                                    <span
-                                        className={`health-notify-days ${isPastDue ? 'text-danger' : 'text-warning'}`}
-                                    >
-                                        {isPastDue ? text.overdueDays(Math.abs(r.daysLeft)) : text.dueInDays(r.daysLeft)}
-                                    </span>
-                                    <div className="health-notify-actions health-notify-actions-vertical">
-                                        <button
-                                            type="button"
-                                            className="health-notify-update-btn"
-                                            onClick={() => renew.openRenewModal(r)}
-                                        >
-                                            {text.update}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
-                                            disabled={isStopping || !online}
-                                            onClick={() => handleStopClick(r)}
-                                        >
-                                            {isStopping ? text.stopping : isConfirmingStop ? text.confirmStop : text.stop}
-                                        </button>
+                                        <span className="text-xs text-muted">
+                                            {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
+                                        </span>
+                                        <div className="health-notify-actions">
+                                            <button
+                                                type="button"
+                                                className="health-notify-update-btn"
+                                                onClick={() => renew.openRenewModal(r)}
+                                            >
+                                                {text.update}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
+                                                disabled={isStopping || !online}
+                                                onClick={() => handleStopClick(r)}
+                                            >
+                                                {isStopping ? text.stopping : isConfirmingStop ? text.confirmStop : text.stop}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )

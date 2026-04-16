@@ -292,33 +292,12 @@
 
 .health-notify-item {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-3);
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-3);
     border-radius: var(--radius-md);
     border-left: 3px solid transparent;
     background: var(--color-bg-input);
-}
-
-/* ── Vertical layout for notification items ── */
-.health-notify-item-vertical {
-    flex-direction: column;
-    align-items: stretch;
-}
-
-.health-notify-item-vertical .health-notify-top {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.health-notify-actions-vertical {
-    width: 100%;
-    display: flex;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
-    padding-top: var(--space-2);
-    border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
 }
 
 .health-notify-stop-confirming {
@@ -340,26 +319,36 @@
 .health-notify-icon {
     font-size: 1.3rem;
     flex-shrink: 0;
+    margin-top: 1px;
 }
 
-.health-notify-info {
+/* Body: takes all remaining width */
+.health-notify-body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-1);
     flex: 1;
     min-width: 0;
 }
 
+/* Name row: name on left, days badge on right */
+.health-notify-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
 .health-notify-days {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-weight: 600;
     flex-shrink: 0;
     white-space: nowrap;
 }
 
 .health-notify-update-btn {
-    flex-shrink: 0;
-    padding: 4px 12px;
+    flex: 1;
+    padding: 6px 12px;
     font-size: 12px;
     font-weight: 600;
     color: var(--color-primary);
@@ -381,12 +370,14 @@
 .health-notify-actions {
     display: flex;
     gap: var(--space-2);
-    flex-shrink: 0;
+    margin-top: var(--space-1);
+    padding-top: var(--space-2);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .health-notify-stop-btn {
     flex-shrink: 0;
-    padding: 4px 10px;
+    padding: 6px 14px;
     font-size: 12px;
     font-weight: 600;
     color: var(--color-text-muted, #888);
