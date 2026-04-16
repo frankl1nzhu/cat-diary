@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState, useRef, useCallback } from 'react'
 import { Card } from '../ui/Card'
 import { RenewModal } from '../ui/RenewModal'
 import { format } from 'date-fns'
@@ -41,6 +41,7 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: '更新',
             stopping: '停止中...',
             stop: '停止',
+            confirmStop: '确认停止?',
         }
         : {
             title: '🩺 Vaccine / Deworming Alerts',
@@ -52,9 +53,25 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: 'Update',
             stopping: 'Stopping...',
             stop: 'Stop',
+            confirmStop: 'Confirm?',
         }
 
     if (items.length === 0) return null
+
+    const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null)
+    const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    const handleStopClick = useCallback((r: HealthNotifyItem) => {
+        if (confirmingStopId === r.id) {
+            if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+            setConfirmingStopId(null)
+            renew.handleStop(r)
+        } else {
+            setConfirmingStopId(r.id)
+            if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
+            confirmTimerRef.current = setTimeout(() => setConfirmingStopId(null), 3000)
+        }
+    }, [confirmingStopId, renew])
 
     return (
         <>
@@ -69,24 +86,27 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                             const icon = r.type === 'vaccine' ? '💉' : '💊'
                             const typeLabel = r.type === 'vaccine' ? text.vaccine : text.deworming
                             const isStopping = renew.stopSaving === r.id
+                            const isConfirmingStop = confirmingStopId === r.id
                             return (
                                 <div
                                     key={r.id}
-                                    className={`health-notify-item ${isPastDue ? 'health-notify-overdue' : 'health-notify-soon'}`}
+                                    className={`health-notify-item health-notify-item-vertical ${isPastDue ? 'health-notify-overdue' : 'health-notify-soon'}`}
                                 >
-                                    <span className="health-notify-icon">{icon}</span>
-                                    <div className="health-notify-info">
-                                        <span className="text-sm font-semibold">{r.name}</span>
-                                        <span className="text-xs text-muted">
-                                            {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
-                                        </span>
+                                    <div className="health-notify-top">
+                                        <span className="health-notify-icon">{icon}</span>
+                                        <div className="health-notify-info">
+                                            <span className="text-sm font-semibold">{r.name}</span>
+                                            <span className="text-xs text-muted">
+                                                {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
+                                            </span>
+                                        </div>
                                     </div>
                                     <span
                                         className={`health-notify-days ${isPastDue ? 'text-danger' : 'text-warning'}`}
                                     >
                                         {isPastDue ? text.overdueDays(Math.abs(r.daysLeft)) : text.dueInDays(r.daysLeft)}
                                     </span>
-                                    <div className="health-notify-actions">
+                                    <div className="health-notify-actions health-notify-actions-vertical">
                                         <button
                                             type="button"
                                             className="health-notify-update-btn"
@@ -96,11 +116,11 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                         </button>
                                         <button
                                             type="button"
-                                            className="health-notify-stop-btn"
+                                            className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
                                             disabled={isStopping || !online}
-                                            onClick={() => renew.handleStop(r)}
+                                            onClick={() => handleStopClick(r)}
                                         >
-                                            {isStopping ? text.stopping : text.stop}
+                                            {isStopping ? text.stopping : isConfirmingStop ? text.confirmStop : text.stop}
                                         </button>
                                     </div>
                                 </div>

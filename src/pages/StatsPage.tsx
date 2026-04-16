@@ -101,6 +101,8 @@ export function StatsPage() {
     const [missLogs, setMissLogs] = useState<MissLog[]>([])
     const [feeds, setFeeds] = useState<FeedStatus[]>([])
     const [loading, setLoading] = useState(true)
+    const [collapsedCategories, setCollapsedCategories] = useState<Set<HealthFormType>>(new Set())
+    const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null)
 
     // Modals
     const [healthModalOpen, setHealthModalOpen] = useState(false)
@@ -827,6 +829,26 @@ export function StatsPage() {
         vomit: { icon: HEALTH_TYPE_ICONS.vomit, label: l('呕吐', 'Vomit') },
     }
 
+    // ─── Grouped health records by category ───────────────────────
+    const CATEGORY_ORDER: HealthFormType[] = ['vaccine', 'deworming', 'medical', 'vomit']
+    const groupedHealth = useMemo(() => {
+        const groups: Record<HealthFormType, HealthRecord[]> = { vaccine: [], deworming: [], medical: [], vomit: [] }
+        for (const r of healthRecords) {
+            const viewType: HealthFormType = (r.type === 'medical' && (r.name.includes('呕吐') || r.name.toLowerCase().includes('vomit'))) ? 'vomit' : r.type
+            groups[viewType].push(r)
+        }
+        return groups
+    }, [healthRecords])
+
+    const toggleCategory = (cat: HealthFormType) => {
+        setCollapsedCategories(prev => {
+            const next = new Set(prev)
+            if (next.has(cat)) next.delete(cat)
+            else next.add(cat)
+            return next
+        })
+    }
+
     if (loading || catLoading) {
         return (
             <div className="stats-page fade-in">
@@ -1078,44 +1100,80 @@ export function StatsPage() {
 
                     {healthRecords.length > 0 ? (
                         <div className="health-list">
-                            {healthRecords.map((r) => {
-                                const viewType: HealthFormType = (r.type === 'medical' && (r.name.includes('呕吐') || r.name.toLowerCase().includes('vomit'))) ? 'vomit' : r.type
-                                const config = healthTypeLabels[viewType]
-                                const isPastDue = r.next_due && new Date(r.next_due) < new Date()
+                            {CATEGORY_ORDER.map((cat) => {
+                                const records = groupedHealth[cat]
+                                if (records.length === 0) return null
+                                const config = healthTypeLabels[cat]
+                                const isCollapsed = collapsedCategories.has(cat)
                                 return (
-                                    <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
-                                        <button type="button" className={`health-item ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
-                                            <span className="health-icon">{config.icon}</span>
-                                            <div className="health-info">
-                                                <span className="text-sm font-semibold">{r.name}</span>
-                                                <span className="text-muted text-xs">{config.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
-                                                {r.next_due && (
-                                                    <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
-                                                        {l('下次：', 'Next: ')}{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? l('⚠️ 已过期', '⚠️ Overdue') : ''}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {isPastDue && (r.type === 'vaccine' || r.type === 'deworming') && (
-                                                <div className="health-notify-actions">
-                                                    <button
-                                                        type="button"
-                                                        className="health-renew-btn"
-                                                        onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
-                                                    >
-                                                        {l('🔄 续期', '🔄 Renew')}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="health-notify-stop-btn"
-                                                        disabled={renew.stopSaving === r.id || !online}
-                                                        onClick={(e) => { e.stopPropagation(); renew.handleStop(r) }}
-                                                    >
-                                                        {renew.stopSaving === r.id ? l('停止中...', 'Stopping...') : l('停止', 'Stop')}
-                                                    </button>
-                                                </div>
-                                            )}
+                                    <div key={cat} className="health-category">
+                                        <button
+                                            type="button"
+                                            className="health-category-header"
+                                            onClick={() => toggleCategory(cat)}
+                                        >
+                                            <span className="health-category-icon">{config.icon}</span>
+                                            <span className="health-category-label">{config.label}</span>
+                                            <span className="health-category-count">{records.length}</span>
+                                            <span className={`health-category-chevron ${isCollapsed ? '' : 'health-category-chevron-open'}`}>▸</span>
                                         </button>
-                                    </SwipeableRow>
+                                        {!isCollapsed && (
+                                            <div className="health-category-items">
+                                                {records.map((r) => {
+                                                    const viewType: HealthFormType = (r.type === 'medical' && (r.name.includes('呕吐') || r.name.toLowerCase().includes('vomit'))) ? 'vomit' : r.type
+                                                    const itemConfig = healthTypeLabels[viewType]
+                                                    const isPastDue = r.next_due && new Date(r.next_due) < new Date()
+                                                    const isConfirmingStop = confirmingStopId === r.id
+                                                    return (
+                                                        <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
+                                                            <button type="button" className={`health-item health-item-vertical ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
+                                                                <div className="health-item-top">
+                                                                    <span className="health-icon">{itemConfig.icon}</span>
+                                                                    <div className="health-info">
+                                                                        <span className="text-sm font-semibold">{r.name}</span>
+                                                                        <span className="text-muted text-xs">{itemConfig.label} · {format(new Date(r.date), 'yyyy/MM/dd')}</span>
+                                                                        {r.next_due && (
+                                                                            <span className={`text-xs ${isPastDue ? 'text-danger' : 'text-secondary'}`}>
+                                                                                {l('下次：', 'Next: ')}{format(new Date(r.next_due), 'yyyy/MM/dd')} {isPastDue ? l('⚠️ 已过期', '⚠️ Overdue') : ''}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                {isPastDue && (r.type === 'vaccine' || r.type === 'deworming') && (
+                                                                    <div className="health-notify-actions health-notify-actions-vertical">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="health-renew-btn"
+                                                                            onClick={(e) => { e.stopPropagation(); renew.openRenewModal(r) }}
+                                                                        >
+                                                                            {l('🔄 续期', '🔄 Renew')}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
+                                                                            disabled={renew.stopSaving === r.id || !online}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                if (isConfirmingStop) {
+                                                                                    setConfirmingStopId(null)
+                                                                                    renew.handleStop(r)
+                                                                                } else {
+                                                                                    setConfirmingStopId(r.id)
+                                                                                    setTimeout(() => setConfirmingStopId(prev => prev === r.id ? null : prev), 3000)
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            {renew.stopSaving === r.id ? l('停止中...', 'Stopping...') : isConfirmingStop ? l('确认停止?', 'Confirm?') : l('停止', 'Stop')}
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </button>
+                                                        </SwipeableRow>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
                                 )
                             })}
                         </div>

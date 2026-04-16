@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
 import { CatSwitcher } from './CatSwitcher'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
@@ -9,6 +9,7 @@ import './AppLayout.css'
 export function AppLayout() {
     const { t } = useI18n()
     const navigate = useNavigate()
+    const { pathname } = useLocation()
     const online = useOnlineStatus()
     const mainRef = useRef<HTMLElement>(null)
     const [showScrollTop, setShowScrollTop] = useState(false)
@@ -58,6 +59,11 @@ export function AppLayout() {
         el.addEventListener('scroll', handleScroll, { passive: true })
         return () => el.removeEventListener('scroll', handleScroll)
     }, [handleScroll])
+
+    // Scroll to top when navigating to a new page
+    useEffect(() => {
+        mainRef.current?.scrollTo({ top: 0 })
+    }, [pathname])
 
     const scrollToTop = () => {
         mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
