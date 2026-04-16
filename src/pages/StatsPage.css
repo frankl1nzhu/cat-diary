@@ -194,12 +194,6 @@
     border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
 }
 
-.health-notify-stop-confirming {
-    color: var(--color-danger) !important;
-    border-color: var(--color-danger) !important;
-    background: rgba(255, 99, 99, 0.08) !important;
-}
-
 /* ── Inventory List ── */
 .inventory-list {
     display: flex;

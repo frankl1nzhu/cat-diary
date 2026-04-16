@@ -102,7 +102,7 @@ export function StatsPage() {
     const [feeds, setFeeds] = useState<FeedStatus[]>([])
     const [loading, setLoading] = useState(true)
     const [collapsedCategories, setCollapsedCategories] = useState<Set<HealthFormType>>(new Set())
-    const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null)
+    const [pendingStopRecord, setPendingStopRecord] = useState<HealthRecord | null>(null)
 
     // Modals
     const [healthModalOpen, setHealthModalOpen] = useState(false)
@@ -1123,7 +1123,6 @@ export function StatsPage() {
                                                     const viewType: HealthFormType = (r.type === 'medical' && (r.name.includes('呕吐') || r.name.toLowerCase().includes('vomit'))) ? 'vomit' : r.type
                                                     const itemConfig = healthTypeLabels[viewType]
                                                     const isPastDue = r.next_due && new Date(r.next_due) < new Date()
-                                                    const isConfirmingStop = confirmingStopId === r.id
                                                     return (
                                                         <SwipeableRow key={r.id} onDelete={() => setPendingDelete({ id: r.id, type: 'health' })}>
                                                             <button type="button" className={`health-item health-item-vertical ${isPastDue ? 'health-past-due' : ''}`} onClick={() => openEditHealth(r)}>
@@ -1150,20 +1149,11 @@ export function StatsPage() {
                                                                         </button>
                                                                         <button
                                                                             type="button"
-                                                                            className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
+                                                                            className="health-notify-stop-btn"
                                                                             disabled={renew.stopSaving === r.id || !online}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation()
-                                                                                if (isConfirmingStop) {
-                                                                                    setConfirmingStopId(null)
-                                                                                    renew.handleStop(r)
-                                                                                } else {
-                                                                                    setConfirmingStopId(r.id)
-                                                                                    setTimeout(() => setConfirmingStopId(prev => prev === r.id ? null : prev), 3000)
-                                                                                }
-                                                                            }}
+                                                                            onClick={(e) => { e.stopPropagation(); setPendingStopRecord(r) }}
                                                                         >
-                                                                            {renew.stopSaving === r.id ? l('停止中...', 'Stopping...') : isConfirmingStop ? l('确认停止?', 'Confirm?') : l('停止', 'Stop')}
+                                                                            {renew.stopSaving === r.id ? l('停止中...', 'Stopping...') : l('停止', 'Stop')}
                                                                         </button>
                                                                     </div>
                                                                 )}
@@ -1658,6 +1648,43 @@ export function StatsPage() {
                 online={online}
                 idSuffix="-stats"
             />
+
+            {/* ── Stop Confirmation Modal ── */}
+            <Modal
+                isOpen={pendingStopRecord !== null}
+                onClose={() => setPendingStopRecord(null)}
+                title={l('停止提醒', 'Stop Reminder')}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        {pendingStopRecord && l(`确定停止「${pendingStopRecord.name}」的到期提醒吗？此操作不可撤销。`, `Stop the reminder for "${pendingStopRecord.name}"? This cannot be undone.`)}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        <button
+                            type="button"
+                            className="health-notify-stop-btn"
+                            style={{ width: '100%', padding: '10px', fontSize: '14px', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                            disabled={!online || (pendingStopRecord ? renew.stopSaving === pendingStopRecord.id : false)}
+                            onClick={() => {
+                                if (!pendingStopRecord) return
+                                const r = pendingStopRecord
+                                setPendingStopRecord(null)
+                                renew.handleStop(r)
+                            }}
+                        >
+                            {l('确认停止', 'Confirm')}
+                        </button>
+                        <button
+                            type="button"
+                            className="health-notify-update-btn"
+                            style={{ width: '100%', padding: '10px', fontSize: '14px' }}
+                            onClick={() => setPendingStopRecord(null)}
+                        >
+                            {l('取消', 'Cancel')}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     )
 }

@@ -1,5 +1,6 @@
-import { memo, useState, useRef, useCallback } from 'react'
+import { memo, useState } from 'react'
 import { Card } from '../ui/Card'
+import { Modal } from '../ui/Modal'
 import { RenewModal } from '../ui/RenewModal'
 import { format } from 'date-fns'
 import type { HealthRecord } from '../../types/database.types'
@@ -41,7 +42,10 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: '更新',
             stopping: '停止中...',
             stop: '停止',
-            confirmStop: '确认停止?',
+            confirmTitle: '停止提醒',
+            confirmBody: (name: string) => `确定停止「${name}」的到期提醒吗？此操作不可撤销。`,
+            confirmOk: '确认停止',
+            confirmCancel: '取消',
         }
         : {
             title: '🩺 Vaccine / Deworming Alerts',
@@ -53,25 +57,15 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: 'Update',
             stopping: 'Stopping...',
             stop: 'Stop',
-            confirmStop: 'Confirm?',
+            confirmTitle: 'Stop Reminder',
+            confirmBody: (name: string) => `Stop the reminder for "${name}"? This cannot be undone.`,
+            confirmOk: 'Confirm',
+            confirmCancel: 'Cancel',
         }
 
     if (items.length === 0) return null
 
-    const [confirmingStopId, setConfirmingStopId] = useState<string | null>(null)
-    const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-    const handleStopClick = useCallback((r: HealthNotifyItem) => {
-        if (confirmingStopId === r.id) {
-            if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
-            setConfirmingStopId(null)
-            renew.handleStop(r)
-        } else {
-            setConfirmingStopId(r.id)
-            if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current)
-            confirmTimerRef.current = setTimeout(() => setConfirmingStopId(null), 3000)
-        }
-    }, [confirmingStopId, renew])
+    const [pendingStop, setPendingStop] = useState<HealthNotifyItem | null>(null)
 
     return (
         <>
@@ -86,7 +80,6 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                             const icon = r.type === 'vaccine' ? '💉' : '💊'
                             const typeLabel = r.type === 'vaccine' ? text.vaccine : text.deworming
                             const isStopping = renew.stopSaving === r.id
-                            const isConfirmingStop = confirmingStopId === r.id
                             return (
                                 <div
                                     key={r.id}
@@ -113,11 +106,11 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                             </button>
                                             <button
                                                 type="button"
-                                                className={`health-notify-stop-btn ${isConfirmingStop ? 'health-notify-stop-confirming' : ''}`}
+                                                className="health-notify-stop-btn"
                                                 disabled={isStopping || !online}
-                                                onClick={() => handleStopClick(r)}
+                                                onClick={() => setPendingStop(r)}
                                             >
-                                                {isStopping ? text.stopping : isConfirmingStop ? text.confirmStop : text.stop}
+                                                {isStopping ? text.stopping : text.stop}
                                             </button>
                                         </div>
                                     </div>
@@ -127,6 +120,42 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                     </div>
                 </Card>
             </div>
+
+            <Modal
+                isOpen={pendingStop !== null}
+                onClose={() => setPendingStop(null)}
+                title={text.confirmTitle}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>
+                        {pendingStop && text.confirmBody(pendingStop.name)}
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        <button
+                            type="button"
+                            className="health-notify-stop-btn"
+                            style={{ width: '100%', padding: '10px', fontSize: '14px', color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+                            disabled={!online || (pendingStop ? renew.stopSaving === pendingStop.id : false)}
+                            onClick={() => {
+                                if (!pendingStop) return
+                                const r = pendingStop
+                                setPendingStop(null)
+                                renew.handleStop(r)
+                            }}
+                        >
+                            {text.confirmOk}
+                        </button>
+                        <button
+                            type="button"
+                            className="health-notify-update-btn"
+                            style={{ width: '100%', padding: '10px', fontSize: '14px' }}
+                            onClick={() => setPendingStop(null)}
+                        >
+                            {text.confirmCancel}
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <RenewModal
                 isOpen={renew.renewModalOpen}

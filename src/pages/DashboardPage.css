@@ -300,12 +300,6 @@
     background: var(--color-bg-input);
 }
 
-.health-notify-stop-confirming {
-    color: var(--color-danger) !important;
-    border-color: var(--color-danger) !important;
-    background: rgba(255, 99, 99, 0.08) !important;
-}
-
 .health-notify-overdue {
     border-left-color: var(--color-danger);
     background: rgba(255, 99, 99, 0.08);
