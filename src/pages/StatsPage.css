@@ -321,7 +321,7 @@
 
 .health-type-active {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.1);
+    background: var(--color-primary-a10);
 }
 
 .form-row {
@@ -399,7 +399,7 @@
 
 .inv-icon-active {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.15);
+    background: var(--color-primary-a15);
 }
 
 /* ── Inventory Status ── */
@@ -423,7 +423,7 @@
 }
 
 .inv-status-active {
-    background: rgba(248, 165, 194, 0.1);
+    background: var(--color-primary-a10);
 }
 
 @media (max-width: 480px) {

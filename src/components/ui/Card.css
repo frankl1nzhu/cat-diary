@@ -22,9 +22,9 @@
 
 .card-accent {
     background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-    color: #1a1625;
+    color: var(--color-on-primary);
     border: none;
-    box-shadow: var(--shadow-md), 0 4px 24px rgba(248, 165, 194, 0.2);
+    box-shadow: var(--shadow-md), 0 4px 24px var(--color-primary-a20);
     overflow: hidden;
 }
 

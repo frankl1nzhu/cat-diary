@@ -466,7 +466,7 @@
 }
 
 .quick-miss-btn {
-    background: linear-gradient(135deg, var(--color-primary-light), rgba(248, 165, 194, 0.2));
+    background: linear-gradient(135deg, var(--color-primary-light), var(--color-primary-a20));
     border-color: var(--color-primary);
 }
 
@@ -668,7 +668,7 @@
 }
 
 .mood-btn-active {
-    background: rgba(248, 165, 194, 0.15) !important;
+    background: var(--color-primary-a15) !important;
     box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-glow);
     transform: scale(1.15);
     border-color: transparent !important;
@@ -707,7 +707,7 @@
 }
 
 .mood-day-sleepy {
-    background: rgba(168, 216, 234, 0.18);
+    background: var(--color-secondary-a18);
     color: var(--color-secondary);
 }
 
@@ -883,7 +883,7 @@
 
 .bristol-btn-active {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.1);
+    background: var(--color-primary-a10);
 }
 
 .bristol-btn-warn.bristol-btn-active {
@@ -905,7 +905,7 @@
 
 .bristol-btn-active .bristol-num {
     background: var(--color-primary);
-    color: #1a1625;
+    color: var(--color-on-primary);
 }
 
 .bristol-label {
@@ -947,7 +947,7 @@
 
 .color-btn-active {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.1);
+    background: var(--color-primary-a10);
 }
 
 /* ── Feed Modal ── */
@@ -986,7 +986,7 @@
 
 .meal-btn-active {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.15);
+    background: var(--color-primary-a15);
 }
 
 .feed-history {

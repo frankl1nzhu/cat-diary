@@ -31,7 +31,7 @@
 .cat-switcher:focus {
     outline: none;
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(248, 165, 194, 0.15);
+    box-shadow: 0 0 0 3px var(--color-primary-a15);
 }
 
 .cat-add-btn {
@@ -39,7 +39,7 @@
     height: 36px;
     border-radius: var(--radius-full);
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    color: #1a1625;
+    color: var(--color-on-primary);
     font-weight: 300;
     font-size: 1.2rem;
     display: flex;

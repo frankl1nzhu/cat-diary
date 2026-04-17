@@ -133,7 +133,7 @@
 .theme-option-active {
     border-color: var(--color-primary);
     box-shadow: var(--shadow-sm), 0 0 0 1px var(--color-primary);
-    background: rgba(248, 165, 194, 0.08);
+    background: var(--color-primary-a8);
 }
 
 .profile-saved-view {
@@ -237,12 +237,12 @@
 }
 
 .role-owner {
-    background: rgba(248, 165, 194, 0.2);
+    background: var(--color-primary-a20);
     color: var(--color-primary);
 }
 
 .role-admin {
-    background: rgba(168, 216, 234, 0.2);
+    background: var(--color-secondary-a20);
     color: var(--color-secondary);
 }
 

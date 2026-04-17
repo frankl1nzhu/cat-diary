@@ -93,13 +93,13 @@
 
 .quick-item:hover {
     border-color: var(--color-primary);
-    background: rgba(248, 165, 194, 0.08);
+    background: var(--color-primary-a8);
     transform: translateY(-1px);
 }
 
 .quick-item:active {
     transform: scale(0.95);
-    background: rgba(248, 165, 194, 0.12);
+    background: var(--color-primary-a12);
 }
 
 .bottom-nav-item {
@@ -121,7 +121,7 @@
     margin-top: -18px;
     border-radius: var(--radius-full);
     background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
-    color: #1a1625;
+    color: var(--color-on-primary);
     font-size: 1.8rem;
     line-height: 1;
     font-weight: 300;
@@ -186,7 +186,7 @@
 
 .bottom-nav-item-active .bottom-nav-icon {
     transform: scale(1.18);
-    filter: drop-shadow(0 2px 4px rgba(248, 165, 194, 0.3));
+    filter: drop-shadow(0 2px 4px var(--color-primary-a30));
 }
 
 .bottom-nav-label {
