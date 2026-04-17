@@ -18,7 +18,6 @@ export function LanguageToggle({ className = '' }: LanguageToggleProps) {
             title={title}
         >
             <span className="language-toggle-icon" aria-hidden="true">🌐</span>
-            <span className="language-toggle-text">{language === 'zh' ? 'EN' : '中'}</span>
         </button>
     )
 }
