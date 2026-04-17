@@ -89,8 +89,8 @@
 }
 
 .health-renew-btn {
-    flex-shrink: 0;
-    margin-left: auto;
+    flex: 1;
+    min-width: 0;
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 600;
