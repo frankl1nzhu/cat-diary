@@ -16,7 +16,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useRenewForm } from '../lib/useRenewForm'
-import { sendHealthNotification, sendInventoryNotification, sendWeightNotification } from '../lib/pushServer'
+import { sendHealthNotification } from '../lib/pushServer'
 import { isAbnormalPoop, INVENTORY_ICONS, STORAGE_KEYS } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
@@ -602,9 +602,6 @@ export function StatsPage() {
             await loadData()
             lightHaptic()
             pushToast('success', l('库存已更新', 'Inventory updated'))
-            if (!editingInvId && catId) {
-                sendInventoryNotification(catId, cat?.name || l('猫咪', 'Cat'), invItemName.trim()).catch(() => { })
-            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, l('库存保存失败，请稍后重试', 'Failed to save inventory, please try again later')))
         } finally {
@@ -768,9 +765,6 @@ export function StatsPage() {
             await loadData()
             lightHaptic()
             pushToast('success', editingWeightId ? l('体重已更新', 'Weight updated') : l('体重记录已保存', 'Weight record saved'))
-            if (!editingWeightId && catId) {
-                sendWeightNotification(catId, cat?.name || l('猫咪', 'Cat'), kg).catch(() => { })
-            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, l('体重保存失败，请稍后重试', 'Failed to save weight, please try again later')))
         } finally {

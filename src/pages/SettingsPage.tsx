@@ -13,7 +13,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } from '../lib/pushNotifications'
-import { savePushSubscription, sendTestPush, sendCatProfileNotification, sendNewCatNotification, sendFamilyMemberNotification, sendFamilyMemberLeftNotification } from '../lib/pushServer'
+import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useI18n } from '../lib/i18n'
@@ -415,7 +415,6 @@ export function SettingsPage() {
                     .update(catData)
                     .eq('id', catId)
                 if (error) throw error
-                sendCatProfileNotification(catId, name.trim()).catch(() => { })
             } else {
                 // Insert new
                 const { data, error } = await supabase
@@ -426,7 +425,6 @@ export function SettingsPage() {
                 if (error) throw error
                 if (data) {
                     setCurrentCatId(data.id)
-                    sendNewCatNotification(data.id, name.trim()).catch(() => { })
                 }
             }
 
@@ -552,7 +550,6 @@ export function SettingsPage() {
             if (error) throw error
 
             if (approve) {
-                sendFamilyMemberNotification(currentFamily.id, target?.requesterEmail || l('新成员', 'new member')).catch(() => { })
                 pushToast('success', l('已同意加入申请', 'Join request approved'))
             } else {
                 pushToast('success', l('已拒绝加入申请', 'Join request rejected'))
@@ -601,8 +598,6 @@ export function SettingsPage() {
                 await supabase.from('cats').update({ family_id: null }).eq('id', catId)
                 setSelectedFamilyId('')
             }
-
-            sendFamilyMemberLeftNotification(currentFamily.id, user.email || l('家庭成员', 'family member')).catch(() => { })
 
             setActiveFamilyId(null)
             setCurrentFamily(null)

@@ -5,7 +5,6 @@ import { useSession } from './auth'
 import { useToastStore } from '../stores/useToastStore'
 import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from './errorMessage'
-import { sendFamilyJoinRequestNotification } from './pushServer'
 import type { Family } from '../types/database.types'
 
 interface FamilyRpcResult {
@@ -78,7 +77,6 @@ export function useFamily() {
 
             if (family.status === 'pending') {
                 pushToast('success', `已提交加入申请，等待「${family.name}」管理员同意`)
-                sendFamilyJoinRequestNotification(family.id, user.email || '新申请成员').catch(() => { })
                 return
             }
 

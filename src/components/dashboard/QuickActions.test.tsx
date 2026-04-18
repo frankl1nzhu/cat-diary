@@ -21,8 +21,6 @@ vi.mock('../../lib/haptics', () => ({
 }))
 
 vi.mock('../../lib/pushServer', () => ({
-    sendScoopNotification: vi.fn().mockResolvedValue(undefined),
-    sendFeedNotification: vi.fn().mockResolvedValue(undefined),
     sendAbnormalPoopNotification: vi.fn().mockResolvedValue(undefined),
     sendMissNotification: vi.fn().mockResolvedValue(undefined),
 }))

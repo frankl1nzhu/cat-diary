@@ -8,7 +8,7 @@ import { useToastStore } from '../../stores/useToastStore'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
-import { sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
+import { sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
@@ -256,7 +256,6 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
             lightHaptic()
             triggerRewardBurst('🐾')
             pushToast('success', text.feedSuccess)
-            sendFeedNotification(cat.id, cat.name, itemName).catch(() => { })
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.feedFail))
         } finally {
@@ -281,9 +280,6 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
             lightHaptic()
             if (selectedBristol === '4') triggerRewardBurst('💖')
             pushToast('success', text.poopSuccess)
-            sendScoopNotification(cat.id, cat.name).catch(() => {
-                pushToast('info', text.poopNotifyFail)
-            })
             if (isAbnormalPoop(selectedBristol, selectedColor)) {
                 sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => { })
             }

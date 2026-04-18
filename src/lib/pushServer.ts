@@ -102,10 +102,6 @@ export async function sendTestPush() {
     await invokeSendReminders({ action: 'test' })
 }
 
-export async function sendReminderPush(catId?: string) {
-    await invokeSendReminders({ action: 'reminder', catId })
-}
-
 export async function sendDiaryNotification(catId: string, catName: string) {
     await invokeSendReminders({ action: 'diary', catId, catName })
 }
@@ -114,52 +110,12 @@ export async function sendCommentNotification(diaryAuthorId: string, catName: st
     await invokeSendReminders({ action: 'comment', diaryAuthorId, catName })
 }
 
-export async function sendScoopNotification(catId: string, catName: string) {
-    await invokeSendReminders({ action: 'scoop', catId, catName })
-}
-
-export async function sendFeedNotification(catId: string, catName: string, mealType: string) {
-    await invokeSendReminders({ action: 'feed', catId, catName, mealType })
-}
-
 export async function sendAbnormalPoopNotification(catId: string, catName: string, bristolType: string, poopColor: string) {
     await invokeSendReminders({ action: 'abnormal-poop', catId, catName, bristolType, poopColor })
 }
 
 export async function sendHealthNotification(catId: string, catName: string, healthType: string, healthName: string) {
     await invokeSendReminders({ action: 'health', catId, catName, healthType, healthName })
-}
-
-export async function sendInventoryNotification(catId: string, catName: string, itemName: string) {
-    await invokeSendReminders({ action: 'inventory', catId, catName, itemName })
-}
-
-export async function sendWeightNotification(catId: string, catName: string, weightKg: number) {
-    await invokeSendReminders({ action: 'weight', catId, catName, weightKg })
-}
-
-export async function sendCatProfileNotification(catId: string, catName: string) {
-    await invokeSendReminders({ action: 'cat-profile', catId, catName })
-}
-
-export async function sendFamilyMemberNotification(familyId: string, memberName: string) {
-    await invokeSendReminders({ action: 'family-member', familyId, memberName })
-}
-
-export async function sendFamilyJoinRequestNotification(familyId: string, requesterName: string) {
-    await invokeSendReminders({ action: 'family-join-request', familyId, memberName: requesterName })
-}
-
-export async function sendFamilyMemberLeftNotification(familyId: string, memberName: string) {
-    await invokeSendReminders({ action: 'family-member-left', familyId, memberName })
-}
-
-export async function sendNewCatNotification(catId: string, catName: string) {
-    await invokeSendReminders({ action: 'new-cat', catId, catName })
-}
-
-export async function sendWeeklySummary(catId: string, catName: string) {
-    await invokeSendReminders({ action: 'weekly-summary', catId, catName })
 }
 
 export async function sendMissNotification(catId: string, catName: string) {

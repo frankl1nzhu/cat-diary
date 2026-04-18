@@ -18,7 +18,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
 import { withTimeout } from '../lib/promiseTimeout'
-import { sendDiaryNotification, sendCommentNotification, sendWeightNotification } from '../lib/pushServer'
+import { sendDiaryNotification, sendCommentNotification } from '../lib/pushServer'
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
@@ -647,9 +647,6 @@ export function LogPage() {
             await loadTimeline()
             lightHaptic()
             pushToast('success', editingWeightId ? text.weightUpdatedSuccess : text.weightRecordedSuccess)
-            if (!editingWeightId && catId) {
-                sendWeightNotification(catId, cat?.name || text.fallbackCatName, kg).catch(() => { })
-            }
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.weightSaveFailed))
         } finally {
