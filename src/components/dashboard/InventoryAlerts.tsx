@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
@@ -19,7 +19,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
     const [newTotalQty, setNewTotalQty] = useState('')
     const [newAlertThreshold, setNewAlertThreshold] = useState('')
     const [saving, setSaving] = useState(false)
-    const text = language === 'zh'
+    const text = useMemo(() => language === 'zh'
         ? {
             title: '🛒 库存预警',
             currentQty: (qty: number) => `当前库存：${qty}`,
@@ -57,7 +57,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
             alertThresholdHint: 'Notify when stock falls below this',
             updating: 'Updating...',
             confirm: 'Confirm refill',
-        }
+        }, [language])
 
     if (items.length === 0) return null
 

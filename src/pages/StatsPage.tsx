@@ -50,6 +50,23 @@ const HEALTH_TYPE_ICONS: Record<HealthFormType, string> = {
 /** Pie chart colors (module-level constant). */
 const PIE_COLORS = ['var(--color-primary)', 'var(--color-secondary)', 'var(--color-accent)', 'var(--color-success)', 'var(--color-warning)', 'var(--color-danger)', 'var(--color-primary-dark)']
 
+/** Health category display order (module-level constant). */
+const CATEGORY_ORDER: HealthFormType[] = ['vaccine', 'deworming', 'medical', 'vomit']
+
+/** Shared Recharts style constants. */
+const CHART_TICK_STYLE = { fill: 'var(--color-text-secondary)', fontSize: 12 }
+const CHART_TICK_STYLE_SM = { fill: 'var(--color-text-secondary)', fontSize: 11 }
+const CHART_TOOLTIP_STYLE = { background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }
+const CHART_GRID_STROKE = 'rgba(255,255,255,0.08)'
+const CHART_AXIS_STROKE = 'rgba(255,255,255,0.1)'
+const LEGEND_STYLE = { fontSize: 12 }
+const WEIGHT_DOT = { fill: 'var(--color-primary)', r: 4 }
+const WEIGHT_ACTIVE_DOT = { r: 6 }
+const MISS_DOT = { fill: 'var(--color-accent)', r: 3 }
+const MISS_ACTIVE_DOT = { r: 5 }
+const FEED_DOT = { fill: 'var(--color-secondary)', r: 3 }
+const FEED_ACTIVE_DOT = { r: 5 }
+
 export function StatsPage() {
     const { user } = useSession()
     const { language } = useI18n()
@@ -852,15 +869,14 @@ export function StatsPage() {
     }
 
     // ─── Health type labels ───────────────────────
-    const healthTypeLabels: Record<HealthFormType, { icon: string; label: string }> = {
+    const healthTypeLabels = useMemo<Record<HealthFormType, { icon: string; label: string }>>(() => ({
         vaccine: { icon: HEALTH_TYPE_ICONS.vaccine, label: l('疫苗', 'Vaccine') },
         deworming: { icon: HEALTH_TYPE_ICONS.deworming, label: l('驱虫', 'Deworming') },
         medical: { icon: HEALTH_TYPE_ICONS.medical, label: l('就医', 'Medical') },
         vomit: { icon: HEALTH_TYPE_ICONS.vomit, label: l('呕吐', 'Vomit') },
-    }
+    }), [l])
 
     // ─── Grouped health records by category ───────────────────────
-    const CATEGORY_ORDER: HealthFormType[] = ['vaccine', 'deworming', 'medical', 'vomit']
     const groupedHealth = useMemo(() => {
         const groups: Record<HealthFormType, HealthRecord[]> = { vaccine: [], deworming: [], medical: [], vomit: [] }
         for (const r of healthRecords) {
@@ -953,11 +969,11 @@ export function StatsPage() {
                                 <div className="chart-container">
                                     <ResponsiveContainer width="100%" height={220}>
                                         <LineChart data={chartData}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                            <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} stroke="rgba(255,255,255,0.1)" />
-                                            <YAxis domain={['dataMin - 0.3', 'dataMax + 0.3']} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} stroke="rgba(255,255,255,0.1)" unit=" kg" />
-                                            <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
-                                            <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={2.5} dot={{ fill: 'var(--color-primary)', r: 4 }} activeDot={{ r: 6 }} name={text.weightName} unit=" kg" />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+                                            <XAxis dataKey="date" tick={CHART_TICK_STYLE} stroke={CHART_AXIS_STROKE} />
+                                            <YAxis domain={['dataMin - 0.3', 'dataMax + 0.3']} tick={CHART_TICK_STYLE} stroke={CHART_AXIS_STROKE} unit=" kg" />
+                                            <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                            <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={2.5} dot={WEIGHT_DOT} activeDot={WEIGHT_ACTIVE_DOT} name={text.weightName} unit=" kg" />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -981,8 +997,8 @@ export function StatsPage() {
                                                 <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
-                                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                        <Legend wrapperStyle={LEGEND_STYLE} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (
@@ -1003,11 +1019,11 @@ export function StatsPage() {
                             <div className="chart-container">
                                 <ResponsiveContainer width="100%" height={180}>
                                     <LineChart data={missTrendData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                        <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
-                                        <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
-                                        <Line type="monotone" dataKey="count" stroke="var(--color-accent)" strokeWidth={2.5} dot={{ fill: 'var(--color-accent)', r: 3 }} activeDot={{ r: 5 }} name={text.missCountName} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+                                        <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
+                                        <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
+                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                        <Line type="monotone" dataKey="count" stroke="var(--color-accent)" strokeWidth={2.5} dot={MISS_DOT} activeDot={MISS_ACTIVE_DOT} name={text.missCountName} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -1024,11 +1040,11 @@ export function StatsPage() {
                             <div className="chart-container">
                                 <ResponsiveContainer width="100%" height={180}>
                                     <LineChart data={feedTrendData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                        <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
-                                        <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
-                                        <Line type="monotone" dataKey="count" stroke="var(--color-secondary)" strokeWidth={2.5} dot={{ fill: 'var(--color-secondary)', r: 3 }} activeDot={{ r: 5 }} name={text.feedCountName} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+                                        <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
+                                        <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
+                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                        <Line type="monotone" dataKey="count" stroke="var(--color-secondary)" strokeWidth={2.5} dot={FEED_DOT} activeDot={FEED_ACTIVE_DOT} name={text.feedCountName} />
                                     </LineChart>
                                 </ResponsiveContainer>
                             </div>
@@ -1046,8 +1062,8 @@ export function StatsPage() {
                                                 <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
-                                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                        <Legend wrapperStyle={LEGEND_STYLE} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             ) : (
