@@ -83,11 +83,13 @@ export function StatsPage() {
             weightTrend: '⚖️ 体重趋势',
             add: '+ 添加',
             rangeLabel: (days: number) => `趋势区间：近 ${days} 天`,
+            dateFrom: '起始日期',
+            dateTo: '结束日期',
             weightName: '体重',
             currentWeight: (weight: number) => `当前体重：${weight} kg，再记一次就能看趋势图了`,
             noWeight: '还没有体重记录，去记录页添加吧',
-            poopDistribution: '🧻 便便分布（近30天）',
-            noPoop: '近30天暂无便便记录',
+            poopDistribution: '🧻 便便分布',
+            noPoop: '该时间段暂无便便记录',
             missCount: '🥹 咪被想次数',
             missCountName: '咪被想次数',
             feedCount: '🍽️ 喂食次数',
@@ -102,11 +104,13 @@ export function StatsPage() {
             weightTrend: '⚖️ Weight Trend',
             add: '+ Add',
             rangeLabel: (days: number) => `Range: last ${days} days`,
+            dateFrom: 'Start date',
+            dateTo: 'End date',
             weightName: 'Weight',
             currentWeight: (weight: number) => `Current weight: ${weight} kg. Add one more to view the trend chart.`,
             noWeight: 'No weight records yet. Add one from Logs.',
-            poopDistribution: '🧻 Poop Distribution (30 days)',
-            noPoop: 'No poop records in the last 30 days',
+            poopDistribution: '🧻 Poop Distribution',
+            noPoop: 'No poop records in this range',
             missCount: '🥹 Missing-you Count',
             missCountName: 'Missing-you count',
             feedCount: '🍽️ Feeding Count',
@@ -163,9 +167,12 @@ export function StatsPage() {
     const [weightModalOpen, setWeightModalOpen] = useState(false)
     const [weightValue, setWeightValue] = useState('')
     const [weightDate, setWeightDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-    const [weightWindowDays, setWeightWindowDays] = useState(30)
-    const [feedWindowDays, setFeedWindowDays] = useState(30)
-    const [missWindowDays, setMissWindowDays] = useState(30)
+    const [chartStartDate, setChartStartDate] = useState(() => {
+        const d = new Date()
+        d.setDate(d.getDate() - 29)
+        return format(d, 'yyyy-MM-dd')
+    })
+    const [chartEndDate, setChartEndDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
     const [weightError, setWeightError] = useState('')
     const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
     const [weightSaving, setWeightSaving] = useState(false)
@@ -263,25 +270,31 @@ export function StatsPage() {
 
     useEffect(() => { loadData() }, [loadData])
 
+    // ─── Chart date range cutoffs (memoized) ───────
+    const chartStartTs = useMemo(() => new Date(`${chartStartDate}T00:00:00`).getTime(), [chartStartDate])
+    const chartEndTs = useMemo(() => new Date(`${chartEndDate}T23:59:59.999`).getTime(), [chartEndDate])
+
     // ─── Weight chart data (memoized) ───────────────
     const chartData = useMemo(() => {
-        const cutoff = Date.now() - (weightWindowDays - 1) * 24 * 60 * 60 * 1000
         return weights
-            .filter((w) => new Date(w.recorded_at).getTime() >= cutoff)
+            .filter((w) => {
+                const t = new Date(w.recorded_at).getTime()
+                return t >= chartStartTs && t <= chartEndTs
+            })
             .map((w) => ({
                 date: format(new Date(w.recorded_at), 'MM/dd'),
                 weight: w.weight_kg,
             }))
-    }, [weightWindowDays, weights])
+    }, [chartStartTs, chartEndTs, weights])
 
     const bristolDistributionData = useMemo(() => {
         const counts = {
             [l('正常', 'Normal')]: 0,
             [l('异常', 'Abnormal')]: 0,
         }
-        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
         poops.forEach((item) => {
-            if (new Date(item.created_at).getTime() >= cutoff) {
+            const t = new Date(item.created_at).getTime()
+            if (t >= chartStartTs && t <= chartEndTs) {
                 if (isAbnormalPoop(item.bristol_type, item.color)) {
                     counts[l('异常', 'Abnormal')] += 1
                 } else {
@@ -293,59 +306,77 @@ export function StatsPage() {
         return Object.entries(counts)
             .map(([name, value]) => ({ name, value }))
             .filter((item) => item.value > 0)
-    }, [l, poops])
+    }, [l, poops, chartStartTs, chartEndTs])
 
     const missTrendData = useMemo(() => {
         const dayMap = new Map<string, number>()
-        for (let i = missWindowDays - 1; i >= 0; i -= 1) {
-            const d = new Date()
-            d.setDate(d.getDate() - i)
+        const start = new Date(`${chartStartDate}T00:00:00`)
+        const end = new Date(`${chartEndDate}T23:59:59`)
+        const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
+        for (let i = 0; i <= diffDays; i++) {
+            const d = new Date(start)
+            d.setDate(d.getDate() + i)
             const key = format(d, 'MM/dd')
             dayMap.set(key, 0)
         }
 
         missLogs.forEach((item) => {
-            const key = format(new Date(item.created_at), 'MM/dd')
-            if (dayMap.has(key)) {
-                dayMap.set(key, (dayMap.get(key) || 0) + 1)
+            const t = new Date(item.created_at).getTime()
+            if (t >= chartStartTs && t <= chartEndTs) {
+                const key = format(new Date(item.created_at), 'MM/dd')
+                if (dayMap.has(key)) {
+                    dayMap.set(key, (dayMap.get(key) || 0) + 1)
+                }
             }
         })
 
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
-    }, [missLogs, missWindowDays])
+    }, [missLogs, chartStartDate, chartEndDate, chartStartTs, chartEndTs])
 
     const feedTrendData = useMemo(() => {
         const dayMap = new Map<string, number>()
-        for (let i = feedWindowDays - 1; i >= 0; i -= 1) {
-            const d = new Date()
-            d.setDate(d.getDate() - i)
+        const start = new Date(`${chartStartDate}T00:00:00`)
+        const end = new Date(`${chartEndDate}T23:59:59`)
+        const diffDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)))
+        for (let i = 0; i <= diffDays; i++) {
+            const d = new Date(start)
+            d.setDate(d.getDate() + i)
             const key = format(d, 'MM/dd')
             dayMap.set(key, 0)
         }
 
         feeds.forEach((item) => {
             const at = item.fed_at || item.updated_at
-            const key = format(new Date(at), 'MM/dd')
-            if (dayMap.has(key)) {
-                dayMap.set(key, (dayMap.get(key) || 0) + 1)
+            const t = new Date(at).getTime()
+            if (t >= chartStartTs && t <= chartEndTs) {
+                const key = format(new Date(at), 'MM/dd')
+                if (dayMap.has(key)) {
+                    dayMap.set(key, (dayMap.get(key) || 0) + 1)
+                }
             }
         })
 
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
-    }, [feeds, feedWindowDays])
+    }, [feeds, chartStartDate, chartEndDate, chartStartTs, chartEndTs])
 
     const inventoryFeedData = useMemo(() => {
         const countMap = new Map<string, number>()
         feeds.forEach((f) => {
-            const itemName = f.meal_type.split('|')[0]
-            if (itemName) {
-                countMap.set(itemName, (countMap.get(itemName) || 0) + 1)
+            const at = f.fed_at || f.updated_at
+            const t = new Date(at).getTime()
+            if (t >= chartStartTs && t <= chartEndTs) {
+                const itemName = f.meal_type.split('|')[0]
+                if (itemName) {
+                    countMap.set(itemName, (countMap.get(itemName) || 0) + 1)
+                }
             }
         })
         return Array.from(countMap.entries())
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
-    }, [feeds])
+    }, [feeds, chartStartTs, chartEndTs])
+
+    const chartDaysSpan = useMemo(() => Math.max(1, Math.ceil((chartEndTs - chartStartTs) / (24 * 60 * 60 * 1000))), [chartStartTs, chartEndTs])
 
     const chartTypeOptions: { value: ChartType; label: string }[] = useMemo(() => [
         { value: 'weight', label: text.weightTrend },
@@ -980,13 +1011,16 @@ export function StatsPage() {
                         </div>
                     </div>
 
+                    {/* Shared date range picker for all charts */}
+                    <div className="chart-date-range-row">
+                        <input type="date" className="form-input" value={chartStartDate} onChange={(e) => setChartStartDate(e.target.value)} aria-label={text.dateFrom} />
+                        <span className="text-secondary text-sm">~</span>
+                        <input type="date" className="form-input" value={chartEndDate} min={chartStartDate} onChange={(e) => setChartEndDate(e.target.value)} aria-label={text.dateTo} />
+                    </div>
+
                     {/* Weight Trend */}
                     {chartType === 'weight' && (
                         <>
-                            <div className="weight-window-row">
-                                <label className="text-sm text-secondary" htmlFor="weight-window-range">{text.rangeLabel(weightWindowDays)}</label>
-                                <input id="weight-window-range" type="range" min="7" max="30" value={weightWindowDays} onChange={(e) => setWeightWindowDays(Number(e.target.value))} />
-                            </div>
                             {chartData.length >= 2 ? (
                                 <div className="chart-container">
                                     <ResponsiveContainer width="100%" height={220}>
@@ -1033,44 +1067,32 @@ export function StatsPage() {
 
                     {/* Missing-you Count */}
                     {chartType === 'miss' && (
-                        <>
-                            <div className="weight-window-row">
-                                <label className="text-sm text-secondary" htmlFor="miss-window-range">{text.rangeLabel(missWindowDays)}</label>
-                                <input id="miss-window-range" type="range" min="7" max="90" value={missWindowDays} onChange={(e) => setMissWindowDays(Number(e.target.value))} />
-                            </div>
-                            <div className="chart-container">
-                                <ResponsiveContainer width="100%" height={180}>
-                                    <LineChart data={missTrendData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
-                                        <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
-                                        <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
-                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-                                        <Line type="monotone" dataKey="count" stroke="var(--color-accent)" strokeWidth={2.5} dot={MISS_DOT} activeDot={MISS_ACTIVE_DOT} name={text.missCountName} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </>
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={missTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+                                    <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(chartDaysSpan / 10))} />
+                                    <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
+                                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                    <Line type="monotone" dataKey="count" stroke="var(--color-accent)" strokeWidth={2.5} dot={MISS_DOT} activeDot={MISS_ACTIVE_DOT} name={text.missCountName} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     )}
 
                     {/* Feed Count */}
                     {chartType === 'feed' && (
-                        <>
-                            <div className="weight-window-row">
-                                <label className="text-sm text-secondary" htmlFor="feed-window-range">{text.rangeLabel(feedWindowDays)}</label>
-                                <input id="feed-window-range" type="range" min="7" max="90" value={feedWindowDays} onChange={(e) => setFeedWindowDays(Number(e.target.value))} />
-                            </div>
-                            <div className="chart-container">
-                                <ResponsiveContainer width="100%" height={180}>
-                                    <LineChart data={feedTrendData}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
-                                        <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
-                                        <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
-                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
-                                        <Line type="monotone" dataKey="count" stroke="var(--color-secondary)" strokeWidth={2.5} dot={FEED_DOT} activeDot={FEED_ACTIVE_DOT} name={text.feedCountName} />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </>
+                        <div className="chart-container">
+                            <ResponsiveContainer width="100%" height={180}>
+                                <LineChart data={feedTrendData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+                                    <XAxis dataKey="date" tick={CHART_TICK_STYLE_SM} interval={Math.max(1, Math.floor(chartDaysSpan / 10))} />
+                                    <YAxis allowDecimals={false} tick={CHART_TICK_STYLE_SM} />
+                                    <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                    <Line type="monotone" dataKey="count" stroke="var(--color-secondary)" strokeWidth={2.5} dot={FEED_DOT} activeDot={FEED_ACTIVE_DOT} name={text.feedCountName} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
                     )}
 
                     {/* Per-Inventory Feed Count */}
