@@ -9,11 +9,10 @@ import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
 import { sendScoopNotification, sendFeedNotification, sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_LABELS, MEAL_LABELS, isAbnormalPoop, getDiaryTagLabel } from '../../lib/constants'
+import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
-import { computeInventoryStatus } from '../../types/database.types'
 
 type RewardParticle = {
     id: number
@@ -26,11 +25,12 @@ type RewardParticle = {
 interface QuickActionsProps {
     cat: Cat | null
     todayFeeds: FeedStatus[]
+    inventory: InventoryItem[]
     lowInventory: InventoryItem[]
     onDataChange: () => void
 }
 
-export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: QuickActionsProps) {
+export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataChange }: QuickActionsProps) {
     const { language } = useI18n()
     const { user } = useSession()
     const pushToast = useToastStore((s) => s.pushToast)
@@ -39,7 +39,8 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
 
     // Feed modal
     const [feedModalOpen, setFeedModalOpen] = useState(false)
-    const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
+    const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null)
+    const [feedGrams, setFeedGrams] = useState('')
     const [feedLoading, setFeedLoading] = useState(false)
     const [optimisticFeeds, addOptimisticFeed] = useOptimistic(
         todayFeeds,
@@ -82,7 +83,10 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             recording: '记录中...',
             saveRecord: '保存记录',
             feedModalTitle: '🍽️ 记录喂食',
-            chooseMeal: '选择餐次',
+            chooseInventory: '选择库存物资',
+            noInventory: '暂无库存物资，请先在统计页添加',
+            feedAmount: '喂食量（克）',
+            feedAmountPlaceholder: '输入克数',
             todayRecords: '今日记录',
             confirmFeed: '确认喂食 🐾',
             memoriesOf: (name: string) => `🥹 ${name}的回忆`,
@@ -108,20 +112,14 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             recording: 'Saving...',
             saveRecord: 'Save record',
             feedModalTitle: '🍽️ Feeding Log',
-            chooseMeal: 'Choose meal',
+            chooseInventory: 'Choose from inventory',
+            noInventory: 'No inventory items yet. Add some in Stats first.',
+            feedAmount: 'Amount (grams)',
+            feedAmountPlaceholder: 'Enter grams',
             todayRecords: 'Today records',
             confirmFeed: 'Confirm feeding 🐾',
             memoriesOf: (name: string) => `🥹 ${name}'s memories`,
             defaultCatName: 'cat',
-        }
-
-    const mealLabels = language === 'zh'
-        ? MEAL_LABELS
-        : {
-            breakfast: '🌅 Breakfast',
-            lunch: '☀️ Lunch',
-            dinner: '🌙 Dinner',
-            snack: '🍬 Snack',
         }
 
     const poopColorLabels = language === 'zh'
@@ -214,7 +212,13 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
 
     const handleFeedRecord = async () => {
         if (!cat || !user || feedLoading) return
+        if (!selectedInventoryItem) return
+        const grams = parseFloat(feedGrams)
+        if (isNaN(grams) || grams <= 0) return
         setFeedLoading(true)
+
+        const itemName = selectedInventoryItem.item_name
+        const mealTypeValue = `${itemName}|${grams}`
 
         const optimisticFeed: FeedStatus = {
             id: crypto.randomUUID(),
@@ -222,25 +226,37 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             status: 'fed',
             fed_by: user.id,
             fed_at: new Date().toISOString(),
-            meal_type: selectedMeal,
+            meal_type: mealTypeValue,
             updated_at: new Date().toISOString(),
         }
 
         addOptimisticFeed(optimisticFeed)
         try {
+            // Insert feed record
             await supabase.from('feed_status').insert({
                 cat_id: cat.id,
                 status: 'fed' as const,
                 fed_by: user.id,
                 fed_at: new Date().toISOString(),
-                meal_type: selectedMeal,
+                meal_type: mealTypeValue,
             })
+
+            // Deduct grams from inventory
+            if (selectedInventoryItem.total_quantity != null) {
+                const newQty = Math.max(0, selectedInventoryItem.total_quantity - grams)
+                await supabase.from('inventory')
+                    .update({ total_quantity: newQty, updated_by: user.id })
+                    .eq('id', selectedInventoryItem.id)
+            }
+
             setFeedModalOpen(false)
+            setSelectedInventoryItem(null)
+            setFeedGrams('')
             await onDataChange()
             lightHaptic()
             triggerRewardBurst('🐾')
             pushToast('success', text.feedSuccess)
-            sendFeedNotification(cat.id, cat.name, mealLabels[selectedMeal]).catch(() => { })
+            sendFeedNotification(cat.id, cat.name, itemName).catch(() => { })
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.feedFail))
         } finally {
@@ -350,7 +366,7 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             {/* Inventory Alert */}
             {lowInventory.length > 0 && (
                 <div className="inventory-alert mx-4">
-                    🛒 {lowInventory.map((i) => `${i.item_name}${computeInventoryStatus(i) === 'urgent' ? '🔴' : '🟡'}`).join(language === 'zh' ? '、' : ', ')} — {text.inventoryHint}
+                    🛒 {lowInventory.map((i) => `${i.item_name}${i.status === 'urgent' ? '🔴' : '🟡'}`).join(language === 'zh' ? '、' : ', ')} — {text.inventoryHint}
                 </div>
             )}
 
@@ -395,36 +411,66 @@ export function QuickActions({ cat, todayFeeds, lowInventory, onDataChange }: Qu
             </Modal>
 
             {/* Feed Modal */}
-            <Modal isOpen={feedModalOpen} onClose={() => setFeedModalOpen(false)} title={text.feedModalTitle}>
+            <Modal isOpen={feedModalOpen} onClose={() => { setFeedModalOpen(false); setSelectedInventoryItem(null); setFeedGrams('') }} title={text.feedModalTitle}>
                 <div className="feed-form">
-                    <label className="form-label">{text.chooseMeal}</label>
-                    <div className="meal-grid">
-                        {(['breakfast', 'lunch', 'dinner', 'snack'] as const).map((meal) => (
-                            <button
-                                key={meal}
-                                className={`meal-btn ${selectedMeal === meal ? 'meal-btn-active' : ''}`}
-                                onClick={() => setSelectedMeal(meal)}
-                            >
-                                {mealLabels[meal]}
-                            </button>
-                        ))}
-                    </div>
+                    <label className="form-label">{text.chooseInventory}</label>
+                    {inventory.length > 0 ? (
+                        <div className="feed-inventory-list">
+                            {inventory.map((item) => (
+                                <button
+                                    key={item.id}
+                                    className={`feed-inventory-btn ${selectedInventoryItem?.id === item.id ? 'feed-inventory-btn-active' : ''}`}
+                                    onClick={() => setSelectedInventoryItem(item)}
+                                >
+                                    <span>{item.icon || '📦'} {item.item_name}</span>
+                                    {item.total_quantity != null && (
+                                        <span className="text-xs text-muted">{item.total_quantity}g</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted">{text.noInventory}</p>
+                    )}
+
+                    {selectedInventoryItem && (
+                        <div className="form-section">
+                            <label className="form-label" htmlFor="feed-grams">{text.feedAmount}</label>
+                            <input
+                                id="feed-grams"
+                                type="number"
+                                className="form-input"
+                                inputMode="decimal"
+                                min="0.1"
+                                step="0.1"
+                                placeholder={text.feedAmountPlaceholder}
+                                value={feedGrams}
+                                onChange={(e) => setFeedGrams(e.target.value)}
+                            />
+                        </div>
+                    )}
+
                     {optimisticFeeds.length > 0 && (
                         <div className="feed-history">
                             <label className="form-label">{text.todayRecords}</label>
-                            {optimisticFeeds.map((f) => (
-                                <div key={f.id} className="feed-history-item">
-                                    <span>{mealLabels[f.meal_type]}</span>
-                                    <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
-                                </div>
-                            ))}
+                            {optimisticFeeds.map((f) => {
+                                const parts = f.meal_type.split('|')
+                                const displayName = parts[0]
+                                const displayGrams = parts[1] ? `${parts[1]}g` : ''
+                                return (
+                                    <div key={f.id} className="feed-history-item">
+                                        <span>{displayName} {displayGrams}</span>
+                                        <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
+                                    </div>
+                                )
+                            })}
                         </div>
                     )}
                     <Button
                         variant="primary"
                         fullWidth
                         onClick={handleFeedRecord}
-                        disabled={feedLoading || !online}
+                        disabled={feedLoading || !online || !selectedInventoryItem || !feedGrams || parseFloat(feedGrams) <= 0}
                     >
                         {feedLoading ? text.recording : text.confirmFeed}
                     </Button>

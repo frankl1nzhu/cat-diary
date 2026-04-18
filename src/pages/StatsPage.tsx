@@ -22,7 +22,7 @@ import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
-import { computeDaysRemaining, computeInventoryExpiryHoursLeft, computeInventoryStatus } from '../types/database.types'
+import { computeInventoryExpiryHoursLeft, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
@@ -123,7 +123,7 @@ export function StatsPage() {
     const [invItemName, setInvItemName] = useState('')
     const [invIcon, setInvIcon] = useState<string | null>(null)
     const [invTotalQty, setInvTotalQty] = useState('')
-    const [invDailyConsumption, setInvDailyConsumption] = useState('')
+    const [invAlertThreshold, setInvAlertThreshold] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
     const [invSaving, setInvSaving] = useState(false)
 
@@ -360,7 +360,7 @@ export function StatsPage() {
             if (exportTypes.inventory) htmlSections.push(`<h2>${escapeHtml(l('📦 物资库存', '📦 Inventory'))}</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || noRecord}</ul>`)
             if (exportTypes.diary) htmlSections.push(`<h2>${escapeHtml(l('📝 日记', '📝 Diary'))}</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || l('(无文字)', '(No text)'))}</div>${d.image_url ? `<div style="margin-top:6px;"><img src="${escapeHtml(d.image_url)}" alt="diary image" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;" /></div>` : ''}</li>`).join('') || noRecord}</ul>`)
             if (exportTypes.mood) htmlSections.push(`<h2>${escapeHtml(l('😺 心情', '😺 Mood'))}</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || noRecord}</ul>`)
-            if (exportTypes.feed) htmlSections.push(`<h2>${escapeHtml(l('🍽️ 喂食', '🍽️ Feeding'))}</h2><ul>${(feedRes.data || []).map((f) => `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(f.meal_type)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.feed) htmlSections.push(`<h2>${escapeHtml(l('🍽️ 喂食', '🍽️ Feeding'))}</h2><ul>${(feedRes.data || []).map((f) => { const parts = f.meal_type.split('|'); const name = parts[0]; const grams = parts[1] ? ` ${parts[1]}g` : ''; return `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(name)}${escapeHtml(grams)}</li>` }).join('') || noRecord}</ul>`)
 
             const html = `
             <html><head><meta charset="utf-8" /><title>${escapeHtml(l('记录导出', 'Record Export'))}</title>
@@ -483,15 +483,15 @@ export function StatsPage() {
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
         const totalQty = invTotalQty ? parseFloat(invTotalQty) : null
-        const dailyCons = invDailyConsumption ? parseFloat(invDailyConsumption) : null
-        // Compute status from quantity fields
-        const fakeItem = { total_quantity: totalQty, daily_consumption: dailyCons, status: 'plenty' as InventoryStatus } as InventoryItem
+        const alertThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
+        // Compute status from quantity vs threshold
+        const fakeItem = { total_quantity: totalQty, daily_consumption: alertThreshold, status: 'plenty' as InventoryStatus } as InventoryItem
         const status = computeInventoryStatus(fakeItem)
         setInvSaving(true)
         try {
             if (editingInvId) {
                 await supabase.from('inventory')
-                    .update({ item_name: invItemName.trim(), icon: invIcon, status, total_quantity: totalQty, daily_consumption: dailyCons, updated_by: user.id })
+                    .update({ item_name: invItemName.trim(), icon: invIcon, status, total_quantity: totalQty, daily_consumption: alertThreshold, updated_by: user.id })
                     .eq('id', editingInvId)
             } else {
                 await supabase.from('inventory').insert({
@@ -500,7 +500,7 @@ export function StatsPage() {
                     icon: invIcon,
                     status,
                     total_quantity: totalQty,
-                    daily_consumption: dailyCons,
+                    daily_consumption: alertThreshold,
                     updated_by: user.id,
                 })
             }
@@ -523,7 +523,7 @@ export function StatsPage() {
         setInvItemName('')
         setInvIcon(null)
         setInvTotalQty('')
-        setInvDailyConsumption('')
+        setInvAlertThreshold('')
         setEditingInvId(null)
     }
 
@@ -595,7 +595,7 @@ export function StatsPage() {
         setInvItemName(item.item_name)
         setInvIcon(item.icon || null)
         setInvTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
-        setInvDailyConsumption(item.daily_consumption != null ? String(item.daily_consumption) : '')
+        setInvAlertThreshold(item.daily_consumption != null ? String(item.daily_consumption) : '')
         setInventoryModalOpen(true)
     }
 
@@ -1188,7 +1188,6 @@ export function StatsPage() {
                     {inventory.length > 0 ? (
                         <div className="inventory-list">
                             {inventory.map((item) => {
-                                const days = computeDaysRemaining(item)
                                 const derivedStatus = computeInventoryStatus(item)
                                 return (
                                     <SwipeableRow key={item.id} onDelete={() => setPendingDelete({ id: item.id, type: 'inventory' })}>
@@ -1199,8 +1198,8 @@ export function StatsPage() {
                                         >
                                             <div className="inventory-item-info">
                                                 <span className="text-sm">{item.icon ? `${item.icon} ` : ''}{item.item_name}</span>
-                                                {days != null && (
-                                                    <span className="text-xs text-muted">{l(`约剩 ${Math.round(days)} 天`, `About ${Math.round(days)} days left`)}</span>
+                                                {item.total_quantity != null && (
+                                                    <span className="text-xs text-muted">{l(`库存：${item.total_quantity}`, `Stock: ${item.total_quantity}`)}</span>
                                                 )}
                                             </div>
                                             <StatusBadge status={derivedStatus} size="sm" />
@@ -1451,35 +1450,34 @@ export function StatsPage() {
                                 min="0"
                                 step="0.1"
                                 className="form-input"
-                                placeholder={l('如：10', 'e.g. 10')}
+                                placeholder={l('如：5000（克）', 'e.g. 5000 (grams)')}
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
                         </div>
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="inv-daily-consumption">{l('每日消耗量', 'Daily consumption')}</label>
+                            <label className="form-label" htmlFor="inv-alert-threshold">{l('提醒线', 'Alert threshold')}</label>
                             <input
-                                id="inv-daily-consumption"
+                                id="inv-alert-threshold"
                                 type="number"
                                 min="0"
-                                step="0.01"
+                                step="0.1"
                                 className="form-input"
-                                placeholder={l('如：0.5', 'e.g. 0.5')}
-                                value={invDailyConsumption}
-                                onChange={(e) => setInvDailyConsumption(e.target.value)}
+                                placeholder={l('如：500', 'e.g. 500')}
+                                value={invAlertThreshold}
+                                onChange={(e) => setInvAlertThreshold(e.target.value)}
                             />
                         </div>
                     </div>
 
-                    {invTotalQty && invDailyConsumption && parseFloat(invDailyConsumption) > 0 && (
+                    {invTotalQty && invAlertThreshold && parseFloat(invAlertThreshold) > 0 && (
                         <div className="inv-preview" style={{ marginBottom: '12px', padding: '8px 12px', borderRadius: '8px', background: 'var(--glass-bg)' }}>
                             <p className="text-sm text-secondary">
-                                {l('预计可用 ', 'Estimated available ')}<strong>{Math.round(parseFloat(invTotalQty) / parseFloat(invDailyConsumption))}</strong>{l(' 天', ' days')}
-                                {' · '}
                                 {(() => {
-                                    const days = parseFloat(invTotalQty) / parseFloat(invDailyConsumption)
-                                    if (days < 3) return <span style={{ color: 'var(--color-danger)' }}>{l('🔴 紧急', '🔴 Urgent')}</span>
-                                    if (days < 7) return <span style={{ color: 'var(--color-warning)' }}>{l('🟡 快没了', '🟡 Running low')}</span>
+                                    const qty = parseFloat(invTotalQty)
+                                    const threshold = parseFloat(invAlertThreshold)
+                                    if (qty <= threshold) return <span style={{ color: 'var(--color-danger)' }}>{l('🔴 已达提醒线', '🔴 Below threshold')}</span>
+                                    if (qty <= threshold * 1.5) return <span style={{ color: 'var(--color-warning)' }}>{l('🟡 接近提醒线', '🟡 Near threshold')}</span>
                                     return <span style={{ color: 'var(--color-success)' }}>{l('🟢 充足', '🟢 Sufficient')}</span>
                                 })()}
                             </p>

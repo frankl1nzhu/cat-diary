@@ -16,7 +16,6 @@ import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
-import { computeInventoryStatus } from '../types/database.types'
 import { STORAGE_KEYS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
@@ -123,17 +122,17 @@ export function DashboardPage() {
     const renewForm = useRenewForm({ catId, onSuccess: reload })
 
     // ─── Replenish inventory handler ──────────
-    const handleReplenishInventory = async (itemId: string, totalQuantity: number, dailyConsumption: number) => {
+    const handleReplenishInventory = async (itemId: string, totalQuantity: number, alertThreshold: number) => {
         if (!online || !catId) return
         try {
+            const fakeItem = { total_quantity: totalQuantity, daily_consumption: alertThreshold, status: 'plenty' as const, updated_at: new Date().toISOString() } as import('../types/database.types').InventoryItem
             const { computeInventoryStatus: calcStatus } = await import('../types/database.types')
-            const fakeItem = { total_quantity: totalQuantity, daily_consumption: dailyConsumption, status: 'plenty' as const, updated_at: new Date().toISOString() } as import('../types/database.types').InventoryItem
             const status = calcStatus(fakeItem)
             const { error } = await supabase
                 .from('inventory')
                 .update({
                     total_quantity: totalQuantity,
-                    daily_consumption: dailyConsumption,
+                    daily_consumption: alertThreshold,
                     status,
                     updated_by: user?.id ?? null,
                 })
@@ -207,7 +206,7 @@ export function DashboardPage() {
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return
         const todayKey = new Date().toISOString().split('T')[0]
 
-        if (lowInventory.some((item) => computeInventoryStatus(item) === 'urgent')) {
+        if (lowInventory.some((item) => item.status === 'urgent' || (item.total_quantity != null && item.daily_consumption != null && item.total_quantity <= item.daily_consumption))) {
             const key = STORAGE_KEYS.notifyInventory(todayKey)
             if (!localStorage.getItem(key)) {
                 new Notification(text.inventoryNotificationTitle, { body: text.inventoryNotificationBody })
@@ -361,6 +360,7 @@ export function DashboardPage() {
             <QuickActions
                 cat={cat}
                 todayFeeds={data.todayFeeds}
+                inventory={data.inventory}
                 lowInventory={lowInventory}
                 onDataChange={reload}
             />

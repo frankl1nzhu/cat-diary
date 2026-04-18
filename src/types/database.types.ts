@@ -124,7 +124,7 @@ export type FeedStatus = {
     status: FeedStatusType
     fed_by: string | null
     fed_at: string | null
-    meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+    meal_type: string
     updated_at: string
 }
 
@@ -203,22 +203,17 @@ export type MissLog = {
 
 /* ─── Inventory helpers ───────────────────────────── */
 
-/** Compute days remaining from total_quantity / daily_consumption, accounting for elapsed time since last update. */
-export function computeDaysRemaining(item: InventoryItem): number | null {
-    if (item.total_quantity == null || item.daily_consumption == null || item.daily_consumption <= 0) return null
-    const totalDays = item.total_quantity / item.daily_consumption
-    // Subtract days elapsed since last inventory update
-    const elapsed = (Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24)
-    const remaining = totalDays - elapsed
-    return Math.max(0, remaining)
+/** Compute days remaining — no longer used (threshold-based alerts now). */
+export function computeDaysRemaining(_item: InventoryItem): number | null {
+    return null
 }
 
-/** Derive status from days remaining: <7 = urgent, <14 = low, else plenty. */
+/** Derive status from total_quantity vs alert threshold (stored in daily_consumption field).
+ *  At or below threshold → urgent, within 1.5x threshold → low, else plenty. */
 export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
-    const days = computeDaysRemaining(item)
-    if (days == null) return item.status // fallback to stored status
-    if (days < 7) return 'urgent'
-    if (days < 14) return 'low'
+    if (item.total_quantity == null || item.daily_consumption == null) return item.status
+    if (item.total_quantity <= item.daily_consumption) return 'urgent'
+    if (item.total_quantity <= item.daily_consumption * 1.5) return 'low'
     return 'plenty'
 }
 
