@@ -947,15 +947,37 @@ export function SettingsPage() {
                                             <Button type="submit" variant="primary" fullWidth disabled={saving || !online}>
                                                 {saving ? text.saving : createMode ? text.addCat : text.saveProfile}
                                             </Button>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                fullWidth
-                                                onClick={openDeleteCatModal}
-                                                disabled={!catId || createMode || (myRole !== 'owner' && myRole !== 'admin')}
-                                            >
-                                                {text.deleteCat}
-                                            </Button>
+                                            {createMode ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    fullWidth
+                                                    onClick={() => {
+                                                        setCreateMode(false)
+                                                        setProfileLocked(true)
+                                                        if (cat) {
+                                                            setName(cat.name)
+                                                            setBreed(cat.breed || '')
+                                                            setBirthday(cat.birthday || '')
+                                                            setAdoptedAt(cat.adopted_at || '')
+                                                            setAvatarUrl(cat.avatar_url)
+                                                            setSelectedFamilyId(cat.family_id || '')
+                                                        }
+                                                    }}
+                                                >
+                                                    {l('取消', 'Cancel')}
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    fullWidth
+                                                    onClick={openDeleteCatModal}
+                                                    disabled={!catId || (myRole !== 'owner' && myRole !== 'admin')}
+                                                >
+                                                    {text.deleteCat}
+                                                </Button>
+                                            )}
                                         </div>
                                     </>
                                 )}
