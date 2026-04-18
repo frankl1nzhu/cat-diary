@@ -105,4 +105,6 @@ export const STORAGE_KEYS = {
     notifyExpiredInventory: (recordId: string, todayKey: string) => `notify_expired_inventory_${recordId}_${todayKey}`,
     /** Server push reminder (localStorage, per-cat per-day) */
     serverPushReminder: (todayKey: string, catId: string) => `server_push_reminder_${todayKey}_${catId}`,
+    /** Default chart type on stats page (localStorage) */
+    DEFAULT_CHART_TYPE: 'cat_diary_default_chart_type',
 } as const

@@ -17,7 +17,7 @@ import { lightHaptic } from '../lib/haptics'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useRenewForm } from '../lib/useRenewForm'
 import { sendHealthNotification, sendInventoryNotification, sendWeightNotification } from '../lib/pushServer'
-import { isAbnormalPoop, INVENTORY_ICONS } from '../lib/constants'
+import { isAbnormalPoop, INVENTORY_ICONS, STORAGE_KEYS } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
@@ -92,6 +92,8 @@ export function StatsPage() {
             missCountName: '咪被想次数',
             feedCount: '🍽️ 喂食次数',
             feedCountName: '喂食次数',
+            setDefault: '设为默认',
+            defaultSet: '已设为默认',
         }
         : {
             title: '📊 Stats',
@@ -109,6 +111,8 @@ export function StatsPage() {
             missCountName: 'Missing-you count',
             feedCount: '🍽️ Feeding Count',
             feedCountName: 'Feeding count',
+            setDefault: 'Set default',
+            defaultSet: 'Default set',
         }
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
@@ -120,7 +124,11 @@ export function StatsPage() {
     const [feeds, setFeeds] = useState<FeedStatus[]>([])
     const [loading, setLoading] = useState(true)
     const [collapsedCategories, setCollapsedCategories] = useState<Set<HealthFormType>>(new Set(['vaccine', 'deworming', 'medical', 'vomit']))
-    const [chartType, setChartType] = useState<ChartType>('weight')
+    const [chartType, setChartType] = useState<ChartType>(() => {
+        const stored = localStorage.getItem(STORAGE_KEYS.DEFAULT_CHART_TYPE)
+        if (stored && ['weight', 'poop', 'miss', 'feed', 'inventoryFeed'].includes(stored)) return stored as ChartType
+        return 'weight'
+    })
     const [pendingStopRecord, setPendingStopRecord] = useState<HealthRecord | null>(null)
 
     // Modals
@@ -353,6 +361,13 @@ export function StatsPage() {
         const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
         return format(expiresAt, 'yyyy/MM/dd HH:mm')
     }, [expiryInHours])
+
+    const isDefaultChart = localStorage.getItem(STORAGE_KEYS.DEFAULT_CHART_TYPE) === chartType
+    const handleSetDefaultChart = () => {
+        localStorage.setItem(STORAGE_KEYS.DEFAULT_CHART_TYPE, chartType)
+        lightHaptic()
+        pushToast('success', text.defaultSet)
+    }
 
     const handleToggleExportType = (key: ExportTypeKey) => {
         setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }))
@@ -951,11 +966,18 @@ export function StatsPage() {
                                 <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                         </select>
-                        {chartType === 'weight' && (
-                            <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
-                                {text.add}
-                            </Button>
-                        )}
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {!isDefaultChart && (
+                                <Button variant="ghost" size="sm" onClick={handleSetDefaultChart}>
+                                    {text.setDefault}
+                                </Button>
+                            )}
+                            {chartType === 'weight' && (
+                                <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
+                                    {text.add}
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
                     {/* Weight Trend */}
