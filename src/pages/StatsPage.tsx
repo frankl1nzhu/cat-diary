@@ -146,6 +146,7 @@ export function StatsPage() {
     const [weightSaving, setWeightSaving] = useState(false)
     const [pendingDelete, setPendingDelete] = useState<{ id: string; type: 'health' | 'inventory' | 'weight' } | null>(null)
     const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+    const [vetReportLangModalOpen, setVetReportLangModalOpen] = useState(false)
     const [exportModalOpen, setExportModalOpen] = useState(false)
     const [exportDays, setExportDays] = useState(30)
     const [exporting, setExporting] = useState(false)
@@ -914,8 +915,7 @@ export function StatsPage() {
                 <h1 className="text-2xl font-bold">{text.title}</h1>
                 <p className="text-secondary text-sm">{text.subtitle}</p>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('zh')}>{l('导出就医报告（中文）', 'Export Vet Report (ZH)')}</Button>
-                    <Button variant="secondary" size="sm" onClick={() => exportVetReport('en')}>{l('导出就医报告（英文）', 'Export Vet Report (EN)')}</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setVetReportLangModalOpen(true)}>{l('导出就医报告', 'Export Vet Report')}</Button>
                     <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>{text.exportAll}</Button>
                 </div>
             </div>
@@ -1651,6 +1651,22 @@ export function StatsPage() {
                             {l('取消', 'Cancel')}
                         </button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* ── Vet Report Language Selection Modal ── */}
+            <Modal
+                isOpen={vetReportLangModalOpen}
+                onClose={() => setVetReportLangModalOpen(false)}
+                title={l('选择报告语言', 'Select Report Language')}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <Button variant="primary" fullWidth onClick={() => { setVetReportLangModalOpen(false); exportVetReport('zh') }}>
+                        中文
+                    </Button>
+                    <Button variant="secondary" fullWidth onClick={() => { setVetReportLangModalOpen(false); exportVetReport('en') }}>
+                        English
+                    </Button>
                 </div>
             </Modal>
         </div>
