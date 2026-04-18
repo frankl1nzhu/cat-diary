@@ -189,6 +189,12 @@ export function StatsPage() {
             resetExpiryForm()
             setExpiryModalOpen(true)
             setSearchParams({}, { replace: true })
+        } else if (quick === 'vetreport') {
+            setVetReportLangModalOpen(true)
+            setSearchParams({}, { replace: true })
+        } else if (quick === 'export') {
+            setExportModalOpen(true)
+            setSearchParams({}, { replace: true })
         }
     }, [searchParams, setSearchParams, loading])
 
@@ -914,10 +920,6 @@ export function StatsPage() {
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">{text.title}</h1>
                 <p className="text-secondary text-sm">{text.subtitle}</p>
-                <div style={{ marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <Button variant="secondary" size="sm" onClick={() => setVetReportLangModalOpen(true)}>{l('导出就医报告', 'Export Vet Report')}</Button>
-                    <Button variant="secondary" size="sm" onClick={() => setExportModalOpen(true)} disabled={!catId}>{text.exportAll}</Button>
-                </div>
             </div>
 
             {/* ── Unified Chart ── */}

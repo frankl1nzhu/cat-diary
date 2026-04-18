@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -42,6 +42,7 @@ export function SettingsPage() {
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
+    const navigate = useNavigate()
 
     const [name, setName] = useState('')
     const [breed, setBreed] = useState('')
@@ -1144,6 +1145,21 @@ export function SettingsPage() {
                                         {item.label}
                                     </button>
                                 ))}
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Export */}
+                    <div className="p-4">
+                        <Card variant="default" padding="md">
+                            <h2 className="text-lg font-semibold mb-3">{l('📤 数据导出', '📤 Data Export')}</h2>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <Button variant="secondary" fullWidth onClick={() => navigate('/stats?quick=vetreport')}>
+                                    {l('导出就医报告', 'Export Vet Report')}
+                                </Button>
+                                <Button variant="secondary" fullWidth onClick={() => navigate('/stats?quick=export')}>
+                                    {l('导出全部记录', 'Export All Records')}
+                                </Button>
                             </div>
                         </Card>
                     </div>
