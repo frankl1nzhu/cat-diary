@@ -35,6 +35,7 @@ describe('QuickActions', () => {
     const baseProps = {
         cat: { id: 'cat-1', name: '咪咪' },
         todayFeeds: [],
+        inventory: [],
         lowInventory: [],
         onDataChange: vi.fn().mockResolvedValue(undefined),
     }

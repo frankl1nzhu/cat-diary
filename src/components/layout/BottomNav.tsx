@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { prefetchRoute } from '../../lib/prefetch'
 import { lightHaptic } from '../../lib/haptics'
 import { useI18n } from '../../lib/i18n'
+import { useQuickActionStore, type QuickActionType } from '../../stores/useQuickActionStore'
 import './BottomNav.css'
 
 const leftItems = [
@@ -15,26 +16,26 @@ const rightItems = [
     { to: '/settings', icon: '⚙️', labelKey: 'nav.settings' },
 ]
 
-const quickActions = [
-    { label: '📝', sublabelKey: 'quick.writeDiary', path: '/log?quick=diary' as const, type: 'path' as const },
-    { label: '💩', sublabelKey: 'quick.logPoop', path: '/?quick=poop' as const, type: 'path' as const },
-    { label: '🍽️', sublabelKey: 'quick.logFeed', path: '/?quick=feed' as const, type: 'path' as const },
-    { label: '⚖️', sublabelKey: 'quick.logWeight', path: '/log?quick=weight' as const, type: 'path' as const },
-    { label: '🛒', sublabelKey: 'quick.addInventory', path: '/stats?quick=inventory' as const, type: 'path' as const },
-    { label: '🩺', sublabelKey: 'quick.healthRecord', path: '/stats?quick=health' as const, type: 'path' as const },
-    { label: '🗑️', sublabelKey: 'quick.expiryReminder', path: '/stats?quick=expiry' as const, type: 'path' as const },
-] as const
+const quickActions: { label: string; sublabelKey: string; action: NonNullable<QuickActionType> }[] = [
+    { label: '📝', sublabelKey: 'quick.writeDiary', action: 'diary' },
+    { label: '💩', sublabelKey: 'quick.logPoop', action: 'poop' },
+    { label: '🍽️', sublabelKey: 'quick.logFeed', action: 'feed' },
+    { label: '⚖️', sublabelKey: 'quick.logWeight', action: 'weight' },
+    { label: '🛒', sublabelKey: 'quick.addInventory', action: 'inventory' },
+    { label: '🩺', sublabelKey: 'quick.healthRecord', action: 'health' },
+    { label: '🗑️', sublabelKey: 'quick.expiryReminder', action: 'expiry' },
+]
 
 export function BottomNav({ hidden }: { hidden?: boolean }) {
     const { t } = useI18n()
-    const navigate = useNavigate()
+    const openAction = useQuickActionStore((s) => s.openAction)
     const [quickOpen, setQuickOpen] = useState(false)
     const quickSheetRef = useRef<HTMLDivElement>(null)
 
-    const onQuickAction = (action: { path: string; type: 'path' }) => {
+    const onQuickAction = (action: NonNullable<QuickActionType>) => {
         lightHaptic()
         setQuickOpen(false)
-        navigate(action.path)
+        openAction(action)
     }
 
     useEffect(() => {
@@ -80,9 +81,9 @@ export function BottomNav({ hidden }: { hidden?: boolean }) {
                     <div className="quick-grid">
                         {quickActions.map((action) => (
                             <button
-                                key={action.path}
+                                key={action.action}
                                 className="quick-item"
-                                onClick={() => onQuickAction(action)}
+                                onClick={() => onQuickAction(action.action)}
                             >
                                 <span style={{ fontSize: '1.5rem' }}>{action.label}</span>
                                 <span>{t(action.sublabelKey)}</span>

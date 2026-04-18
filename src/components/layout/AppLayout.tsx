@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from './BottomNav'
+import { QuickActionModals } from './QuickActionModals'
 import { CatSwitcher } from './CatSwitcher'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { useI18n } from '../../lib/i18n'
+import { useQuickActionStore, type QuickActionType } from '../../stores/useQuickActionStore'
 import './AppLayout.css'
 
 export function AppLayout() {
     const { t } = useI18n()
-    const navigate = useNavigate()
     const { pathname } = useLocation()
     const online = useOnlineStatus()
+    const openAction = useQuickActionStore((s) => s.openAction)
     const mainRef = useRef<HTMLElement>(null)
     const [showScrollTop, setShowScrollTop] = useState(false)
     const [navHidden, setNavHidden] = useState(false)
@@ -79,23 +81,23 @@ export function AppLayout() {
 
             if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
 
-            const keyMap: Record<string, string> = {
-                n: '/log?quick=diary',
-                f: '/?quick=feed',
-                p: '/?quick=poop',
-                w: '/log?quick=weight',
+            const keyMap: Record<string, NonNullable<QuickActionType>> = {
+                n: 'diary',
+                f: 'feed',
+                p: 'poop',
+                w: 'weight',
             }
 
-            const route = keyMap[event.key.toLowerCase()]
-            if (route) {
+            const action = keyMap[event.key.toLowerCase()]
+            if (action) {
                 event.preventDefault()
-                navigate(route)
+                openAction(action)
             }
         }
 
         window.addEventListener('keydown', onKeyDown)
         return () => window.removeEventListener('keydown', onKeyDown)
-    }, [navigate])
+    }, [openAction])
 
     return (
         <div className="app-layout">
@@ -113,6 +115,7 @@ export function AppLayout() {
                 ↑
             </button>
             <BottomNav hidden={navHidden} />
+            <QuickActionModals />
         </div>
     )
 }
