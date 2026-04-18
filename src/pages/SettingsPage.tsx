@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -17,8 +17,22 @@ import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
 import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useI18n } from '../lib/i18n'
-import type { Family, FamilyMemberWithEmail } from '../types/database.types'
+import { isAbnormalPoop } from '../lib/constants'
+import { format } from 'date-fns'
+import type { Family, FamilyMemberWithEmail, InventoryItem, WeightRecord, HealthRecord, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog } from '../types/database.types'
 import './SettingsPage.css'
+
+type ExportTypeKey = 'weight' | 'poop' | 'miss' | 'health' | 'inventory' | 'diary' | 'mood' | 'feed'
+
+/** Escape HTML special characters to prevent XSS in exported reports. */
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;')
+}
 
 type FamilyJoinRequest = {
     id: string
@@ -42,7 +56,6 @@ export function SettingsPage() {
     const setCurrentCatId = useAppStore((s) => s.setCurrentCatId)
     const pushToast = useToastStore((s) => s.pushToast)
     const [searchParams, setSearchParams] = useSearchParams()
-    const navigate = useNavigate()
 
     const [name, setName] = useState('')
     const [breed, setBreed] = useState('')
@@ -90,6 +103,209 @@ export function SettingsPage() {
     const [reviewingReqId, setReviewingReqId] = useState<string | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const online = useOnlineStatus()
+
+    // Export state
+    const [vetReportLangModalOpen, setVetReportLangModalOpen] = useState(false)
+    const [exportModalOpen, setExportModalOpen] = useState(false)
+    const [exportDays, setExportDays] = useState(30)
+    const [exporting, setExporting] = useState(false)
+    const [exportTypes, setExportTypes] = useState<Record<ExportTypeKey, boolean>>({
+        weight: true, poop: true, miss: true, health: true, inventory: true, diary: true, mood: true, feed: true,
+    })
+
+    const maxExportDays = useMemo(() => {
+        if (!cat?.created_at) return 1
+        const created = new Date(cat.created_at)
+        const now = new Date()
+        created.setHours(0, 0, 0, 0)
+        now.setHours(0, 0, 0, 0)
+        const diffDays = Math.floor((now.getTime() - created.getTime()) / (24 * 60 * 60 * 1000)) + 1
+        return Math.max(1, diffDays)
+    }, [cat?.created_at])
+
+    useEffect(() => {
+        setExportDays((prev) => Math.min(Math.max(prev, 1), maxExportDays))
+    }, [maxExportDays])
+
+    const handleToggleExportType = (key: ExportTypeKey) => {
+        setExportTypes((prev) => ({ ...prev, [key]: !prev[key] }))
+    }
+
+    const printHtml = useCallback((html: string) => {
+        const iframe = document.createElement('iframe')
+        iframe.style.position = 'fixed'
+        iframe.style.right = '0'
+        iframe.style.bottom = '0'
+        iframe.style.width = '0'
+        iframe.style.height = '0'
+        iframe.style.border = '0'
+        iframe.setAttribute('aria-hidden', 'true')
+        document.body.appendChild(iframe)
+
+        const cleanup = () => setTimeout(() => iframe.remove(), 1500)
+
+        try {
+            const doc = iframe.contentDocument || iframe.contentWindow?.document
+            if (!doc || !iframe.contentWindow) throw new Error('print-frame-unavailable')
+            doc.open()
+            doc.write(html)
+            doc.close()
+            const runPrint = () => {
+                iframe.contentWindow?.focus()
+                iframe.contentWindow?.print()
+                cleanup()
+            }
+            if (doc.readyState === 'complete') runPrint()
+            else iframe.onload = runPrint
+        } catch {
+            cleanup()
+            const reportWindow = window.open('', '_blank')
+            if (!reportWindow) {
+                pushToast('error', l('导出窗口被拦截，请允许弹窗后重试', 'Export popup was blocked. Please allow popups and try again'))
+                return
+            }
+            reportWindow.document.write(html)
+            reportWindow.document.close()
+            reportWindow.focus()
+            reportWindow.print()
+        }
+    }, [l, pushToast])
+
+    const exportVetReport = useCallback(async (lang: 'zh' | 'en') => {
+        if (!catId) return
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000
+        const cutoffIso = new Date(cutoff).toISOString()
+
+        const [wRes, hRes, pRes] = await Promise.all([
+            supabase.from('weight_records').select('*').eq('cat_id', catId).gte('recorded_at', cutoffIso).order('recorded_at', { ascending: true }),
+            supabase.from('health_records').select('*').eq('cat_id', catId).gte('date', format(new Date(cutoff), 'yyyy-MM-dd')).order('date', { ascending: true }),
+            supabase.from('poop_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true }),
+        ])
+
+        const recentWeights = (wRes.data || []) as WeightRecord[]
+        const recentHealth = (hRes.data || []) as HealthRecord[]
+        const allPoops = (pRes.data || []) as PoopLog[]
+        const recentVomit = recentHealth.filter((h) => {
+            const isVomit = h.type === 'medical' && (h.name.includes('呕吐') || h.name.toLowerCase().includes('vomit'))
+            return isVomit
+        })
+        const recentAbnormalPoops = allPoops.filter((p) => isAbnormalPoop(p.bristol_type, p.color))
+
+        const isZh = lang === 'zh'
+        const t = isZh
+            ? {
+                reportTitle: '🐱 就医报告',
+                last30Days: '最近30天',
+                weightChange: '体重变化',
+                vomitRecords: '呕吐记录',
+                abnormalPoopRecords: '异常便便记录',
+                healthRecords: '健康记录',
+                noRecord: '暂无记录',
+                noAbnormalRecord: '暂无异常记录',
+                typeLabel: { vaccine: '疫苗', deworming: '驱虫', medical: '就医' } as const,
+                colorLabel: { red: '红色', black: '黑色', white: '白色' } as const,
+                medicalFormat: (type: string, color: string) => `布里斯托${type}型，颜色${color}`,
+                healthFormat: (name: string, type: string, notes?: string | null) => `${name}（${type}）${notes ? `：${notes}` : ''}`,
+            }
+            : {
+                reportTitle: '🐱 Vet Report',
+                last30Days: 'Last 30 Days',
+                weightChange: 'Weight Trend',
+                vomitRecords: 'Vomiting Records',
+                abnormalPoopRecords: 'Abnormal Stool Records',
+                healthRecords: 'Health Records',
+                noRecord: 'No records',
+                noAbnormalRecord: 'No abnormal records',
+                typeLabel: { vaccine: 'Vaccine', deworming: 'Deworming', medical: 'Medical' } as const,
+                colorLabel: { red: 'red', black: 'black', white: 'white' } as const,
+                medicalFormat: (type: string, color: string) => `Bristol type ${type}, color ${color}`,
+                healthFormat: (name: string, type: string, notes?: string | null) => `${name} (${type})${notes ? `: ${notes}` : ''}`,
+            }
+
+        const dateLocale = isZh ? 'zh-CN' : 'en-US'
+
+        const html = `
+        <html><head><meta charset="utf-8" /><title>Vet Report</title>
+        <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
+        </head><body>
+        <h1>${escapeHtml(t.reportTitle)}</h1><div>${escapeHtml(t.last30Days)}</div>
+        <h2>${escapeHtml(t.weightChange)}</h2><ul>${recentWeights.map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleDateString(dateLocale))}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.vomitRecords)}</h2><ul>${recentVomit.map((v) => `<li>${escapeHtml(new Date(v.date).toLocaleDateString(dateLocale))}: ${escapeHtml(v.name)}${v.notes ? (isZh ? `（${escapeHtml(v.notes)}）` : ` (${escapeHtml(v.notes)})`) : ''}</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.abnormalPoopRecords)}</h2><ul>${recentAbnormalPoops.map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleDateString(dateLocale))}: ${escapeHtml(t.medicalFormat(String(p.bristol_type), t.colorLabel[p.color as 'red' | 'black' | 'white'] ?? p.color))}</li>`).join('') || `<li>${escapeHtml(t.noAbnormalRecord)}</li>`}</ul>
+        <h2>${escapeHtml(t.healthRecords)}</h2><ul>${recentHealth.map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString(dateLocale))}: ${escapeHtml(t.healthFormat(h.name, t.typeLabel[h.type], h.notes))}</li>`).join('') || `<li>${escapeHtml(t.noRecord)}</li>`}</ul>
+        </body></html>`
+
+        printHtml(html)
+    }, [catId, printHtml])
+
+    const exportSelectedRecords = useCallback(async () => {
+        if (!catId) return
+        const selectedTypes = (Object.keys(exportTypes) as ExportTypeKey[]).filter((k) => exportTypes[k])
+        if (selectedTypes.length === 0) {
+            pushToast('error', l('请至少选择一种导出类型', 'Please select at least one export type'))
+            return
+        }
+
+        const cutoff = Date.now() - (exportDays - 1) * 24 * 60 * 60 * 1000
+        const cutoffIso = new Date(cutoff).toISOString()
+        setExporting(true)
+
+        try {
+            const [weightsRes, poopsRes, missesRes, healthRes, invRes, diaryRes, moodRes, feedRes] = await Promise.all([
+                exportTypes.weight
+                    ? supabase.from('weight_records').select('*').eq('cat_id', catId).gte('recorded_at', cutoffIso).order('recorded_at', { ascending: true })
+                    : Promise.resolve({ data: [] as WeightRecord[], error: null }),
+                exportTypes.poop
+                    ? supabase.from('poop_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as PoopLog[], error: null }),
+                exportTypes.miss
+                    ? supabase.from('miss_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as MissLog[], error: null }),
+                exportTypes.health
+                    ? supabase.from('health_records').select('*').eq('cat_id', catId).gte('date', format(new Date(cutoff), 'yyyy-MM-dd')).order('date', { ascending: true })
+                    : Promise.resolve({ data: [] as HealthRecord[], error: null }),
+                exportTypes.inventory
+                    ? supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true })
+                    : Promise.resolve({ data: [] as InventoryItem[], error: null }),
+                exportTypes.diary
+                    ? supabase.from('diary_entries').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as DiaryEntry[], error: null }),
+                exportTypes.mood
+                    ? supabase.from('mood_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
+                    : Promise.resolve({ data: [] as MoodLog[], error: null }),
+                exportTypes.feed
+                    ? supabase.from('feed_status').select('*').eq('cat_id', catId).gte('updated_at', cutoffIso).order('updated_at', { ascending: true })
+                    : Promise.resolve({ data: [] as FeedStatus[], error: null }),
+            ])
+
+            const noRecord = `<li>${escapeHtml(l('暂无记录', 'No records'))}</li>`
+            const htmlSections: string[] = []
+            if (exportTypes.weight) htmlSections.push(`<h2>${escapeHtml(l('⚖️ 体重记录', '⚖️ Weight Records'))}</h2><ul>${(weightsRes.data || []).map((w) => `<li>${escapeHtml(new Date(w.recorded_at).toLocaleString())}: ${escapeHtml(String(w.weight_kg))} kg</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.poop) htmlSections.push(`<h2>${escapeHtml(l('💩 便便记录', '💩 Poop Records'))}</h2><ul>${(poopsRes.data || []).map((p) => `<li>${escapeHtml(new Date(p.created_at).toLocaleString())}: Bristol ${escapeHtml(String(p.bristol_type))}, ${escapeHtml(p.color)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.miss) htmlSections.push(`<h2>${escapeHtml(l('🥹 咪被想次数', '🥹 Missing-you Records'))}</h2><ul>${(missesRes.data || []).map((m) => `<li>${escapeHtml(new Date(m.created_at).toLocaleString())}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.health) htmlSections.push(`<h2>${escapeHtml(l('💉 健康记录', '💉 Health Records'))}</h2><ul>${(healthRes.data || []).map((h) => `<li>${escapeHtml(new Date(h.date).toLocaleDateString())}: ${escapeHtml(h.name)} (${escapeHtml(h.type)})${h.notes ? ` - ${escapeHtml(h.notes)}` : ''}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.inventory) htmlSections.push(`<h2>${escapeHtml(l('📦 物资库存', '📦 Inventory'))}</h2><ul>${(invRes.data || []).map((i) => `<li>${escapeHtml(i.item_name)}${i.icon ? ` ${escapeHtml(i.icon)}` : ''}: ${escapeHtml(i.status)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.diary) htmlSections.push(`<h2>${escapeHtml(l('📝 日记', '📝 Diary'))}</h2><ul>${(diaryRes.data || []).map((d) => `<li><div>${escapeHtml(new Date(d.created_at).toLocaleString())}: ${escapeHtml(d.text || l('(无文字)', '(No text)'))}</div>${d.image_url ? `<div style="margin-top:6px;"><img src="${escapeHtml(d.image_url)}" alt="diary image" style="max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;border:1px solid #ddd;" /></div>` : ''}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.mood) htmlSections.push(`<h2>${escapeHtml(l('😺 心情', '😺 Mood'))}</h2><ul>${(moodRes.data || []).map((m) => `<li>${escapeHtml(m.date)}: ${escapeHtml(m.mood)}</li>`).join('') || noRecord}</ul>`)
+            if (exportTypes.feed) htmlSections.push(`<h2>${escapeHtml(l('🍽️ 喂食', '🍽️ Feeding'))}</h2><ul>${(feedRes.data || []).map((f) => { const parts = f.meal_type.split('|'); const name = parts[0]; const grams = parts[1] ? ` ${parts[1]}g` : ''; return `<li>${escapeHtml(new Date(f.fed_at || f.updated_at).toLocaleString())}: ${escapeHtml(name)}${escapeHtml(grams)}</li>` }).join('') || noRecord}</ul>`)
+
+            const html = `
+            <html><head><meta charset="utf-8" /><title>${escapeHtml(l('记录导出', 'Record Export'))}</title>
+            <style>body{font-family:-apple-system;padding:24px;line-height:1.6}h1{margin:0 0 4px}h2{margin:20px 0 8px}ul{padding-left:18px}</style>
+            </head><body>
+            <h1>${escapeHtml(l('🐱 全部记录导出', '🐱 Full Record Export'))}</h1>
+            <div>${escapeHtml(l(`时间跨度：最近 ${exportDays} 天`, `Range: last ${exportDays} days`))}</div>
+            ${htmlSections.join('')}
+            </body></html>`
+
+            printHtml(html)
+            setExportModalOpen(false)
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, l('导出失败', 'Export failed')))
+        } finally {
+            setExporting(false)
+        }
+    }, [catId, exportTypes, exportDays, l, pushToast, printHtml])
     const text = language === 'zh'
         ? {
             loading: '加载中...',
@@ -1171,10 +1387,10 @@ export function SettingsPage() {
                         <Card variant="default" padding="md">
                             <h2 className="text-lg font-semibold mb-3">{l('📤 数据导出', '📤 Data Export')}</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <Button variant="secondary" fullWidth onClick={() => navigate('/stats?quick=vetreport')}>
+                                <Button variant="secondary" fullWidth onClick={() => setVetReportLangModalOpen(true)}>
                                     {l('导出就医报告', 'Export Vet Report')}
                                 </Button>
-                                <Button variant="secondary" fullWidth onClick={() => navigate('/stats?quick=export')}>
+                                <Button variant="secondary" fullWidth onClick={() => setExportModalOpen(true)}>
                                     {l('导出全部记录', 'Export All Records')}
                                 </Button>
                             </div>
@@ -1419,6 +1635,74 @@ export function SettingsPage() {
                     </Modal>
                 </>
             )}
+
+            {/* ── Export Modal ── */}
+            <Modal isOpen={exportModalOpen} onClose={() => !exporting && setExportModalOpen(false)} title={l('导出全部记录', 'Export Records')}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="settings-export-days">{l(`时间跨度：最近 ${exportDays} 天（1 - ${maxExportDays}）`, `Range: last ${exportDays} days (1 - ${maxExportDays})`)}</label>
+                        <input
+                            id="settings-export-days"
+                            type="range"
+                            min="1"
+                            max={String(maxExportDays)}
+                            value={exportDays}
+                            onChange={(event) => setExportDays(Number(event.target.value))}
+                            disabled={exporting}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">{l('导出类型（可多选）', 'Export types (multi-select)')}</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            {(Object.keys(exportTypes) as ExportTypeKey[]).map((key) => {
+                                const labels: Record<ExportTypeKey, string> = {
+                                    weight: l('体重', 'Weight'),
+                                    poop: l('便便', 'Poop'),
+                                    miss: l('咪被想', 'Missing-you'),
+                                    health: l('健康', 'Health'),
+                                    inventory: l('库存', 'Inventory'),
+                                    diary: l('日记', 'Diary'),
+                                    mood: l('心情', 'Mood'),
+                                    feed: l('喂食', 'Feeding'),
+                                }
+
+                                return (
+                                    <label key={key} className="text-sm" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={exportTypes[key]}
+                                            onChange={() => handleToggleExportType(key)}
+                                            disabled={exporting}
+                                        />
+                                        <span>{labels[key]}</span>
+                                    </label>
+                                )
+                            })}
+                        </div>
+                    </div>
+
+                    <Button variant="primary" fullWidth onClick={exportSelectedRecords} disabled={exporting || !catId}>
+                        {exporting ? l('导出中...', 'Exporting...') : l('开始导出', 'Start export')}
+                    </Button>
+                </div>
+            </Modal>
+
+            {/* ── Vet Report Language Selection Modal ── */}
+            <Modal
+                isOpen={vetReportLangModalOpen}
+                onClose={() => setVetReportLangModalOpen(false)}
+                title={l('选择报告语言', 'Select Report Language')}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                    <Button variant="primary" fullWidth onClick={() => { setVetReportLangModalOpen(false); exportVetReport('zh') }}>
+                        中文
+                    </Button>
+                    <Button variant="secondary" fullWidth onClick={() => { setVetReportLangModalOpen(false); exportVetReport('en') }}>
+                        English
+                    </Button>
+                </div>
+            </Modal>
         </div>
     )
 }
