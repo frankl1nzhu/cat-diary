@@ -7,6 +7,13 @@
 }
 
 /* ── Chart ── */
+.chart-type-select {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
 .chart-container {
     margin-top: var(--space-2);
 }

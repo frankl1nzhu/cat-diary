@@ -25,6 +25,7 @@ import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLo
 import { computeInventoryExpiryHoursLeft, computeInventoryStatus } from '../types/database.types'
 import './StatsPage.css'
 
+type ChartType = 'weight' | 'poop' | 'miss' | 'feed' | 'inventoryFeed'
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
 type ExportTypeKey = 'weight' | 'poop' | 'miss' | 'health' | 'inventory' | 'diary' | 'mood' | 'feed'
 
@@ -101,7 +102,8 @@ export function StatsPage() {
     const [missLogs, setMissLogs] = useState<MissLog[]>([])
     const [feeds, setFeeds] = useState<FeedStatus[]>([])
     const [loading, setLoading] = useState(true)
-    const [collapsedCategories, setCollapsedCategories] = useState<Set<HealthFormType>>(new Set())
+    const [collapsedCategories, setCollapsedCategories] = useState<Set<HealthFormType>>(new Set(['vaccine', 'deworming', 'medical', 'vomit']))
+    const [chartType, setChartType] = useState<ChartType>('weight')
     const [pendingStopRecord, setPendingStopRecord] = useState<HealthRecord | null>(null)
 
     // Modals
@@ -299,6 +301,27 @@ export function StatsPage() {
 
         return Array.from(dayMap.entries()).map(([date, count]) => ({ date, count }))
     }, [feeds, feedWindowDays])
+
+    const inventoryFeedData = useMemo(() => {
+        const countMap = new Map<string, number>()
+        feeds.forEach((f) => {
+            const itemName = f.meal_type.split('|')[0]
+            if (itemName) {
+                countMap.set(itemName, (countMap.get(itemName) || 0) + 1)
+            }
+        })
+        return Array.from(countMap.entries())
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value)
+    }, [feeds])
+
+    const chartTypeOptions: { value: ChartType; label: string }[] = useMemo(() => [
+        { value: 'weight', label: text.weightTrend },
+        { value: 'poop', label: text.poopDistribution },
+        { value: 'miss', label: text.missCount },
+        { value: 'feed', label: text.feedCount },
+        { value: 'inventoryFeed', label: l('📊 库存喂食统计', '📊 Feed by Inventory') },
+    ], [text, l])
 
     const expiryPreviewDateTime = useMemo(() => {
         const hours = Math.floor(Number(expiryInHours))
@@ -897,105 +920,66 @@ export function StatsPage() {
                 </div>
             </div>
 
-            {/* ── Weight Chart ── */}
+            {/* ── Unified Chart ── */}
             <div className="px-4 mb-4">
                 <Card variant="default" padding="md">
                     <div className="section-row">
-                        <h2 className="text-lg font-semibold">{text.weightTrend}</h2>
-                        <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
-                            {text.add}
-                        </Button>
+                        <select
+                            className="form-input chart-type-select"
+                            value={chartType}
+                            onChange={(e) => setChartType(e.target.value as ChartType)}
+                        >
+                            {chartTypeOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        {chartType === 'weight' && (
+                            <Button variant="ghost" size="sm" onClick={() => { resetWeightForm(); setWeightModalOpen(true) }}>
+                                {text.add}
+                            </Button>
+                        )}
                     </div>
-                    <div className="weight-window-row">
-                        <label className="text-sm text-secondary" htmlFor="weight-window-range">{text.rangeLabel(weightWindowDays)}</label>
-                        <input
-                            id="weight-window-range"
-                            type="range"
-                            min="7"
-                            max="30"
-                            value={weightWindowDays}
-                            onChange={(event) => setWeightWindowDays(Number(event.target.value))}
-                        />
-                    </div>
-                    {chartData.length >= 2 ? (
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={220}>
-                                <LineChart data={chartData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                    <XAxis
-                                        dataKey="date"
-                                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                                        stroke="rgba(255,255,255,0.1)"
-                                    />
-                                    <YAxis
-                                        domain={['dataMin - 0.3', 'dataMax + 0.3']}
-                                        tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                                        stroke="rgba(255,255,255,0.1)"
-                                        unit=" kg"
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: 'var(--color-bg-card)',
-                                            border: '1px solid var(--color-border)',
-                                            borderRadius: '8px',
-                                            fontSize: '13px',
-                                        }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="weight"
-                                        stroke="var(--color-primary)"
-                                        strokeWidth={2.5}
-                                        dot={{ fill: 'var(--color-primary)', r: 4 }}
-                                        activeDot={{ r: 6 }}
-                                        name={text.weightName}
-                                        unit=" kg"
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <div className="empty-state-sm">
-                            <div className="empty-illu-wrap"><EmptyCatIllustration mood="play" /></div>
-                            <p className="text-secondary text-sm">
-                                {chartData.length === 1
-                                    ? text.currentWeight(chartData[0].weight)
-                                    : text.noWeight}
-                            </p>
-                        </div>
+
+                    {/* Weight Trend */}
+                    {chartType === 'weight' && (
+                        <>
+                            <div className="weight-window-row">
+                                <label className="text-sm text-secondary" htmlFor="weight-window-range">{text.rangeLabel(weightWindowDays)}</label>
+                                <input id="weight-window-range" type="range" min="7" max="30" value={weightWindowDays} onChange={(e) => setWeightWindowDays(Number(e.target.value))} />
+                            </div>
+                            {chartData.length >= 2 ? (
+                                <div className="chart-container">
+                                    <ResponsiveContainer width="100%" height={220}>
+                                        <LineChart data={chartData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                            <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} stroke="rgba(255,255,255,0.1)" />
+                                            <YAxis domain={['dataMin - 0.3', 'dataMax + 0.3']} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }} stroke="rgba(255,255,255,0.1)" unit=" kg" />
+                                            <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
+                                            <Line type="monotone" dataKey="weight" stroke="var(--color-primary)" strokeWidth={2.5} dot={{ fill: 'var(--color-primary)', r: 4 }} activeDot={{ r: 6 }} name={text.weightName} unit=" kg" />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="empty-state-sm">
+                                    <div className="empty-illu-wrap"><EmptyCatIllustration mood="play" /></div>
+                                    <p className="text-secondary text-sm">{chartData.length === 1 ? text.currentWeight(chartData[0].weight) : text.noWeight}</p>
+                                </div>
+                            )}
+                        </>
                     )}
 
-                    <div className="poop-charts-wrap">
-                        <h3 className="text-base font-semibold">{text.poopDistribution}</h3>
+                    {/* Poop Distribution */}
+                    {chartType === 'poop' && (
                         <div className="chart-container">
                             {bristolDistributionData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
-                                        <Pie
-                                            data={bristolDistributionData}
-                                            dataKey="value"
-                                            nameKey="name"
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={42}
-                                            outerRadius={72}
-                                            paddingAngle={2}
-                                        >
+                                        <Pie data={bristolDistributionData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={2}>
                                             {bristolDistributionData.map((entry, index) => (
-                                                <Cell
-                                                    key={`${entry.name}-${index}`}
-                                                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                                                />
+                                                <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            contentStyle={{
-                                                background: 'var(--color-bg-card)',
-                                                border: '1px solid var(--color-border)',
-                                                borderRadius: '8px',
-                                                fontSize: '13px',
-                                            }}
-                                        />
+                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
                                         <Legend wrapperStyle={{ fontSize: 12 }} />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -1005,86 +989,72 @@ export function StatsPage() {
                                 </div>
                             )}
                         </div>
+                    )}
 
-                        <h3 className="text-base font-semibold">{text.missCount}</h3>
-                        <div className="weight-window-row">
-                            <label className="text-sm text-secondary" htmlFor="miss-window-range">{text.rangeLabel(missWindowDays)}</label>
-                            <input
-                                id="miss-window-range"
-                                type="range"
-                                min="7"
-                                max="90"
-                                value={missWindowDays}
-                                onChange={(event) => setMissWindowDays(Number(event.target.value))}
-                            />
-                        </div>
+                    {/* Missing-you Count */}
+                    {chartType === 'miss' && (
+                        <>
+                            <div className="weight-window-row">
+                                <label className="text-sm text-secondary" htmlFor="miss-window-range">{text.rangeLabel(missWindowDays)}</label>
+                                <input id="miss-window-range" type="range" min="7" max="90" value={missWindowDays} onChange={(e) => setMissWindowDays(Number(e.target.value))} />
+                            </div>
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <LineChart data={missTrendData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                        <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
+                                        <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
+                                        <Line type="monotone" dataKey="count" stroke="var(--color-accent)" strokeWidth={2.5} dot={{ fill: 'var(--color-accent)', r: 3 }} activeDot={{ r: 5 }} name={text.missCountName} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Feed Count */}
+                    {chartType === 'feed' && (
+                        <>
+                            <div className="weight-window-row">
+                                <label className="text-sm text-secondary" htmlFor="feed-window-range">{text.rangeLabel(feedWindowDays)}</label>
+                                <input id="feed-window-range" type="range" min="7" max="90" value={feedWindowDays} onChange={(e) => setFeedWindowDays(Number(e.target.value))} />
+                            </div>
+                            <div className="chart-container">
+                                <ResponsiveContainer width="100%" height={180}>
+                                    <LineChart data={feedTrendData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                                        <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
+                                        <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
+                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
+                                        <Line type="monotone" dataKey="count" stroke="var(--color-secondary)" strokeWidth={2.5} dot={{ fill: 'var(--color-secondary)', r: 3 }} activeDot={{ r: 5 }} name={text.feedCountName} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </>
+                    )}
+
+                    {/* Per-Inventory Feed Count */}
+                    {chartType === 'inventoryFeed' && (
                         <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={180}>
-                                <LineChart data={missTrendData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(missWindowDays / 10))} />
-                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: 'var(--color-bg-card)',
-                                            border: '1px solid var(--color-border)',
-                                            borderRadius: '8px',
-                                            fontSize: '13px',
-                                        }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="count"
-                                        stroke="var(--color-accent)"
-                                        strokeWidth={2.5}
-                                        dot={{ fill: 'var(--color-accent)', r: 3 }}
-                                        activeDot={{ r: 5 }}
-                                        name={text.missCountName}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
+                            {inventoryFeedData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={220}>
+                                    <PieChart>
+                                        <Pie data={inventoryFeedData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={42} outerRadius={72} paddingAngle={2}>
+                                            {inventoryFeedData.map((entry, index) => (
+                                                <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip contentStyle={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px' }} />
+                                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="empty-state-sm">
+                                    <p className="text-secondary text-sm">{l('暂无喂食记录', 'No feeding records yet')}</p>
+                                </div>
+                            )}
                         </div>
-
-                        <h3 className="text-base font-semibold">{text.feedCount}</h3>
-                        <div className="weight-window-row">
-                            <label className="text-sm text-secondary" htmlFor="feed-window-range">{text.rangeLabel(feedWindowDays)}</label>
-                            <input
-                                id="feed-window-range"
-                                type="range"
-                                min="7"
-                                max="90"
-                                value={feedWindowDays}
-                                onChange={(event) => setFeedWindowDays(Number(event.target.value))}
-                            />
-                        </div>
-                        <div className="chart-container">
-                            <ResponsiveContainer width="100%" height={180}>
-                                <LineChart data={feedTrendData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                                    <XAxis dataKey="date" tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} interval={Math.max(1, Math.floor(feedWindowDays / 10))} />
-                                    <YAxis allowDecimals={false} tick={{ fill: 'var(--color-text-secondary)', fontSize: 11 }} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            background: 'var(--color-bg-card)',
-                                            border: '1px solid var(--color-border)',
-                                            borderRadius: '8px',
-                                            fontSize: '13px',
-                                        }}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="count"
-                                        stroke="var(--color-secondary)"
-                                        strokeWidth={2.5}
-                                        dot={{ fill: 'var(--color-secondary)', r: 3 }}
-                                        activeDot={{ r: 5 }}
-                                        name={text.feedCountName}
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-
+                    )}
                 </Card>
             </div>
 
