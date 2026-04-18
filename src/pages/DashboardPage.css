@@ -454,6 +454,7 @@
 
 .quick-scoop-text {
     letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
 .quick-action-row {
