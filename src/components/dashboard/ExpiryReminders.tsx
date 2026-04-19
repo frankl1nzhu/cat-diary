@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { Card } from '../ui/Card'
 import type { InventoryExpiryReminder } from '../../types/database.types'
 import { format } from 'date-fns'
@@ -16,6 +16,7 @@ interface ExpiryRemindersProps {
 
 export const ExpiryReminders = memo(function ExpiryReminders({ items, online, discardingId, onDiscard, onUsedUp }: ExpiryRemindersProps) {
     const { language } = useI18n()
+    const [pendingUsedUpId, setPendingUsedUpId] = useState<string | null>(null)
     const text = language === 'zh'
         ? {
             title: '📦 物品过期提醒',
@@ -24,6 +25,9 @@ export const ExpiryReminders = memo(function ExpiryReminders({ items, online, di
             processing: '处理中...',
             discarded: '已丢弃',
             usedUp: '已用完',
+            confirmUsedUp: '确认已用完？',
+            confirm: '确认',
+            cancel: '取消',
         }
         : {
             title: '📦 Expiry Alerts',
@@ -32,6 +36,9 @@ export const ExpiryReminders = memo(function ExpiryReminders({ items, online, di
             processing: 'Processing...',
             discarded: 'Discarded',
             usedUp: 'Used up',
+            confirmUsedUp: 'Confirm used up?',
+            confirm: 'Confirm',
+            cancel: 'Cancel',
         }
 
     if (items.length === 0) return null
@@ -69,14 +76,34 @@ export const ExpiryReminders = memo(function ExpiryReminders({ items, online, di
                                     >
                                         {discardingId === item.id ? text.processing : text.discarded}
                                     </button>
+                                ) : pendingUsedUpId === item.id ? (
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                        <span className="text-xs text-secondary" style={{ whiteSpace: 'nowrap' }}>{text.confirmUsedUp}</span>
+                                        <button
+                                            type="button"
+                                            className="expired-reminder-btn expired-usedup-btn"
+                                            disabled={!online || discardingId === item.id}
+                                            onClick={() => { setPendingUsedUpId(null); void onUsedUp(item.id) }}
+                                        >
+                                            {discardingId === item.id ? text.processing : text.confirm}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="expired-reminder-btn"
+                                            style={{ background: 'var(--glass-bg)' }}
+                                            onClick={() => setPendingUsedUpId(null)}
+                                        >
+                                            {text.cancel}
+                                        </button>
+                                    </div>
                                 ) : (
                                     <button
                                         type="button"
                                         className="expired-reminder-btn expired-usedup-btn"
                                         disabled={!online || discardingId === item.id}
-                                        onClick={() => { void onUsedUp(item.id) }}
+                                        onClick={() => setPendingUsedUpId(item.id)}
                                     >
-                                        {discardingId === item.id ? text.processing : text.usedUp}
+                                        {text.usedUp}
                                     </button>
                                 )}
                             </div>

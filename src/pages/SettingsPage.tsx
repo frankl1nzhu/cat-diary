@@ -1404,6 +1404,11 @@ export function SettingsPage() {
                         </Button>
                     </div>
 
+                    {/* Version */}
+                    <div className="p-4" style={{ textAlign: 'center', paddingTop: 0 }}>
+                        <p className="text-muted text-xs">v{__APP_VERSION__}</p>
+                    </div>
+
                     <Modal isOpen={signOutConfirmOpen} onClose={() => setSignOutConfirmOpen(false)} title={l('确认退出登录？', 'Confirm sign out?')}>
                         <div className="settings-confirm">
                             <p className="text-sm text-secondary">{l('确认要退出当前账号吗？', 'Do you want to sign out of the current account?')}</p>

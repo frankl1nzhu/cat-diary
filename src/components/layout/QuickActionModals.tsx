@@ -74,6 +74,8 @@ export function QuickActionModals() {
     const [expiryItemName, setExpiryItemName] = useState('')
     const [expiryInHours, setExpiryInHours] = useState('48')
     const [expirySaving, setExpirySaving] = useState(false)
+    const [expiryInventory, setExpiryInventory] = useState<InventoryItem[]>([])
+    const [expiryInventoryLoaded, setExpiryInventoryLoaded] = useState(false)
 
     // ─── Random diary (miss cat) ─────────────────────
     const [randomDiary, setRandomDiary] = useState<DiaryEntry | null>(null)
@@ -130,6 +132,14 @@ export function QuickActionModals() {
         setFeedDataLoaded(true)
     }, [catId, feedDataLoaded])
 
+    // ─── Load expiry inventory on demand ────────────
+    const loadExpiryData = useCallback(async () => {
+        if (!catId || expiryInventoryLoaded) return
+        const { data } = await supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true })
+        if (data) setExpiryInventory(data)
+        setExpiryInventoryLoaded(true)
+    }, [catId, expiryInventoryLoaded])
+
     // ─── Reset functions ─────────────────────────────
     const resetPoop = () => { setSelectedBristol('4'); setSelectedColor('brown') }
     const resetFeed = () => { setSelectedInventoryItem(null); setFeedGrams(''); setFeedDataLoaded(false) }
@@ -141,7 +151,7 @@ export function QuickActionModals() {
     const resetWeight = () => { setWeightValue(''); setWeightError('') }
     const resetInv = () => { setInvItemName(''); setInvIcon(null); setInvTotalQty(''); setInvAlertThreshold('') }
     const resetHealth = () => { setHealthName(''); setHealthDate(format(new Date(), 'yyyy-MM-dd')); setHealthNextDue(''); setHealthMedicalPreset('vomit'); setHealthNotes(''); setHealthType('vaccine') }
-    const resetExpiry = () => { setExpiryItemName(''); setExpiryInHours('48') }
+    const resetExpiry = () => { setExpiryItemName(''); setExpiryInHours('48'); setExpiryInventory([]); setExpiryInventoryLoaded(false) }
 
     const closeAndReset = (resetFn: () => void) => {
         closeAction()
@@ -377,6 +387,11 @@ export function QuickActionModals() {
     // Load feed data when feed modal opens
     if (activeAction === 'feed' && !feedDataLoaded) {
         loadFeedData()
+    }
+
+    // Load inventory when expiry modal opens
+    if (activeAction === 'expiry' && !expiryInventoryLoaded) {
+        loadExpiryData()
     }
 
     return (
@@ -785,14 +800,22 @@ export function QuickActionModals() {
             <Modal isOpen={activeAction === 'expiry'} onClose={() => closeAndReset(resetExpiry)} title={l('🗑️ 添加过期提醒', '🗑️ Add Expiry Reminder')}>
                 <div className="inv-form">
                     <div className="form-group">
-                        <label className="form-label" htmlFor="qa-expiry-item-name">{l('物品名称', 'Item name')}</label>
-                        <input
-                            id="qa-expiry-item-name"
-                            className="form-input"
-                            placeholder={l('如：湿粮、罐头、猫条', 'e.g. Wet food, canned food, treats')}
-                            value={expiryItemName}
-                            onChange={(e) => setExpiryItemName(e.target.value)}
-                        />
+                        <label className="form-label">{l('选择库存物品', 'Choose from inventory')}</label>
+                        {expiryInventory.length > 0 ? (
+                            <div className="feed-inventory-list">
+                                {expiryInventory.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        className={`feed-inventory-btn ${expiryItemName === item.item_name ? 'feed-inventory-btn-active' : ''}`}
+                                        onClick={() => setExpiryItemName(item.item_name)}
+                                    >
+                                        <span>{item.icon || '📦'} {item.item_name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-sm text-muted">{expiryInventoryLoaded ? l('暂无库存物品，请先添加', 'No inventory items yet. Add some first.') : l('加载中...', 'Loading...')}</p>
+                        )}
                     </div>
 
                     <div className="form-group">
