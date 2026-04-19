@@ -36,6 +36,8 @@ const errorMap: Record<string, string> = {
     'duplicate key value violates unique constraint': '数据已存在，请勿重复提交',
     'violates foreign key constraint': '关联数据不存在，请刷新后重试',
     'could not find the': '数据不存在或已被删除',
+    'invalid input value for enum': '数据格式不正确，请刷新后重试',
+    'null value in column': '数据写入失败，请刷新后重试',
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
@@ -49,10 +51,12 @@ export function getErrorMessage(error: unknown, fallback: string): string {
 
     // Handle Supabase error objects with message property
     if (error && typeof error === 'object' && 'message' in error) {
-        const msg = String((error as { message: unknown }).message).trim().toLowerCase()
+        const rawMsg = String((error as { message: unknown }).message).trim()
+        const msg = rawMsg.toLowerCase()
         for (const [key, value] of Object.entries(errorMap)) {
             if (msg.includes(key)) return value
         }
+        if (rawMsg) return rawMsg
     }
 
     return fallback
