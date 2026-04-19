@@ -71,7 +71,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     .from('feed_status')
                     .select('*')
                     .eq('cat_id', catId)
-                    .gte('updated_at', `${today}T00:00:00`)
+                    .gte('fed_at', `${today}T00:00:00`)
                     .order('fed_at', { ascending: false }),
                 supabase
                     .from('mood_logs')
@@ -105,7 +105,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     .from('feed_status')
                     .select('*')
                     .eq('cat_id', catId)
-                    .gte('updated_at', weekStartIso),
+                    .gte('fed_at', weekStartIso),
                 supabase
                     .from('mood_logs')
                     .select('*')
@@ -200,10 +200,10 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
 
         const [feedRes, weekFeedsRes] = await Promise.all([
             supabase.from('feed_status').select('*').eq('cat_id', catId)
-                .gte('updated_at', `${todayStr}T00:00:00`)
+                .gte('fed_at', `${todayStr}T00:00:00`)
                 .order('fed_at', { ascending: false }),
             supabase.from('feed_status').select('*').eq('cat_id', catId)
-                .gte('updated_at', weekStartIso),
+                .gte('fed_at', weekStartIso),
         ])
         setData((prev) => ({
             ...prev,

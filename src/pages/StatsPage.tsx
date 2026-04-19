@@ -18,6 +18,7 @@ import { useOnlineStatus } from '../lib/useOnlineStatus'
 import { useRenewForm } from '../lib/useRenewForm'
 import { sendHealthNotification } from '../lib/pushServer'
 import { isAbnormalPoop, INVENTORY_ICONS, STORAGE_KEYS } from '../lib/constants'
+import { useRealtimeSubscription } from '../lib/realtime'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
@@ -270,6 +271,22 @@ export function StatsPage() {
 
     useEffect(() => { loadData() }, [loadData])
 
+    // ─── Realtime subscription for feed_status ─────
+    const reloadFeeds = useCallback(async () => {
+        if (!catId) return
+        const { data } = await supabase.from('feed_status').select('*').eq('cat_id', catId).order('fed_at', { ascending: false }).limit(400)
+        if (data) setFeeds(data)
+    }, [catId])
+    useRealtimeSubscription('feed_status', () => { reloadFeeds() }, catId ? `cat_id=eq.${catId}` : undefined)
+
+    // ─── Realtime subscription for inventory ───────
+    const reloadInventory = useCallback(async () => {
+        if (!catId) return
+        const { data } = await supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true })
+        if (data) setInventory(data)
+    }, [catId])
+    useRealtimeSubscription('inventory', () => { reloadInventory() }, catId ? `cat_id=eq.${catId}` : undefined)
+
     // ─── Chart date range cutoffs (memoized) ───────
     const chartStartTs = useMemo(() => new Date(`${chartStartDate}T00:00:00`).getTime(), [chartStartDate])
     const chartEndTs = useMemo(() => new Date(`${chartEndDate}T23:59:59.999`).getTime(), [chartEndDate])
@@ -440,7 +457,7 @@ export function StatsPage() {
                     ? supabase.from('mood_logs').select('*').eq('cat_id', catId).gte('created_at', cutoffIso).order('created_at', { ascending: true })
                     : Promise.resolve({ data: [] as MoodLog[], error: null }),
                 exportTypes.feed
-                    ? supabase.from('feed_status').select('*').eq('cat_id', catId).gte('updated_at', cutoffIso).order('updated_at', { ascending: true })
+                    ? supabase.from('feed_status').select('*').eq('cat_id', catId).gte('fed_at', cutoffIso).order('fed_at', { ascending: true })
                     : Promise.resolve({ data: [] as FeedStatus[], error: null }),
             ])
 

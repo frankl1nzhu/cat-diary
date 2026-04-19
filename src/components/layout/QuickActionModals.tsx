@@ -191,18 +191,22 @@ export function QuickActionModals() {
 
         const mealTypeValue = `${selectedInventoryItem.item_name}|${grams}`
         try {
-            await supabase.from('feed_status').insert({
+            const { error: feedError } = await supabase.from('feed_status').insert({
                 cat_id: cat.id,
                 status: 'fed' as const,
                 fed_by: user.id,
                 fed_at: new Date().toISOString(),
                 meal_type: mealTypeValue,
             })
+            if (feedError) throw feedError
             if (selectedInventoryItem.total_quantity != null) {
                 const newQty = Math.max(0, selectedInventoryItem.total_quantity - grams)
-                await supabase.from('inventory')
-                    .update({ total_quantity: newQty, updated_by: user.id })
+                const updatedItem = { ...selectedInventoryItem, total_quantity: newQty }
+                const newStatus = computeInventoryStatus(updatedItem)
+                const { error: invError } = await supabase.from('inventory')
+                    .update({ total_quantity: newQty, status: newStatus, updated_by: user.id })
                     .eq('id', selectedInventoryItem.id)
+                if (invError) throw invError
             }
             closeAndReset(resetFeed)
             lightHaptic()
