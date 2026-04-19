@@ -191,12 +191,14 @@ export function QuickActionModals() {
 
         const mealTypeValue = `${selectedInventoryItem.item_name}|${grams}`
         try {
+            const now = new Date().toISOString()
             const { error: feedError } = await supabase.from('feed_status').insert({
                 cat_id: cat.id,
                 status: 'fed' as const,
                 fed_by: user.id,
-                fed_at: new Date().toISOString(),
+                fed_at: now,
                 meal_type: mealTypeValue,
+                updated_at: now,
             })
             if (feedError) throw feedError
             if (selectedInventoryItem.total_quantity != null) {
@@ -305,7 +307,7 @@ export function QuickActionModals() {
         const status = computeInventoryStatus(fakeItem)
         setInvSaving(true)
         try {
-            await supabase.from('inventory').insert({
+            const { error: invInsertError } = await supabase.from('inventory').insert({
                 cat_id: catId,
                 item_name: invItemName.trim(),
                 icon: invIcon,
@@ -313,7 +315,9 @@ export function QuickActionModals() {
                 total_quantity: totalQty,
                 daily_consumption: alertThreshold,
                 updated_by: user.id,
+                updated_at: new Date().toISOString(),
             })
+            if (invInsertError) throw invInsertError
             closeAndReset(resetInv)
             lightHaptic()
             pushToast('success', l('库存已更新', 'Inventory updated'))

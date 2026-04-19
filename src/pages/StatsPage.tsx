@@ -612,6 +612,7 @@ export function StatsPage() {
                     total_quantity: totalQty,
                     daily_consumption: alertThreshold,
                     updated_by: user.id,
+                    updated_at: new Date().toISOString(),
                 })
             }
             setInventoryModalOpen(false)

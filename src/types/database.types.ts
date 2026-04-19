@@ -311,13 +311,13 @@ export interface Database {
             }
             feed_status: {
                 Row: FeedStatus
-                Insert: DbInsert<FeedStatus, 'id' | 'updated_at'>
+                Insert: DbInsert<FeedStatus, 'id' | 'updated_at'> & { updated_at?: string }
                 Update: DbUpdate<FeedStatus, 'id'>
                 Relationships: []
             }
             inventory: {
                 Row: InventoryItem
-                Insert: DbInsert<InventoryItem, 'id' | 'updated_at'>
+                Insert: DbInsert<InventoryItem, 'id' | 'updated_at'> & { updated_at?: string }
                 Update: DbUpdate<InventoryItem, 'id'>
                 Relationships: []
             }
