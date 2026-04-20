@@ -718,6 +718,9 @@ export function LogPage() {
             if (item.type === 'weight') {
                 await supabase.from('weight_records').delete().eq('id', item.data.id)
             }
+            if (item.type === 'feed') {
+                await supabase.from('feed_status').delete().eq('id', item.data.id)
+            }
             lightHaptic()
             pushToast('success', text.recordDeleted)
             await loadTimeline()
@@ -958,18 +961,20 @@ export function LogPage() {
                 )
             case 'feed':
                 return (
-                    <Card key={`f-${item.data.id}`} variant="default" padding="md" className="timeline-card">
-                        <div className="timeline-badge" style={{ background: 'rgba(255, 193, 7, 0.2)' }}>🍽️</div>
-                        <div className="timeline-content">
-                            <p className="text-sm font-semibold">
-                                {MEAL_LABELS[item.data.meal_type as keyof typeof MEAL_LABELS] ?? item.data.meal_type}
-                            </p>
-                            {item.data.fed_by && (
-                                <span className="text-sm text-secondary">{getUserName(item.data.fed_by)}</span>
-                            )}
-                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
-                        </div>
-                    </Card>
+                    <SwipeableRow key={`f-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
+                        <Card variant="default" padding="md" className="timeline-card">
+                            <div className="timeline-badge" style={{ background: 'rgba(255, 193, 7, 0.2)' }}>🍽️</div>
+                            <div className="timeline-content">
+                                <p className="text-sm font-semibold">
+                                    {MEAL_LABELS[item.data.meal_type as keyof typeof MEAL_LABELS] ?? item.data.meal_type}
+                                </p>
+                                {item.data.fed_by && (
+                                    <span className="text-sm text-secondary">{getUserName(item.data.fed_by)}</span>
+                                )}
+                                <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+                            </div>
+                        </Card>
+                    </SwipeableRow>
                 )
         }
     }
