@@ -19,16 +19,17 @@ import { compressImage } from '../lib/imageCompress'
 import { lightHaptic } from '../lib/haptics'
 import { withTimeout } from '../lib/promiseTimeout'
 import { sendDiaryNotification, sendCommentNotification } from '../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiaryTagLabel } from '../lib/constants'
+import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiaryTagLabel, MEAL_LABELS } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
-import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord } from '../types/database.types'
+import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord, FeedStatus } from '../types/database.types'
 import './LogPage.css'
 
 type TimelineItem =
     | { type: 'diary'; data: DiaryEntry; time: string }
     | { type: 'poop'; data: PoopLog; time: string }
     | { type: 'weight'; data: WeightRecord; time: string }
+    | { type: 'feed'; data: FeedStatus; time: string }
 
 const TAGS = DIARY_TAGS
 
@@ -111,8 +112,8 @@ export function LogPage() {
             poopUpdatedSuccess: '便便记录已更新 💩',
             updateFailedRetry: '更新失败，请稍后重试',
             recordDeleted: '记录已删除',
-            poopKeyword: '便便',
-            weightKeyword: '体重',
+            feedType: '🍽️ 喂食',
+            feedKeyword: '喂食',
             dateRangeError: '结束日期必须晚于或等于开始日期',
             collapse: '收起 ▲',
             expand: '展开全文 ▼',
@@ -197,6 +198,8 @@ export function LogPage() {
             poopUpdatedSuccess: 'Poop log updated 💩',
             updateFailedRetry: 'Update failed, please try again later',
             recordDeleted: 'Record deleted',
+            feedType: '🍽️ Feeding',
+            feedKeyword: 'feeding',
             poopKeyword: 'poop',
             weightKeyword: 'weight',
             dateRangeError: 'End date must be later than or equal to start date',
@@ -266,7 +269,7 @@ export function LogPage() {
 
     const [keyword, setKeyword] = useState('')
     const deferredKeyword = useDeferredValue(keyword)
-    const [filterTypes, setFilterTypes] = useState<Array<TimelineItem['type']>>(['diary'])
+    const [filterType, setFilterType] = useState<TimelineItem['type'] | 'all'>('all')
     const [dateStart, setDateStart] = useState('')
     const [dateEnd, setDateEnd] = useState('')
 
@@ -283,16 +286,18 @@ export function LogPage() {
         const effectiveLimit = nextLimit ?? loadLimit
 
         try {
-            const [diaries, poops, weights] = await withTimeout(Promise.all([
+            const [diaries, poops, weights, feeds] = await withTimeout(Promise.all([
                 supabase.from('diary_entries').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
                 supabase.from('poop_logs').select('*').eq('cat_id', catId).order('created_at', { ascending: false }).limit(effectiveLimit),
                 supabase.from('weight_records').select('*').eq('cat_id', catId).order('recorded_at', { ascending: false }).limit(effectiveLimit),
+                supabase.from('feed_status').select('*').eq('cat_id', catId).eq('status', 'fed').order('fed_at', { ascending: false }).limit(effectiveLimit),
             ]), 15000) // 15s timeout
 
             const items: TimelineItem[] = []
             diaries.data?.forEach((d) => items.push({ type: 'diary', data: d, time: d.created_at }))
             poops.data?.forEach((p) => items.push({ type: 'poop', data: p, time: p.created_at }))
             weights.data?.forEach((w) => items.push({ type: 'weight', data: w, time: w.recorded_at }))
+            feeds.data?.forEach((f) => items.push({ type: 'feed', data: f, time: f.fed_at ?? f.updated_at }))
 
             items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
             setTimeline(items)
@@ -300,6 +305,7 @@ export function LogPage() {
                 (diaries.data?.length || 0) >= effectiveLimit
                 || (poops.data?.length || 0) >= effectiveLimit
                 || (weights.data?.length || 0) >= effectiveLimit
+                || (feeds.data?.length || 0) >= effectiveLimit
             )
         } catch (err) {
             console.error('Failed to load timeline:', err)
@@ -343,11 +349,12 @@ export function LogPage() {
         loadDiaryMeta(diaryIds)
     }, [timeline, loadDiaryMeta])
 
-    // Load user profiles for diary authors and commenters
+    // Load user profiles for diary authors, commenters and feeding users
     useEffect(() => {
         const userIds = new Set<string>()
         timeline.forEach((t) => {
             if (t.type === 'diary') userIds.add(t.data.created_by)
+            if (t.type === 'feed' && t.data.fed_by) userIds.add(t.data.fed_by)
         })
         Object.values(diaryComments).flat().forEach((c) => userIds.add(c.user_id))
         // Remove already-loaded profiles (using ref to avoid infinite loop)
@@ -464,7 +471,7 @@ export function LogPage() {
 
     useEffect(() => {
         setLoadLimit(50)
-        setFilterTypes(['diary'])
+        setFilterType('all')
         setDateStart('')
         setDateEnd('')
         dateRangeInitializedRef.current = false
@@ -505,6 +512,8 @@ export function LogPage() {
     useRealtimeSubscription('poop_logs', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
     useRealtimeSubscription('weight_records', triggerRealtimeReload,
+        catId ? `cat_id=eq.${catId}` : undefined)
+    useRealtimeSubscription('feed_status', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
 
     useEffect(() => {
@@ -726,7 +735,7 @@ export function LogPage() {
         const normalizedKeyword = deferredKeyword.trim().toLowerCase()
 
         return timeline.filter((item) => {
-            if (!filterTypes.includes(item.type)) return false
+            if (filterType !== 'all' && item.type !== filterType) return false
             const ts = new Date(item.time).getTime()
             if (startTs !== null && ts < startTs) return false
             if (endTs !== null && ts > endTs) return false
@@ -744,19 +753,12 @@ export function LogPage() {
             if (item.type === 'weight') {
                 return `${text.weightKeyword} ${item.data.weight_kg}`.toLowerCase().includes(normalizedKeyword)
             }
+            if (item.type === 'feed') {
+                return `${text.feedKeyword} ${item.data.meal_type}`.toLowerCase().includes(normalizedKeyword)
+            }
             return false
         })
-    }, [dateEnd, dateStart, filterTypes, deferredKeyword, language, timeline, text.poopKeyword, text.weightKeyword])
-
-    const toggleTypeFilter = (type: TimelineItem['type']) => {
-        setFilterTypes((prev) => {
-            if (prev.includes(type)) {
-                if (prev.length === 1) return prev
-                return prev.filter((item) => item !== type)
-            }
-            return [...prev, type]
-        })
-    }
+    }, [dateEnd, dateStart, filterType, deferredKeyword, language, timeline, text.poopKeyword, text.weightKeyword, text.feedKeyword])
 
     const handleDateStartChange = (value: string) => {
         setDateStart(value)
@@ -954,6 +956,21 @@ export function LogPage() {
                         </Card>
                     </SwipeableRow>
                 )
+            case 'feed':
+                return (
+                    <Card key={`f-${item.data.id}`} variant="default" padding="md" className="timeline-card">
+                        <div className="timeline-badge" style={{ background: 'rgba(255, 193, 7, 0.2)' }}>🍽️</div>
+                        <div className="timeline-content">
+                            <p className="text-sm font-semibold">
+                                {MEAL_LABELS[item.data.meal_type as keyof typeof MEAL_LABELS] ?? item.data.meal_type}
+                            </p>
+                            {item.data.fed_by && (
+                                <span className="text-sm text-secondary">{getUserName(item.data.fed_by)}</span>
+                            )}
+                            <span className="text-muted text-xs">{format(new Date(item.time), 'MM/dd HH:mm')}</span>
+                        </div>
+                    </Card>
+                )
         }
     }
 
@@ -987,22 +1004,18 @@ export function LogPage() {
                         onChange={(event) => setKeyword(event.target.value)}
                         aria-label={text.searchAria}
                     />
-                    <div className="timeline-chip-row" role="group" aria-label={text.filterAria}>
-                        {([
-                            { key: 'diary' as const, label: text.diaryType },
-                            { key: 'poop' as const, label: text.poopType },
-                            { key: 'weight' as const, label: text.weightType },
-                        ]).map((item) => (
-                            <button
-                                key={item.key}
-                                className={`timeline-chip ${filterTypes.includes(item.key) ? 'timeline-chip-active' : ''}`}
-                                onClick={() => toggleTypeFilter(item.key)}
-                                aria-pressed={filterTypes.includes(item.key)}
-                            >
-                                {item.label}
-                            </button>
-                        ))}
-                    </div>
+                    <select
+                        className="form-input"
+                        value={filterType}
+                        onChange={(event) => setFilterType(event.target.value as TimelineItem['type'] | 'all')}
+                        aria-label={text.filterAria}
+                    >
+                        <option value="all">{text.all}</option>
+                        <option value="diary">{text.diaryType}</option>
+                        <option value="poop">{text.poopType}</option>
+                        <option value="weight">{text.weightType}</option>
+                        <option value="feed">{text.feedType}</option>
+                    </select>
                     <div className="timeline-date-row">
                         <input
                             type="date"
