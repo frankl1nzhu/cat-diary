@@ -22,7 +22,7 @@ Cat Diary helps cat owners — solo or as a family — track their cat's daily l
 ### Health & Wellness
 - **Health Records** — Vaccine 💉, deworming 💊, medical 🏥, vomit 🤮 event logging
 - **Upcoming Reminders** — Dashboard alerts for due dates (vaccines, deworming, check-ups)
-- **Inventory Management** — Track supplies with quantity, daily consumption rate, and expiry dates
+- **Inventory Management** — Track supplies with quantity, alert threshold, and expiry dates
 - **Expiry Alerts** — Push notifications for expired or expiring supplies
 
 ### Collaboration
@@ -142,7 +142,7 @@ src/
 └── types/           # Shared TypeScript types
 
 supabase/
-├── migrations/      # 18 ordered SQL migrations
+├── migrations/      # 20 ordered SQL migrations
 └── functions/
     └── send-reminders/   # Daily reminder Edge Function (Deno)
 ```
