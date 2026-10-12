@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { EmptyStateCat, computeIsTodayCareComplete } from '../components/ui/EmptyStateCat'
+import { EmptyStateCat } from '../components/ui/EmptyStateCat'
+import { computeIsTodayCareComplete } from '../lib/careCompletion'
 
 describe('EmptyStateCat', () => {
   it('renders posture SVG and message', () => {

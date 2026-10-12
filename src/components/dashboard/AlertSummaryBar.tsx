@@ -18,7 +18,7 @@ export interface AlertSummaryBarProps {
     onDiscardExpiry?: (id: string) => Promise<void>
     onUsedUpExpiry?: (id: string) => Promise<void>
     onReplenishInventory?: (id: string, totalQuantity: number, alertThreshold: number) => Promise<void>
-    renewHealth?: any
+    renewHealth?: React.ComponentProps<typeof HealthNotifications>['renew']
     onSnooze: (opts: {
         type: 'inventory' | 'expiry' | 'health'
         id: string

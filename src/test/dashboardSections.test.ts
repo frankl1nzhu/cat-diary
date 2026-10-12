@@ -3,7 +3,6 @@ import {
     getDashboardSectionConfig,
     setDashboardSectionCollapsed,
     setDashboardSectionHidden,
-    DEFAULT_SECTION_CONFIG,
 } from '../lib/dashboardSections'
 
 describe('dashboardSections', () => {

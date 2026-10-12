@@ -10,14 +10,6 @@ export interface EmptyStateCatProps {
     className?: string
 }
 
-export function computeIsTodayCareComplete(
-    feedsCount: number,
-    mood: string | null | undefined,
-    poopCount: number,
-): boolean {
-    return feedsCount > 0 && (Boolean(mood) || poopCount > 0)
-}
-
 export function EmptyStateCat({
     posture,
     message,

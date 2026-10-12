@@ -3,6 +3,9 @@ import { render, screen } from '@testing-library/react'
 import { AlertSummaryBar } from '../components/dashboard/AlertSummaryBar'
 import { LanguageProvider } from '../lib/i18n'
 
+import type { InventoryItem } from '../types/database.types'
+import type { ExpiryReminderItem } from '../components/dashboard/ExpiryReminders'
+
 describe('AlertSummaryBar', () => {
     it('renders nothing when activeAlertCount is 0', () => {
         const { container } = render(
@@ -22,8 +25,8 @@ describe('AlertSummaryBar', () => {
         render(
             <LanguageProvider>
                 <AlertSummaryBar
-                    lowInventory={[{ id: '1', item_name: '猫粮', status: 'urgent' } as any]}
-                    expiryReminders={[{ id: '2', item_name: '罐头', hoursLeft: 12 } as any]}
+                    lowInventory={[{ id: '1', item_name: '猫粮', status: 'urgent' } as unknown as InventoryItem]}
+                    expiryReminders={[{ id: '2', item_name: '罐头', hoursLeft: 12 } as unknown as ExpiryReminderItem]}
                     healthReminders={[]}
                     onSnooze={() => {}}
                 />
