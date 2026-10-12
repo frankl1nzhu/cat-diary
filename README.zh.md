@@ -50,17 +50,17 @@
 
 ## 技术栈
 
-| 层级 | 技术 |
-|---|---|
-| 前端 | React 19、TypeScript、Vite 7 |
-| 路由 | React Router 7 |
-| 状态管理 | Zustand 5 |
-| 后端 | Supabase（PostgreSQL + Auth + Realtime + Edge Functions）|
-| 图表 | Recharts 3 |
-| PWA | Vite PWA Plugin + Workbox |
-| 通知 | Web Push API + Supabase Edge Functions |
-| 性能 | TanStack Virtual（虚拟列表）、路由级代码分割 |
-| 测试 | Vitest（单元测试）+ Playwright（E2E）|
+| 层级     | 技术                                                      |
+| -------- | --------------------------------------------------------- |
+| 前端     | React 19、TypeScript、Vite 7                              |
+| 路由     | React Router 7                                            |
+| 状态管理 | Zustand 5                                                 |
+| 后端     | Supabase（PostgreSQL + Auth + Realtime + Edge Functions） |
+| 图表     | Recharts 3                                                |
+| PWA      | Vite PWA Plugin + Workbox                                 |
+| 通知     | Web Push API + Supabase Edge Functions                    |
+| 性能     | TanStack Virtual（虚拟列表）、路由级代码分割              |
+| 测试     | Vitest（单元测试）+ Playwright（E2E）                     |
 
 ---
 
@@ -113,17 +113,17 @@ npm run dev
 
 ## 脚本命令
 
-| 命令 | 说明 |
-|---|---|
-| `npm run dev` | 启动开发服务器 |
-| `npm run build` | 构建生产版本到 `dist/` |
-| `npm run preview` | 预览生产构建 |
-| `npm run typecheck` | TypeScript 类型检查（不输出文件）|
-| `npm run lint` | ESLint 代码检查 |
-| `npm run test:unit` | 单元测试（Vitest）|
-| `npm run test:unit:watch` | 单元测试监听模式 |
-| `npm run test:e2e` | 端对端测试（Playwright）|
-| `npm run test:e2e:ui` | Playwright UI 模式的 E2E 测试 |
+| 命令                      | 说明                              |
+| ------------------------- | --------------------------------- |
+| `npm run dev`             | 启动开发服务器                    |
+| `npm run build`           | 构建生产版本到 `dist/`            |
+| `npm run preview`         | 预览生产构建                      |
+| `npm run typecheck`       | TypeScript 类型检查（不输出文件） |
+| `npm run lint`            | ESLint 代码检查                   |
+| `npm run test:unit`       | 单元测试（Vitest）                |
+| `npm run test:unit:watch` | 单元测试监听模式                  |
+| `npm run test:e2e`        | 端对端测试（Playwright）          |
+| `npm run test:e2e:ui`     | Playwright UI 模式的 E2E 测试     |
 
 ---
 
@@ -142,7 +142,7 @@ src/
 └── types/           # 共享 TypeScript 类型定义
 
 supabase/
-├── migrations/      # 20 个有序 SQL 迁移文件
+├── migrations/      # 21 个有序 SQL 迁移文件
 └── functions/
     └── send-reminders/   # 每日提醒 Edge Function（Deno）
 ```
@@ -153,24 +153,24 @@ supabase/
 
 Supabase 中管理的核心表（均启用行级安全策略 RLS）：
 
-| 表名 | 用途 |
-|---|---|
-| `profiles` | 用户账号（用户名、邮箱、手机号）|
-| `families` | 家庭组（含邀请码）|
-| `family_members` | 用户与家庭的关系及角色 |
-| `family_join_requests` | 待处理的入组申请 |
-| `cats` | 猫咪档案（名字、品种、生日、头像）|
-| `diary_entries` | 带图片和标签的文字日记 |
-| `diary_comments` | 日记评论 |
-| `diary_reactions` | 日记表情回应 |
-| `poop_logs` | 每次便便的布里斯托类型和颜色 |
-| `weight_records` | 体重历史 |
-| `health_records` | 疫苗、驱虫、就医、呕吐事件 |
-| `feed_status` | 每日喂食记录 |
-| `mood_logs` | 每日每猫心情 |
-| `inventory_items` | 物资数量和有效期跟踪 |
-| `inventory_expiry_reminders` | 过期提醒配置 |
-| `push_subscriptions` | Web Push 订阅端点存储 |
+| 表名                         | 用途                               |
+| ---------------------------- | ---------------------------------- |
+| `profiles`                   | 用户账号（用户名、邮箱、手机号）   |
+| `families`                   | 家庭组（含邀请码）                 |
+| `family_members`             | 用户与家庭的关系及角色             |
+| `family_join_requests`       | 待处理的入组申请                   |
+| `cats`                       | 猫咪档案（名字、品种、生日、头像） |
+| `diary_entries`              | 带图片和标签的文字日记             |
+| `diary_comments`             | 日记评论                           |
+| `diary_reactions`            | 日记表情回应                       |
+| `poop_logs`                  | 每次便便的布里斯托类型和颜色       |
+| `weight_records`             | 体重历史                           |
+| `health_records`             | 疫苗、驱虫、就医、呕吐事件         |
+| `feed_status`                | 每日喂食记录                       |
+| `mood_logs`                  | 每日每猫心情                       |
+| `inventory_items`            | 物资数量和有效期跟踪               |
+| `inventory_expiry_reminders` | 过期提醒配置                       |
+| `push_subscriptions`         | Web Push 订阅端点存储              |
 
 ---
 

@@ -50,17 +50,17 @@ Cat Diary helps cat owners — solo or as a family — track their cat's daily l
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TypeScript, Vite 7 |
-| Routing | React Router 7 |
-| State | Zustand 5 |
-| Backend | Supabase (PostgreSQL + Auth + Realtime + Edge Functions) |
-| Charts | Recharts 3 |
-| PWA | Vite PWA Plugin + Workbox |
-| Notifications | Web Push API + Supabase Edge Functions |
-| Performance | TanStack Virtual (virtualized lists), route-level code splitting |
-| Testing | Vitest (unit) + Playwright (E2E) |
+| Layer         | Technology                                                       |
+| ------------- | ---------------------------------------------------------------- |
+| Frontend      | React 19, TypeScript, Vite 7                                     |
+| Routing       | React Router 7                                                   |
+| State         | Zustand 5                                                        |
+| Backend       | Supabase (PostgreSQL + Auth + Realtime + Edge Functions)         |
+| Charts        | Recharts 3                                                       |
+| PWA           | Vite PWA Plugin + Workbox                                        |
+| Notifications | Web Push API + Supabase Edge Functions                           |
+| Performance   | TanStack Virtual (virtualized lists), route-level code splitting |
+| Testing       | Vitest (unit) + Playwright (E2E)                                 |
 
 ---
 
@@ -113,17 +113,17 @@ Open `http://localhost:5173`.
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start development server |
-| `npm run build` | Production build to `dist/` |
-| `npm run preview` | Preview the production build |
-| `npm run typecheck` | TypeScript type check (no emit) |
-| `npm run lint` | ESLint |
-| `npm run test:unit` | Unit tests (Vitest) |
-| `npm run test:unit:watch` | Unit tests in watch mode |
-| `npm run test:e2e` | End-to-end tests (Playwright) |
-| `npm run test:e2e:ui` | E2E tests with Playwright UI |
+| Command                   | Description                     |
+| ------------------------- | ------------------------------- |
+| `npm run dev`             | Start development server        |
+| `npm run build`           | Production build to `dist/`     |
+| `npm run preview`         | Preview the production build    |
+| `npm run typecheck`       | TypeScript type check (no emit) |
+| `npm run lint`            | ESLint                          |
+| `npm run test:unit`       | Unit tests (Vitest)             |
+| `npm run test:unit:watch` | Unit tests in watch mode        |
+| `npm run test:e2e`        | End-to-end tests (Playwright)   |
+| `npm run test:e2e:ui`     | E2E tests with Playwright UI    |
 
 ---
 
@@ -142,7 +142,7 @@ src/
 └── types/           # Shared TypeScript types
 
 supabase/
-├── migrations/      # 20 ordered SQL migrations
+├── migrations/      # 21 ordered SQL migrations
 └── functions/
     └── send-reminders/   # Daily reminder Edge Function (Deno)
 ```
@@ -153,24 +153,24 @@ supabase/
 
 Core tables managed in Supabase (all protected by Row Level Security):
 
-| Table | Purpose |
-|---|---|
-| `profiles` | User accounts (username, email, phone) |
-| `families` | Family groups with invite codes |
-| `family_members` | User–family relationships and roles |
-| `family_join_requests` | Pending join requests |
-| `cats` | Cat profiles (name, breed, birthday, avatar) |
-| `diary_entries` | Text logs with photos and tags |
-| `diary_comments` | Comments on diary entries |
-| `diary_reactions` | Emoji reactions on entries |
-| `poop_logs` | Bristol type and color per entry |
-| `weight_records` | Weight history |
-| `health_records` | Vaccine, deworming, medical, vomit events |
-| `feed_status` | Daily meal records |
-| `mood_logs` | Daily mood per cat |
-| `inventory_items` | Supply tracking with quantities and expiry |
-| `inventory_expiry_reminders` | Expiry reminder configurations |
-| `push_subscriptions` | Web Push endpoint storage |
+| Table                        | Purpose                                      |
+| ---------------------------- | -------------------------------------------- |
+| `profiles`                   | User accounts (username, email, phone)       |
+| `families`                   | Family groups with invite codes              |
+| `family_members`             | User–family relationships and roles          |
+| `family_join_requests`       | Pending join requests                        |
+| `cats`                       | Cat profiles (name, breed, birthday, avatar) |
+| `diary_entries`              | Text logs with photos and tags               |
+| `diary_comments`             | Comments on diary entries                    |
+| `diary_reactions`            | Emoji reactions on entries                   |
+| `poop_logs`                  | Bristol type and color per entry             |
+| `weight_records`             | Weight history                               |
+| `health_records`             | Vaccine, deworming, medical, vomit events    |
+| `feed_status`                | Daily meal records                           |
+| `mood_logs`                  | Daily mood per cat                           |
+| `inventory_items`            | Supply tracking with quantities and expiry   |
+| `inventory_expiry_reminders` | Expiry reminder configurations               |
+| `push_subscriptions`         | Web Push endpoint storage                    |
 
 ---
 
