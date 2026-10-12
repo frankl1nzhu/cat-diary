@@ -63,9 +63,9 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             confirmCancel: 'Cancel',
         }
 
-    if (items.length === 0) return null
-
     const [pendingStop, setPendingStop] = useState<HealthNotifyItem | null>(null)
+
+    if (items.length === 0) return null
 
     return (
         <>
