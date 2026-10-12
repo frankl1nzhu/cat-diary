@@ -116,6 +116,7 @@ export type HealthRecord = {
     image_url: string | null
     notes: string | null
     snoozed_until?: string | null
+    snoozeInfo?: SnoozeDisplayInfo | null
     created_by: string
     created_at: string
 }
@@ -142,6 +143,7 @@ export type InventoryItem = {
     unit?: string
     unit_ratio?: number
     snoozed_until?: string | null
+    snoozeInfo?: SnoozeDisplayInfo | null
     updated_by: string | null
     updated_at: string
 }
@@ -153,6 +155,7 @@ export type InventoryExpiryReminder = {
     expires_at: string
     discarded_at: string | null
     snoozed_until?: string | null
+    snoozeInfo?: SnoozeDisplayInfo | null
     created_by: string | null
     created_at: string
 }
@@ -293,6 +296,7 @@ export function isItemActivelySnoozed(
 export function computeSnoozeDisplay(
     snoozedUntil: string | null | undefined,
     todayStr?: string,
+    language: 'zh' | 'en' = 'zh',
 ): SnoozeDisplayInfo | null {
     if (!snoozedUntil) return null
     const today = todayStr ? parseISO(todayStr) : new Date()
@@ -300,14 +304,25 @@ export function computeSnoozeDisplay(
     const daysLeft = differenceInCalendarDays(target, today)
     const isActivelySnoozed = daysLeft > 0
     const isOverdue = daysLeft < 0
+    const dateFormatted = format(target, 'M/d')
 
     let displayLabel = ''
-    if (daysLeft > 0) {
-        displayLabel = `延期中（剩余 ${daysLeft} 天）`
-    } else if (daysLeft === 0) {
-        displayLabel = '延期到期（今日到期）'
+    if (language === 'zh') {
+        if (daysLeft > 0) {
+            displayLabel = `延期至 ${dateFormatted}（剩余 ${daysLeft} 天）`
+        } else if (daysLeft === 0) {
+            displayLabel = `延期至 ${dateFormatted}（今日到期）`
+        } else {
+            displayLabel = `延期至 ${dateFormatted}（已逾期 ${Math.abs(daysLeft)} 天）`
+        }
     } else {
-        displayLabel = `已延期逾期 ${Math.abs(daysLeft)} 天`
+        if (daysLeft > 0) {
+            displayLabel = `Snoozed to ${dateFormatted} (${daysLeft}d left)`
+        } else if (daysLeft === 0) {
+            displayLabel = `Snoozed to ${dateFormatted} (Due today)`
+        } else {
+            displayLabel = `Snoozed to ${dateFormatted} (Overdue ${Math.abs(daysLeft)}d)`
+        }
     }
 
     return {

@@ -69,9 +69,9 @@ export const ExpiryReminders = memo(function ExpiryReminders({ items, online, di
                                             : text.willExpire(format(new Date(item.expires_at), 'MM/dd HH:mm'), item.hoursLeft)
                                         }
                                     </span>
-                                    {(item as any).snoozeInfo && (
+                                    {item.snoozeInfo && (
                                         <span className="text-xs text-danger font-medium">
-                                            {(item as any).snoozeInfo.displayLabel}
+                                            {item.snoozeInfo.displayLabel}
                                         </span>
                                     )}
                                 </div>

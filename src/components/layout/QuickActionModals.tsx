@@ -10,12 +10,12 @@ import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
 import { compressImage } from '../../lib/imageCompress'
-import { sendAbnormalPoopNotification, sendMissNotification, sendDiaryNotification, sendHealthNotification } from '../../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, INVENTORY_ICONS, DIARY_TAGS, getDiaryTagLabel } from '../../lib/constants'
+import { sendDiaryNotification, sendHealthNotification } from '../../lib/pushServer'
+import { INVENTORY_ICONS, DIARY_TAGS, getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
-import type { BristolType, PoopColor, InventoryItem, InventoryStatus, FeedStatus, DiaryEntry } from '../../types/database.types'
-import { computeInventoryStatus, roundQuantity } from '../../types/database.types'
+import type { InventoryItem, InventoryStatus } from '../../types/database.types'
+import { computeInventoryStatus } from '../../types/database.types'
 import { FeedLogForm } from '../forms/FeedLogForm'
 import { PoopLogForm } from '../forms/PoopLogForm'
 import { WeightLogForm } from '../forms/WeightLogForm'
@@ -33,7 +33,6 @@ export function QuickActionModals() {
 
     // ─── Feed state ──────────────────────────────────
     const [feedInventory, setFeedInventory] = useState<InventoryItem[]>([])
-    const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
     const [feedDataLoaded, setFeedDataLoaded] = useState(false)
 
     // ─── Diary state ─────────────────────────────────
@@ -67,34 +66,6 @@ export function QuickActionModals() {
     const [expiryInventory, setExpiryInventory] = useState<InventoryItem[]>([])
     const [expiryInventoryLoaded, setExpiryInventoryLoaded] = useState(false)
 
-    // ─── Random diary (miss cat) ─────────────────────
-    const [randomDiary, setRandomDiary] = useState<DiaryEntry | null>(null)
-    const [randomDiaryOpen, setRandomDiaryOpen] = useState(false)
-
-    const poopColorLabels = language === 'zh'
-        ? POOP_COLOR_LABELS
-        : {
-            brown: '🟫 Brown (normal)',
-            dark_brown: '⬛ Dark brown',
-            yellow: '🟨 Yellow',
-            green: '🟩 Green',
-            red: '🟥 Red ⚠️',
-            black: '⬛ Black ⚠️',
-            white: '⬜ White ⚠️',
-        }
-
-    const bristolLabels = language === 'zh'
-        ? BRISTOL_LABELS
-        : {
-            '1': 'Hard pellets',
-            '2': 'Lumpy sausage',
-            '3': 'Cracked sausage',
-            '4': 'Soft smooth log ✅',
-            '5': 'Soft blobs',
-            '6': 'Mushy',
-            '7': 'Watery',
-        }
-
     const healthTypeLabels = useMemo<Record<HealthFormType, { icon: string; label: string }>>(() => ({
         vaccine: { icon: '💉', label: l('疫苗', 'Vaccine') },
         deworming: { icon: '💊', label: l('驱虫', 'Deworming') },
@@ -111,14 +82,8 @@ export function QuickActionModals() {
     // ─── Load feed data on demand ────────────────────
     const loadFeedData = useCallback(async () => {
         if (!catId || feedDataLoaded) return
-        const todayStart = new Date()
-        todayStart.setHours(0, 0, 0, 0)
-        const [invRes, feedRes] = await Promise.all([
-            supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true }),
-            supabase.from('feed_status').select('*').eq('cat_id', catId).gte('fed_at', todayStart.toISOString()).order('fed_at', { ascending: false }),
-        ])
-        if (invRes.data) setFeedInventory(invRes.data)
-        if (feedRes.data) setTodayFeeds(feedRes.data)
+        const { data } = await supabase.from('inventory').select('*').eq('cat_id', catId).order('item_name', { ascending: true })
+        if (data) setFeedInventory(data)
         setFeedDataLoaded(true)
     }, [catId, feedDataLoaded])
 
@@ -652,30 +617,6 @@ export function QuickActionModals() {
                         {expirySaving ? l('保存中...', 'Saving...') : l('保存提醒', 'Save reminder')}
                     </Button>
                 </div>
-            </Modal>
-
-            {/* ── Random Diary Modal (miss cat) ── */}
-            <Modal isOpen={randomDiaryOpen} onClose={() => setRandomDiaryOpen(false)} title={l(`🥹 ${cat?.name || '猫咪'}的回忆`, `🥹 ${cat?.name || 'cat'}'s memories`)}>
-                {randomDiary && (
-                    <div className="miss-diary-container">
-                        {randomDiary.image_url && (
-                            <img src={randomDiary.image_url} alt="" className="miss-diary-img" loading="lazy" />
-                        )}
-                        {randomDiary.text && (
-                            <p className="miss-diary-text">{randomDiary.text}</p>
-                        )}
-                        {randomDiary.tags.length > 0 && (
-                            <div className="diary-tags">
-                                {randomDiary.tags.map((tag) => (
-                                    <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
-                                ))}
-                            </div>
-                        )}
-                        <span className="text-muted text-xs">
-                            {format(new Date(randomDiary.created_at), 'yyyy/MM/dd HH:mm')}
-                        </span>
-                    </div>
-                )}
             </Modal>
         </>
     )

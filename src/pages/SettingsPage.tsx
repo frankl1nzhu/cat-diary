@@ -758,7 +758,6 @@ export function SettingsPage() {
         if (!currentFamily) return
         setReviewingReqId(requestId)
         try {
-            const target = pendingJoinRequests.find((item) => item.id === requestId)
             const { error } = await supabase.rpc('approve_family_join_request', {
                 req_id: requestId,
                 approve,

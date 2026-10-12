@@ -99,9 +99,9 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                         <span className="text-xs text-muted">
                                             {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
                                         </span>
-                                        {(r as any).snoozeInfo && (
+                                        {r.snoozeInfo && (
                                             <span className="text-xs text-danger font-medium" style={{ display: 'block', marginTop: '2px' }}>
-                                                {(r as any).snoozeInfo.displayLabel}
+                                                {r.snoozeInfo.displayLabel}
                                             </span>
                                         )}
                                         <div className="health-notify-actions">

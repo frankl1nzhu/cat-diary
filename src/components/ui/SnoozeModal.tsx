@@ -3,6 +3,7 @@ import { Modal } from './Modal'
 import { Button } from './Button'
 import { addDays, format } from 'date-fns'
 import { useI18n } from '../../lib/i18n'
+import { isItemActivelySnoozed } from '../../types/database.types'
 
 export interface SnoozeModalProps {
     isOpen: boolean
@@ -24,7 +25,7 @@ export function SnoozeModal({
     const { language } = useI18n()
     const tomorrowStr = format(addDays(new Date(), 1), 'yyyy-MM-dd')
     const [selectedDate, setSelectedDate] = useState(() => {
-        if (currentSnoozedUntil) {
+        if (currentSnoozedUntil && isItemActivelySnoozed(currentSnoozedUntil)) {
             return format(new Date(currentSnoozedUntil), 'yyyy-MM-dd')
         }
         return format(addDays(new Date(), 3), 'yyyy-MM-dd')
@@ -33,7 +34,7 @@ export function SnoozeModal({
 
     useEffect(() => {
         if (isOpen) {
-            if (currentSnoozedUntil) {
+            if (currentSnoozedUntil && isItemActivelySnoozed(currentSnoozedUntil)) {
                 setSelectedDate(format(new Date(currentSnoozedUntil), 'yyyy-MM-dd'))
             } else {
                 setSelectedDate(format(addDays(new Date(), 3), 'yyyy-MM-dd'))

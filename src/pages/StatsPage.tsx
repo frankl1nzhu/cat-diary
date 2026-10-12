@@ -77,7 +77,7 @@ export function StatsPage() {
     const pushToast = useToastStore((s) => s.pushToast)
     const online = useOnlineStatus()
     const [searchParams, setSearchParams] = useSearchParams()
-    const text = language === 'zh'
+    const text = useMemo(() => language === 'zh'
         ? {
             title: '📊 统计',
             subtitle: '健康数据与库存管理',
@@ -119,7 +119,7 @@ export function StatsPage() {
             feedCountName: 'Feeding count',
             setDefault: 'Set default',
             defaultSet: 'Default set',
-        }
+        }, [language])
 
     const [weights, setWeights] = useState<WeightRecord[]>([])
     const [healthRecords, setHealthRecords] = useState<HealthRecord[]>([])

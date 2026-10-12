@@ -24,4 +24,22 @@ describe('SnoozeModal', () => {
     fireEvent.click(confirmBtn)
     expect(handleConfirm).toHaveBeenCalled()
   })
+
+  it('defaults to +3 days when currentSnoozedUntil is in the past (resurfaced)', () => {
+    const handleConfirm = vi.fn()
+    render(
+      <LanguageProvider>
+        <SnoozeModal
+          isOpen={true}
+          title="延期「已逾期物资」"
+          currentSnoozedUntil="2020-01-01T00:00:00Z"
+          onClose={vi.fn()}
+          onConfirm={handleConfirm}
+        />
+      </LanguageProvider>
+    )
+    const input = screen.getByLabelText('提醒日期') as HTMLInputElement
+    // The input value should be a future date (> 2020-01-01)
+    expect(input.value > '2020-01-01').toBe(true)
+  })
 })

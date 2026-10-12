@@ -168,8 +168,12 @@ export function DashboardPage() {
         if (!snoozeModal) return
         const { type, id } = snoozeModal
         try {
-            const table = type === 'inventory' ? 'inventory' : type === 'expiry' ? 'inventory_expiry_reminders' : 'health_records'
-            const { error } = await supabase.from(table).update({ snoozed_until: targetIso } as any).eq('id', id)
+            const query = type === 'inventory'
+                ? supabase.from('inventory').update({ snoozed_until: targetIso }).eq('id', id)
+                : type === 'expiry'
+                    ? supabase.from('inventory_expiry_reminders').update({ snoozed_until: targetIso }).eq('id', id)
+                    : supabase.from('health_records').update({ snoozed_until: targetIso }).eq('id', id)
+            const { error } = await query
             if (error) throw error
             pushToast('success', text.snoozeSuccess)
             await reload()
@@ -182,8 +186,12 @@ export function DashboardPage() {
         if (!snoozeModal) return
         const { type, id } = snoozeModal
         try {
-            const table = type === 'inventory' ? 'inventory' : type === 'expiry' ? 'inventory_expiry_reminders' : 'health_records'
-            const { error } = await supabase.from(table).update({ snoozed_until: null } as any).eq('id', id)
+            const query = type === 'inventory'
+                ? supabase.from('inventory').update({ snoozed_until: null }).eq('id', id)
+                : type === 'expiry'
+                    ? supabase.from('inventory_expiry_reminders').update({ snoozed_until: null }).eq('id', id)
+                    : supabase.from('health_records').update({ snoozed_until: null }).eq('id', id)
+            const { error } = await query
             if (error) throw error
             pushToast('success', text.snoozeCleared)
             await reload()
@@ -216,7 +224,7 @@ export function DashboardPage() {
         try {
             const { error } = await supabase
                 .from('inventory_expiry_reminders')
-                .update({ discarded_at: new Date().toISOString() })
+                .update({ discarded_at: new Date().toISOString(), snoozed_until: null })
                 .eq('id', reminderId)
             if (error) throw error
 
@@ -235,7 +243,7 @@ export function DashboardPage() {
         try {
             const { error } = await supabase
                 .from('inventory_expiry_reminders')
-                .update({ discarded_at: new Date().toISOString() })
+                .update({ discarded_at: new Date().toISOString(), snoozed_until: null })
                 .eq('id', reminderId)
             if (error) throw error
 

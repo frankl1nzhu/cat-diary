@@ -228,11 +228,12 @@ export function SnoozedAlertsDropdown({ catId, online, onUnsnoozeSuccess }: Snoo
         if (!online || unsnoozingId) return
         setUnsnoozingId(item.id)
         try {
-            const table = item.type === 'inventory' ? 'inventory' : item.type === 'expiry' ? 'inventory_expiry_reminders' : 'health_records'
-            const { error } = await supabase
-                .from(table)
-                .update({ snoozed_until: null } as any)
-                .eq('id', item.id)
+            const query = item.type === 'inventory'
+                ? supabase.from('inventory').update({ snoozed_until: null }).eq('id', item.id)
+                : item.type === 'expiry'
+                    ? supabase.from('inventory_expiry_reminders').update({ snoozed_until: null }).eq('id', item.id)
+                    : supabase.from('health_records').update({ snoozed_until: null }).eq('id', item.id)
+            const { error } = await query
 
             if (error) throw error
             pushToast('success', language === 'zh' ? '已提前恢复提醒，将在主页展示 ✅' : 'Alert restored to homepage ✅')

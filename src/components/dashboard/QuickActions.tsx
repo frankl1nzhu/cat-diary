@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useOptimistic, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { supabase } from '../../lib/supabase'
 import { useSession } from '../../lib/auth'

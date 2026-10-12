@@ -125,9 +125,9 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                                                 ? formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)
                                                 : status === 'urgent' ? text.urgent : text.low}
                                         </span>
-                                        {(item as any).snoozeInfo && (
+                                        {item.snoozeInfo && (
                                             <span className="text-xs text-danger font-medium">
-                                                {(item as any).snoozeInfo.displayLabel}
+                                                {item.snoozeInfo.displayLabel}
                                             </span>
                                         )}
                                     </div>
