@@ -1143,3 +1143,35 @@
     white-space: nowrap;
     letter-spacing: 0.05em;
 }
+
+/* ── Dashboard Collapsible Sections ── */
+.dashboard-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.section-header-collapsible {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    cursor: pointer;
+    user-select: none;
+}
+
+.section-collapse-btn {
+    background: transparent;
+    border: none;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.section-collapse-btn:hover {
+    background: var(--color-bg-elevated);
+    color: var(--color-primary);
+}

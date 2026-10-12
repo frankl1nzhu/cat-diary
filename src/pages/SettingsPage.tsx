@@ -14,6 +14,7 @@ import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { getStoredAppearance, applyAppearanceMode, type AppearanceMode } from '../lib/appearance'
 import { isSoundEnabled, setSoundEnabled, playMeowSound } from '../lib/sound'
+import { getDashboardSectionConfig, setDashboardSectionHidden, DASHBOARD_SECTIONS, type DashboardSectionConfig, type SectionId } from '../lib/dashboardSections'
 import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
@@ -82,6 +83,12 @@ export function SettingsPage() {
         setSoundEnabledState(enabled)
         if (enabled) playMeowSound()
         pushToast('success', enabled ? l('已开启打卡猫叫音效 🐾', 'Meow sound enabled 🐾') : l('已关闭打卡音效', 'Sound muted'))
+    }
+    const [dashboardSectionConfig, setDashboardSectionConfig] = useState<DashboardSectionConfig>(() => getDashboardSectionConfig())
+    const onToggleDashboardSection = (id: SectionId, hidden: boolean) => {
+        const next = setDashboardSectionHidden(id, hidden)
+        setDashboardSectionConfig(next)
+        pushToast('success', l('首页模块配置已更新', 'Dashboard modules updated'))
     }
     const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
@@ -1435,6 +1442,40 @@ export function SettingsPage() {
                                     >
                                         {item.label}
                                     </button>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+
+                    {/* Dashboard Modules */}
+                    <div className="p-4">
+                        <Card variant="default" padding="md">
+                            <h2 className="text-lg font-semibold mb-2">{l('📱 首页模块显示', '📱 Dashboard Modules')}</h2>
+                            <p className="text-sm text-secondary mb-3">
+                                {l('自定义首页各区块的显示与隐藏', 'Customize the visibility of dashboard sections')}
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                                {DASHBOARD_SECTIONS.map((sec) => (
+                                    <label
+                                        key={sec.id}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            padding: 'var(--space-2) 0',
+                                            borderBottom: '1px solid var(--color-border)',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        <span className="text-sm font-medium">{l(sec.labelZh, sec.labelEn)}</span>
+                                        <input
+                                            type="checkbox"
+                                            className="toggle-checkbox"
+                                            aria-label={l(sec.labelZh, sec.labelEn)}
+                                            checked={!dashboardSectionConfig.hidden[sec.id]}
+                                            onChange={(e) => onToggleDashboardSection(sec.id, !e.target.checked)}
+                                        />
+                                    </label>
                                 ))}
                             </div>
                         </Card>

@@ -14,10 +14,10 @@ import { useFamily } from '../lib/useFamily'
 import { useRenewForm } from '../lib/useRenewForm'
 import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
-import { usePullToRefresh } from '../hooks/usePullToRefresh'
-import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
+import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, QuickActions, AlertSummaryBar } from '../components/dashboard'
 import { SnoozeModal } from '../components/ui/SnoozeModal'
 import { EmptyStateCat, computeIsTodayCareComplete } from '../components/ui/EmptyStateCat'
+import { getDashboardSectionConfig, setDashboardSectionCollapsed, type DashboardSectionConfig, type SectionId } from '../lib/dashboardSections'
 import { STORAGE_KEYS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
@@ -76,6 +76,9 @@ export function DashboardPage() {
                     snoozeSuccess: '已设置延期 ⏰',
                     snoozeCleared: '已清除延期，恢复提醒 ✅',
                     snoozeFailed: '延期操作失败，请稍后重试',
+                    quickActionsTitle: '快捷操作',
+                    moodSectionTitle: '今日心情与日历',
+                    weeklySummaryTitle: '本周汇总',
                 }
                 : {
                     refreshing: 'Refreshing…',
@@ -120,6 +123,9 @@ export function DashboardPage() {
                     snoozeSuccess: 'Alert snoozed ⏰',
                     snoozeCleared: 'Snooze cleared, alert restored ✅',
                     snoozeFailed: 'Failed to update snooze, please try again',
+                    quickActionsTitle: 'Quick Actions',
+                    moodSectionTitle: 'Mood & Calendar',
+                    weeklySummaryTitle: 'Weekly Summary',
                 },
         [language],
     )
@@ -205,6 +211,13 @@ export function DashboardPage() {
     const pullToRefresh = usePullToRefresh({ onRefresh: reload, enabled: !loading })
 
 
+
+    const [sectionConfig, setSectionConfig] = useState<DashboardSectionConfig>(() => getDashboardSectionConfig())
+
+    const toggleSectionCollapsed = (sectionId: SectionId) => {
+        const next = setDashboardSectionCollapsed(sectionId, !sectionConfig.collapsed[sectionId])
+        setSectionConfig(next)
+    }
 
     const [latestDiaryExpanded, setLatestDiaryExpanded] = useState(false)
     const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
@@ -404,110 +417,145 @@ export function DashboardPage() {
 
             <CatProfileCard cat={cat} isTodayCareComplete={isTodayCareComplete} />
 
-            <QuickActions
-                cat={cat}
-                todayFeeds={data.todayFeeds}
-                inventory={data.inventory}
-                lowInventory={lowInventory}
-                onDataChange={reload}
-            />
-
-            <ExpiryReminders
-                items={allInventoryExpiryReminders}
-                online={online}
-                discardingId={discardingExpiryId}
-                onDiscard={handleDiscardExpiredReminder}
-                onUsedUp={handleUsedUpReminder}
-                onSnooze={(item) => setSnoozeModal({
-                    isOpen: true,
-                    type: 'expiry',
-                    id: item.id,
-                    title: text.snoozeTitle(item.item_name),
-                    currentSnoozedUntil: item.snoozed_until,
-                })}
-            />
-
-            <HealthNotifications
-                items={urgentHealthReminders}
-                renew={renewForm}
-                online={online}
-                onSnooze={(item) => setSnoozeModal({
-                    isOpen: true,
-                    type: 'health',
-                    id: item.id,
-                    title: text.snoozeTitle(item.name),
-                    currentSnoozedUntil: item.snoozed_until,
-                })}
-            />
-
-            <InventoryAlerts
-                items={lowInventory}
-                online={online}
-                onReplenish={handleReplenishInventory}
-                onSnooze={(item) => setSnoozeModal({
-                    isOpen: true,
-                    type: 'inventory',
-                    id: item.id,
-                    title: text.snoozeTitle(item.item_name),
-                    currentSnoozedUntil: item.snoozed_until,
-                })}
-            />
-
-            <MoodCalendarSection
-                cat={cat}
-                today={today}
-                todayMood={data.todayMood}
-                monthMoodMap={data.monthMoodMap}
-                monthDays={monthDays}
-                onMoodSaved={(mood) => dashboard.setTodayMood(mood)}
-            />
-
-            {/* ── Weekly Summary + Latest Diary ── */}
-            <div className="section-header px-4 stagger-item">
-                <h2 className="text-lg font-semibold">{text.recentActivity}</h2>
-            </div>
-
-            <WeeklySummaryCard
-                weekFeedCount={data.weekFeedCount}
-                weekMoodCounts={data.weekMoodCounts}
-                weekAbnormalPoopCount={data.weekAbnormalPoopCount}
-                weekWeightDelta={data.weekWeightDelta}
-            />
-
-            <div className="px-4 stagger-item" style={{ marginTop: 'var(--space-3)' }}>
-                <Card variant="default" padding="md">
-                    {latestDiary ? (() => {
-                        const fullText = latestDiary.text || text.diaryNoText
-                        const isLong = fullText.length > DIARY_SNIPPET_LIMIT
-                        const displayText = isLong && !latestDiaryExpanded ? fullText.slice(0, DIARY_SNIPPET_LIMIT) + '...' : fullText
-                        return (
-                            <div className="diary-snippet">
-                                {latestDiary.image_url && (
-                                    <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
-                                )}
-                                <p className="text-sm diary-snippet-text">{displayText}</p>
-                                {isLong && (
-                                    <button className="diary-expand-btn" onClick={() => setLatestDiaryExpanded(!latestDiaryExpanded)}>
-                                        {latestDiaryExpanded ? text.collapse : text.expand}
-                                    </button>
-                                )}
-                                {latestDiary.tags.length > 0 && (
-                                    <div className="diary-tags">
-                                        {latestDiary.tags.map((tag) => (
-                                            <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
-                                        ))}
-                                    </div>
-                                )}
-                                <span className="text-muted text-xs">
-                                    {format(new Date(latestDiary.created_at), 'MM/dd HH:mm')}
-                                </span>
-                            </div>
-                        )
-                    })() : (
-                        <EmptyStateCat posture="sleeping" message={text.diaryEmpty} />
+            {!sectionConfig.hidden.quickActions && (
+                <div className="dashboard-section">
+                    <div className="section-header-collapsible px-4" onClick={() => toggleSectionCollapsed('quickActions')}>
+                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">{text.quickActionsTitle}</span>
+                        <button
+                            type="button"
+                            className="section-collapse-btn"
+                            aria-label={sectionConfig.collapsed.quickActions ? text.expand : text.collapse}
+                        >
+                            {sectionConfig.collapsed.quickActions ? '展开 ▼' : '收起 ▲'}
+                        </button>
+                    </div>
+                    {!sectionConfig.collapsed.quickActions && (
+                        <QuickActions
+                            cat={cat}
+                            todayFeeds={data.todayFeeds}
+                            inventory={data.inventory}
+                            lowInventory={lowInventory}
+                            onDataChange={reload}
+                        />
                     )}
-                </Card>
-            </div>
+                </div>
+            )}
+
+            <AlertSummaryBar
+                lowInventory={lowInventory}
+                expiryReminders={allInventoryExpiryReminders}
+                healthReminders={urgentHealthReminders}
+                online={online}
+                discardingExpiryId={discardingExpiryId}
+                onDiscardExpiry={handleDiscardExpiredReminder}
+                onUsedUpExpiry={handleUsedUpReminder}
+                onReplenishInventory={handleReplenishInventory}
+                renewHealth={renewForm}
+                onSnooze={({ type, id, title, currentSnoozedUntil }) => setSnoozeModal({
+                    isOpen: true,
+                    type,
+                    id,
+                    title,
+                    currentSnoozedUntil,
+                })}
+            />
+
+            {!sectionConfig.hidden.mood && (
+                <div className="dashboard-section">
+                    <div className="section-header-collapsible px-4" onClick={() => toggleSectionCollapsed('mood')}>
+                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">{text.moodSectionTitle}</span>
+                        <button
+                            type="button"
+                            className="section-collapse-btn"
+                            aria-label={sectionConfig.collapsed.mood ? text.expand : text.collapse}
+                        >
+                            {sectionConfig.collapsed.mood ? '展开 ▼' : '收起 ▲'}
+                        </button>
+                    </div>
+                    {!sectionConfig.collapsed.mood && (
+                        <MoodCalendarSection
+                            cat={cat}
+                            today={today}
+                            todayMood={data.todayMood}
+                            monthMoodMap={data.monthMoodMap}
+                            monthDays={monthDays}
+                            onMoodSaved={(mood) => dashboard.setTodayMood(mood)}
+                        />
+                    )}
+                </div>
+            )}
+
+            {!sectionConfig.hidden.weekSummary && (
+                <div className="dashboard-section">
+                    <div className="section-header-collapsible px-4" onClick={() => toggleSectionCollapsed('weekSummary')}>
+                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">{text.weeklySummaryTitle}</span>
+                        <button
+                            type="button"
+                            className="section-collapse-btn"
+                            aria-label={sectionConfig.collapsed.weekSummary ? text.expand : text.collapse}
+                        >
+                            {sectionConfig.collapsed.weekSummary ? '展开 ▼' : '收起 ▲'}
+                        </button>
+                    </div>
+                    {!sectionConfig.collapsed.weekSummary && (
+                        <WeeklySummaryCard
+                            weekFeedCount={data.weekFeedCount}
+                            weekMoodCounts={data.weekMoodCounts}
+                            weekAbnormalPoopCount={data.weekAbnormalPoopCount}
+                            weekWeightDelta={data.weekWeightDelta}
+                        />
+                    )}
+                </div>
+            )}
+
+            {!sectionConfig.hidden.latestDiary && (
+                <div className="dashboard-section px-4" style={{ marginTop: 'var(--space-3)' }}>
+                    <div className="section-header-collapsible" onClick={() => toggleSectionCollapsed('latestDiary')}>
+                        <span className="text-xs font-semibold text-secondary uppercase tracking-wider">{text.recentActivity}</span>
+                        <button
+                            type="button"
+                            className="section-collapse-btn"
+                            aria-label={sectionConfig.collapsed.latestDiary ? text.expand : text.collapse}
+                        >
+                            {sectionConfig.collapsed.latestDiary ? '展开 ▼' : '收起 ▲'}
+                        </button>
+                    </div>
+                    {!sectionConfig.collapsed.latestDiary && (
+                        <Card variant="default" padding="md">
+                            {latestDiary ? (() => {
+                                const fullText = latestDiary.text || text.diaryNoText
+                                const isLong = fullText.length > DIARY_SNIPPET_LIMIT
+                                const displayText = isLong && !latestDiaryExpanded ? fullText.slice(0, DIARY_SNIPPET_LIMIT) + '...' : fullText
+                                return (
+                                    <div className="diary-snippet">
+                                        {latestDiary.image_url && (
+                                            <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
+                                        )}
+                                        <p className="text-sm diary-snippet-text">{displayText}</p>
+                                        {isLong && (
+                                            <button className="diary-expand-btn" onClick={() => setLatestDiaryExpanded(!latestDiaryExpanded)}>
+                                                {latestDiaryExpanded ? text.collapse : text.expand}
+                                            </button>
+                                        )}
+                                        {latestDiary.tags.length > 0 && (
+                                            <div className="diary-tags">
+                                                {latestDiary.tags.map((tag) => (
+                                                    <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <span className="text-muted text-xs">
+                                            {format(new Date(latestDiary.created_at), 'MM/dd HH:mm')}
+                                        </span>
+                                    </div>
+                                )
+                            })() : (
+                                <EmptyStateCat posture="sleeping" message={text.diaryEmpty} />
+                            )}
+                        </Card>
+                    )}
+                </div>
+            )}
 
             {snoozeModal && (
                 <SnoozeModal
