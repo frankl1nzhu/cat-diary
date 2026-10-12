@@ -142,7 +142,7 @@ src/
 └── types/           # Shared TypeScript types
 
 supabase/
-├── migrations/      # 21 ordered SQL migrations
+├── migrations/      # 22 ordered SQL migrations
 └── functions/
     └── send-reminders/   # Daily reminder Edge Function (Deno)
 ```

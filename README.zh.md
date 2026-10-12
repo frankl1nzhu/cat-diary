@@ -142,7 +142,7 @@ src/
 └── types/           # 共享 TypeScript 类型定义
 
 supabase/
-├── migrations/      # 21 个有序 SQL 迁移文件
+├── migrations/      # 22 个有序 SQL 迁移文件
 └── functions/
     └── send-reminders/   # 每日提醒 Edge Function（Deno）
 ```
