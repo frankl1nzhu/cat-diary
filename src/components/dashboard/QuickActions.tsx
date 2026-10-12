@@ -13,6 +13,7 @@ import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, getDiaryTagLabel } f
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
+import { computeInventoryStatus, roundQuantity } from '../../types/database.types'
 
 type RewardParticle = {
     id: number
@@ -87,6 +88,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
             noInventory: '暂无库存物资，请先添加',
             feedAmount: '喂食量（克）',
             feedAmountPlaceholder: '输入克数',
+            unmanagedStockHint: '此物资未设初始库存总量，记录后不扣减库存',
             todayRecords: '今日记录',
             confirmFeed: '确认喂食 🐾',
             memoriesOf: (name: string) => `🥹 ${name}的回忆`,
@@ -116,6 +118,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
             noInventory: 'No inventory items yet. Add some first.',
             feedAmount: 'Amount (grams)',
             feedAmountPlaceholder: 'Enter grams',
+            unmanagedStockHint: 'No initial stock set for this item; stock will not be deducted.',
             todayRecords: 'Today records',
             confirmFeed: 'Confirm feeding 🐾',
             memoriesOf: (name: string) => `🥹 ${name}'s memories`,
@@ -241,11 +244,21 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
                 meal_type: mealTypeValue,
             })
 
-            // Deduct grams from inventory
-            if (selectedInventoryItem.total_quantity != null) {
-                const newQty = Math.max(0, selectedInventoryItem.total_quantity - grams)
+            // Deduct grams from inventory with fresh fetch, precision rounding, and status sync
+            const { data: freshItem } = await supabase.from('inventory')
+                .select('total_quantity, daily_consumption')
+                .eq('id', selectedInventoryItem.id)
+                .single()
+            const baseQty = freshItem?.total_quantity ?? selectedInventoryItem.total_quantity
+            if (baseQty != null) {
+                const newQty = Math.max(0, roundQuantity(baseQty - grams, 1))
+                const newStatus = computeInventoryStatus({
+                    ...selectedInventoryItem,
+                    total_quantity: newQty,
+                    daily_consumption: freshItem?.daily_consumption ?? selectedInventoryItem.daily_consumption,
+                })
                 await supabase.from('inventory')
-                    .update({ total_quantity: newQty, updated_by: user.id })
+                    .update({ total_quantity: newQty, status: newStatus, updated_by: user.id })
                     .eq('id', selectedInventoryItem.id)
             }
 
@@ -443,6 +456,11 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
                                 value={feedGrams}
                                 onChange={(e) => setFeedGrams(e.target.value)}
                             />
+                            {selectedInventoryItem.total_quantity == null && (
+                                <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
+                                    ℹ️ {text.unmanagedStockHint}
+                                </p>
+                            )}
                         </div>
                     )}
 

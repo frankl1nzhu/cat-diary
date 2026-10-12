@@ -15,7 +15,7 @@ import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, INVENTORY_ICONS, DIA
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { BristolType, PoopColor, InventoryItem, InventoryStatus, FeedStatus, DiaryEntry } from '../../types/database.types'
-import { computeInventoryStatus } from '../../types/database.types'
+import { computeInventoryStatus, roundQuantity } from '../../types/database.types'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
 
@@ -201,10 +201,18 @@ export function QuickActionModals() {
                 updated_at: now,
             })
             if (feedError) throw feedError
-            if (selectedInventoryItem.total_quantity != null) {
-                const newQty = Math.max(0, selectedInventoryItem.total_quantity - grams)
-                const updatedItem = { ...selectedInventoryItem, total_quantity: newQty }
-                const newStatus = computeInventoryStatus(updatedItem)
+            const { data: freshItem } = await supabase.from('inventory')
+                .select('total_quantity, daily_consumption')
+                .eq('id', selectedInventoryItem.id)
+                .single()
+            const baseQty = freshItem?.total_quantity ?? selectedInventoryItem.total_quantity
+            if (baseQty != null) {
+                const newQty = Math.max(0, roundQuantity(baseQty - grams, 1))
+                const newStatus = computeInventoryStatus({
+                    ...selectedInventoryItem,
+                    total_quantity: newQty,
+                    daily_consumption: freshItem?.daily_consumption ?? selectedInventoryItem.daily_consumption,
+                })
                 const { error: invError } = await supabase.from('inventory')
                     .update({ total_quantity: newQty, status: newStatus, updated_by: user.id })
                     .eq('id', selectedInventoryItem.id)
@@ -481,6 +489,11 @@ export function QuickActionModals() {
                                 value={feedGrams}
                                 onChange={(e) => setFeedGrams(e.target.value)}
                             />
+                            {selectedInventoryItem.total_quantity == null && (
+                                <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
+                                    ℹ️ {l('此物资未设初始库存总量，记录后不扣减库存', 'No initial stock set for this item; stock will not be deducted.')}
+                                </p>
+                            )}
                         </div>
                     )}
 
