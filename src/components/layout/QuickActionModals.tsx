@@ -16,6 +16,9 @@ import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { BristolType, PoopColor, InventoryItem, InventoryStatus, FeedStatus, DiaryEntry } from '../../types/database.types'
 import { computeInventoryStatus, roundQuantity } from '../../types/database.types'
+import { FeedLogForm } from '../forms/FeedLogForm'
+import { PoopLogForm } from '../forms/PoopLogForm'
+import { WeightLogForm } from '../forms/WeightLogForm'
 
 type HealthFormType = 'vaccine' | 'deworming' | 'medical' | 'vomit'
 
@@ -28,17 +31,9 @@ export function QuickActionModals() {
     const online = useOnlineStatus()
     const { activeAction, closeAction } = useQuickActionStore()
 
-    // ─── Poop state ──────────────────────────────────
-    const [selectedBristol, setSelectedBristol] = useState<BristolType>('4')
-    const [selectedColor, setSelectedColor] = useState<PoopColor>('brown')
-    const [poopSaving, setPoopSaving] = useState(false)
-
     // ─── Feed state ──────────────────────────────────
     const [feedInventory, setFeedInventory] = useState<InventoryItem[]>([])
     const [todayFeeds, setTodayFeeds] = useState<FeedStatus[]>([])
-    const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null)
-    const [feedGrams, setFeedGrams] = useState('')
-    const [feedLoading, setFeedLoading] = useState(false)
     const [feedDataLoaded, setFeedDataLoaded] = useState(false)
 
     // ─── Diary state ─────────────────────────────────
@@ -48,11 +43,6 @@ export function QuickActionModals() {
     const [diaryImagePreview, setDiaryImagePreview] = useState<string | null>(null)
     const [diarySaving, setDiarySaving] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
-
-    // ─── Weight state ────────────────────────────────
-    const [weightValue, setWeightValue] = useState('')
-    const [weightError, setWeightError] = useState('')
-    const [weightSaving, setWeightSaving] = useState(false)
 
     // ─── Inventory state ─────────────────────────────
     const [invItemName, setInvItemName] = useState('')
@@ -141,14 +131,11 @@ export function QuickActionModals() {
     }, [catId, expiryInventoryLoaded])
 
     // ─── Reset functions ─────────────────────────────
-    const resetPoop = () => { setSelectedBristol('4'); setSelectedColor('brown') }
-    const resetFeed = () => { setSelectedInventoryItem(null); setFeedGrams(''); setFeedDataLoaded(false) }
     const resetDiary = () => {
         setDiaryText(''); setDiaryTags([]); setDiaryImage(null)
         if (diaryImagePreview?.startsWith('blob:')) URL.revokeObjectURL(diaryImagePreview)
         setDiaryImagePreview(null)
     }
-    const resetWeight = () => { setWeightValue(''); setWeightError('') }
     const resetInv = () => { setInvItemName(''); setInvIcon(null); setInvTotalQty(''); setInvAlertThreshold('') }
     const resetHealth = () => { setHealthName(''); setHealthDate(format(new Date(), 'yyyy-MM-dd')); setHealthNextDue(''); setHealthMedicalPreset('vomit'); setHealthNotes(''); setHealthType('vaccine') }
     const resetExpiry = () => { setExpiryItemName(''); setExpiryInHours('48'); setExpiryInventory([]); setExpiryInventoryLoaded(false) }
@@ -156,76 +143,6 @@ export function QuickActionModals() {
     const closeAndReset = (resetFn: () => void) => {
         closeAction()
         resetFn()
-    }
-
-    // ─── Poop handler ────────────────────────────────
-    const handlePoopSave = async () => {
-        if (!cat || !user || poopSaving) return
-        setPoopSaving(true)
-        try {
-            await supabase.from('poop_logs').insert({
-                cat_id: cat.id,
-                bristol_type: selectedBristol,
-                color: selectedColor,
-                created_by: user.id,
-            })
-            closeAndReset(resetPoop)
-            lightHaptic()
-            pushToast('success', l('铲屎记录成功 💩', 'Poop log saved 💩'))
-            if (isAbnormalPoop(selectedBristol, selectedColor)) {
-                sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => {})
-            }
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, l('铲屎记录失败，请稍后重试', 'Failed to save poop log. Please try again later.')))
-        } finally {
-            setPoopSaving(false)
-        }
-    }
-
-    // ─── Feed handler ────────────────────────────────
-    const handleFeedRecord = async () => {
-        if (!cat || !user || feedLoading || !selectedInventoryItem) return
-        const grams = parseFloat(feedGrams)
-        if (isNaN(grams) || grams <= 0) return
-        setFeedLoading(true)
-
-        const mealTypeValue = `${selectedInventoryItem.item_name}|${grams}`
-        try {
-            const now = new Date().toISOString()
-            const { error: feedError } = await supabase.from('feed_status').insert({
-                cat_id: cat.id,
-                status: 'fed' as const,
-                fed_by: user.id,
-                fed_at: now,
-                meal_type: mealTypeValue,
-                updated_at: now,
-            })
-            if (feedError) throw feedError
-            const { data: freshItem } = await supabase.from('inventory')
-                .select('total_quantity, daily_consumption')
-                .eq('id', selectedInventoryItem.id)
-                .single()
-            const baseQty = freshItem?.total_quantity ?? selectedInventoryItem.total_quantity
-            if (baseQty != null) {
-                const newQty = Math.max(0, roundQuantity(baseQty - grams, 1))
-                const newStatus = computeInventoryStatus({
-                    ...selectedInventoryItem,
-                    total_quantity: newQty,
-                    daily_consumption: freshItem?.daily_consumption ?? selectedInventoryItem.daily_consumption,
-                })
-                const { error: invError } = await supabase.from('inventory')
-                    .update({ total_quantity: newQty, status: newStatus, updated_by: user.id })
-                    .eq('id', selectedInventoryItem.id)
-                if (invError) throw invError
-            }
-            closeAndReset(resetFeed)
-            lightHaptic()
-            pushToast('success', l('喂食记录成功 🐾', 'Feeding saved 🐾'))
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, l('喂食记录失败，请稍后重试', 'Failed to save feeding. Please try again later.')))
-        } finally {
-            setFeedLoading(false)
-        }
     }
 
     // ─── Diary handler ───────────────────────────────
@@ -280,31 +197,7 @@ export function QuickActionModals() {
     }
 
     // ─── Weight handler ──────────────────────────────
-    const handleWeightSave = async () => {
-        if (!catId || !user) return
-        const kg = parseFloat(weightValue)
-        if (isNaN(kg) || kg < 0.1 || kg > 30) {
-            setWeightError(l('体重范围 0.1-30 kg', 'Weight range 0.1-30 kg'))
-            return
-        }
-        setWeightError('')
-        setWeightSaving(true)
-        try {
-            await supabase.from('weight_records').insert({
-                cat_id: catId,
-                weight_kg: kg,
-                recorded_at: new Date().toISOString(),
-                created_by: user.id,
-            })
-            closeAndReset(resetWeight)
-            lightHaptic()
-            pushToast('success', l('体重记录成功 ⚖️', 'Weight recorded ⚖️'))
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, l('体重记录失败，请稍后重试', 'Failed to save weight. Please try again later.')))
-        } finally {
-            setWeightSaving(false)
-        }
-    }
+
 
     // ─── Inventory handler ───────────────────────────
     const handleInventorySave = async () => {
@@ -413,115 +306,25 @@ export function QuickActionModals() {
     return (
         <>
             {/* ── Poop Modal ── */}
-            <Modal isOpen={activeAction === 'poop'} onClose={() => closeAndReset(resetPoop)} title={l('💩 铲屎记录', '💩 Poop Log')}>
-                <div className="poop-form">
-                    <div className="form-section">
-                        <label className="form-label">{l('布里斯托分类', 'Bristol type')}</label>
-                        <select
-                            className="form-input"
-                            aria-label={l('布里斯托类型选择', 'Choose bristol type')}
-                            value={selectedBristol}
-                            onChange={(e) => setSelectedBristol(e.target.value as BristolType)}
-                        >
-                            {(['1', '2', '3', '4', '5', '6', '7'] as BristolType[]).map((type) => (
-                                <option key={type} value={type}>
-                                    {l('类型', 'Type')} {type} · {bristolLabels[type]}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-section">
-                        <label className="form-label">{l('颜色', 'Color')}</label>
-                        <div className="color-grid compact" role="radiogroup" aria-label={l('便便颜色选择', 'Choose poop color')}>
-                            {(Object.entries(poopColorLabels) as [PoopColor, string][]).map(([color, label]) => (
-                                <button
-                                    key={color}
-                                    className={`color-btn ${selectedColor === color ? 'color-btn-active' : ''}`}
-                                    onClick={() => setSelectedColor(color)}
-                                    role="radio"
-                                    aria-checked={selectedColor === color}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
-                        {poopSaving ? l('记录中...', 'Saving...') : l('保存记录', 'Save record')}
-                    </Button>
-                </div>
+            <Modal isOpen={activeAction === 'poop'} onClose={closeAction} title={l('💩 铲屎记录', '💩 Poop Log')}>
+                <PoopLogForm
+                    catId={cat?.id || ''}
+                    catName={cat?.name}
+                    userId={user?.id || ''}
+                    onSaveSuccess={() => { closeAction(); lightHaptic() }}
+                    onCancel={closeAction}
+                />
             </Modal>
 
             {/* ── Feed Modal ── */}
-            <Modal isOpen={activeAction === 'feed'} onClose={() => closeAndReset(resetFeed)} title={l('🍽️ 记录喂食', '🍽️ Feeding Log')}>
-                <div className="feed-form">
-                    <label className="form-label">{l('选择库存物资', 'Choose from inventory')}</label>
-                    {feedInventory.length > 0 ? (
-                        <div className="feed-inventory-list">
-                            {feedInventory.map((item) => (
-                                <button
-                                    key={item.id}
-                                    className={`feed-inventory-btn ${selectedInventoryItem?.id === item.id ? 'feed-inventory-btn-active' : ''}`}
-                                    onClick={() => setSelectedInventoryItem(item)}
-                                >
-                                    <span>{item.icon || '📦'} {item.item_name}</span>
-                                    {item.total_quantity != null && (
-                                        <span className="text-xs text-muted">{item.total_quantity}g</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted">{l('暂无库存物资，请先添加', 'No inventory items yet. Add some first.')}</p>
-                    )}
-
-                    {selectedInventoryItem && (
-                        <div className="form-section">
-                            <label className="form-label" htmlFor="qa-feed-grams">{l('喂食量（克）', 'Amount (grams)')}</label>
-                            <input
-                                id="qa-feed-grams"
-                                type="number"
-                                className="form-input"
-                                inputMode="decimal"
-                                min="0.1"
-                                step="0.1"
-                                placeholder={l('输入克数', 'Enter grams')}
-                                value={feedGrams}
-                                onChange={(e) => setFeedGrams(e.target.value)}
-                            />
-                            {selectedInventoryItem.total_quantity == null && (
-                                <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
-                                    ℹ️ {l('此物资未设初始库存总量，记录后不扣减库存', 'No initial stock set for this item; stock will not be deducted.')}
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {todayFeeds.length > 0 && (
-                        <div className="feed-history">
-                            <label className="form-label">{l('今日记录', 'Today records')}</label>
-                            {todayFeeds.map((f) => {
-                                const parts = f.meal_type.split('|')
-                                const displayName = parts[0]
-                                const displayGrams = parts[1] ? `${parts[1]}g` : ''
-                                return (
-                                    <div key={f.id} className="feed-history-item">
-                                        <span>{displayName} {displayGrams}</span>
-                                        <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                    <Button
-                        variant="primary"
-                        fullWidth
-                        onClick={handleFeedRecord}
-                        disabled={feedLoading || !online || !selectedInventoryItem || !feedGrams || parseFloat(feedGrams) <= 0}
-                    >
-                        {feedLoading ? l('记录中...', 'Saving...') : l('确认喂食 🐾', 'Confirm feeding 🐾')}
-                    </Button>
-                </div>
+            <Modal isOpen={activeAction === 'feed'} onClose={closeAction} title={l('🍽️ 记录喂食', '🍽️ Feeding Log')}>
+                <FeedLogForm
+                    catId={cat?.id || ''}
+                    userId={user?.id || ''}
+                    inventory={feedInventory}
+                    onSaveSuccess={() => { closeAction(); lightHaptic() }}
+                    onCancel={closeAction}
+                />
             </Modal>
 
             {/* ── Diary Modal ── */}
@@ -582,28 +385,13 @@ export function QuickActionModals() {
             </Modal>
 
             {/* ── Weight Modal ── */}
-            <Modal isOpen={activeAction === 'weight'} onClose={() => closeAndReset(resetWeight)} title={l('⚖️ 添加体重', '⚖️ Add Weight')}>
-                <div className="weight-form">
-                    <div className="form-group">
-                        <label className="form-label">{l('体重 (kg)', 'Weight (kg)')}</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0.1"
-                            max="30"
-                            className="form-input weight-input"
-                            value={weightValue}
-                            onChange={(e) => { setWeightValue(e.target.value); setWeightError('') }}
-                            autoFocus
-                            aria-invalid={weightError ? true : undefined}
-                            aria-describedby={weightError ? 'qa-weight-error' : undefined}
-                        />
-                        {weightError && <p className="text-xs text-danger" id="qa-weight-error">{weightError}</p>}
-                    </div>
-                    <Button variant="primary" fullWidth onClick={handleWeightSave} disabled={weightSaving || !online}>
-                        {weightSaving ? l('保存中...', 'Saving...') : l('保存体重', 'Save weight')}
-                    </Button>
-                </div>
+            <Modal isOpen={activeAction === 'weight'} onClose={closeAction} title={l('⚖️ 添加体重', '⚖️ Add Weight')}>
+                <WeightLogForm
+                    catId={catId || ''}
+                    userId={user?.id || ''}
+                    onSaveSuccess={() => { closeAction(); lightHaptic() }}
+                    onCancel={closeAction}
+                />
             </Modal>
 
             {/* ── Inventory Modal ── */}

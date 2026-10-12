@@ -9,8 +9,8 @@ import { calculateFeedGrams } from './formHelpers'
 import { supabase } from '../../lib/supabase'
 import { enqueueOp } from '../../lib/offlineQueue'
 import { useI18n } from '../../lib/i18n'
-import { useToast } from '../ui/Toast'
-import { getErrorMessage } from '../../lib/errors'
+import { useToastStore } from '../../stores/useToastStore'
+import { getErrorMessage } from '../../lib/errorMessage'
 import { Button } from '../ui/Button'
 
 export interface FeedLogFormProps {
@@ -29,7 +29,7 @@ export function FeedLogForm({
     onCancel,
 }: FeedLogFormProps) {
     const { language } = useI18n()
-    const { pushToast } = useToast()
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
     const [inputMode, setInputMode] = useState<'unit' | 'grams'>('grams')

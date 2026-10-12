@@ -8,12 +8,13 @@ import { useToastStore } from '../../stores/useToastStore'
 import { useOnlineStatus } from '../../lib/useOnlineStatus'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { lightHaptic } from '../../lib/haptics'
-import { sendAbnormalPoopNotification, sendMissNotification } from '../../lib/pushServer'
-import { BRISTOL_LABELS, POOP_COLOR_LABELS, isAbnormalPoop, getDiaryTagLabel } from '../../lib/constants'
+import { sendMissNotification } from '../../lib/pushServer'
+import { getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
-import type { Cat, BristolType, PoopColor, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
-import { computeInventoryStatus, roundQuantity } from '../../types/database.types'
+import type { Cat, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
+import { FeedLogForm } from '../forms/FeedLogForm'
+import { PoopLogForm } from '../forms/PoopLogForm'
 
 type RewardParticle = {
     id: number
@@ -40,18 +41,12 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
 
     // Feed modal
     const [feedModalOpen, setFeedModalOpen] = useState(false)
-    const [selectedInventoryItem, setSelectedInventoryItem] = useState<InventoryItem | null>(null)
-    const [feedGrams, setFeedGrams] = useState('')
-    const [feedLoading, setFeedLoading] = useState(false)
     const [optimisticFeeds, addOptimisticFeed] = useOptimistic(
         todayFeeds,
         (current, newFeed: FeedStatus) => [newFeed, ...current],
     )
     // Poop modal
     const [poopModalOpen, setPoopModalOpen] = useState(false)
-    const [selectedBristol, setSelectedBristol] = useState<BristolType>('4')
-    const [selectedColor, setSelectedColor] = useState<PoopColor>('brown')
-    const [poopSaving, setPoopSaving] = useState(false)
     const [missSaving, setMissSaving] = useState(false)
 
     // Reward animation
@@ -125,29 +120,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
             defaultCatName: 'cat',
         }
 
-    const poopColorLabels = language === 'zh'
-        ? POOP_COLOR_LABELS
-        : {
-            brown: '🟫 Brown (normal)',
-            dark_brown: '⬛ Dark brown',
-            yellow: '🟨 Yellow',
-            green: '🟩 Green',
-            red: '🟥 Red ⚠️',
-            black: '⬛ Black ⚠️',
-            white: '⬜ White ⚠️',
-        }
 
-    const bristolLabels = language === 'zh'
-        ? BRISTOL_LABELS
-        : {
-            '1': 'Hard pellets',
-            '2': 'Lumpy sausage',
-            '3': 'Cracked sausage',
-            '4': 'Soft smooth log ✅',
-            '5': 'Soft blobs',
-            '6': 'Mushy',
-            '7': 'Watery',
-        }
 
     // Fetch diary entries once
     const fetchDiaryEntries = useCallback(async () => {
@@ -213,94 +186,18 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
         }, 1200)
     }
 
-    const handleFeedRecord = async () => {
-        if (!cat || !user || feedLoading) return
-        if (!selectedInventoryItem) return
-        const grams = parseFloat(feedGrams)
-        if (isNaN(grams) || grams <= 0) return
-        setFeedLoading(true)
-
-        const itemName = selectedInventoryItem.item_name
-        const mealTypeValue = `${itemName}|${grams}`
-
-        const optimisticFeed: FeedStatus = {
-            id: crypto.randomUUID(),
-            cat_id: cat.id,
-            status: 'fed',
-            fed_by: user.id,
-            fed_at: new Date().toISOString(),
-            meal_type: mealTypeValue,
-            updated_at: new Date().toISOString(),
-        }
-
+    const handleFeedSuccess = async (optimisticFeed: FeedStatus) => {
         addOptimisticFeed(optimisticFeed)
-        try {
-            // Insert feed record
-            await supabase.from('feed_status').insert({
-                cat_id: cat.id,
-                status: 'fed' as const,
-                fed_by: user.id,
-                fed_at: new Date().toISOString(),
-                meal_type: mealTypeValue,
-            })
-
-            // Deduct grams from inventory with fresh fetch, precision rounding, and status sync
-            const { data: freshItem } = await supabase.from('inventory')
-                .select('total_quantity, daily_consumption')
-                .eq('id', selectedInventoryItem.id)
-                .single()
-            const baseQty = freshItem?.total_quantity ?? selectedInventoryItem.total_quantity
-            if (baseQty != null) {
-                const newQty = Math.max(0, roundQuantity(baseQty - grams, 1))
-                const newStatus = computeInventoryStatus({
-                    ...selectedInventoryItem,
-                    total_quantity: newQty,
-                    daily_consumption: freshItem?.daily_consumption ?? selectedInventoryItem.daily_consumption,
-                })
-                await supabase.from('inventory')
-                    .update({ total_quantity: newQty, status: newStatus, updated_by: user.id })
-                    .eq('id', selectedInventoryItem.id)
-            }
-
-            setFeedModalOpen(false)
-            setSelectedInventoryItem(null)
-            setFeedGrams('')
-            await onDataChange()
-            lightHaptic()
-            triggerRewardBurst('🐾')
-            pushToast('success', text.feedSuccess)
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, text.feedFail))
-        } finally {
-            setFeedLoading(false)
-        }
+        setFeedModalOpen(false)
+        await onDataChange()
+        lightHaptic()
+        triggerRewardBurst('🐾')
     }
 
-    const handlePoopSave = async () => {
-        if (!cat || !user || poopSaving) return
-        setPoopSaving(true)
-
-        try {
-            await supabase.from('poop_logs').insert({
-                cat_id: cat.id,
-                bristol_type: selectedBristol,
-                color: selectedColor,
-                created_by: user.id,
-            })
-            setPoopModalOpen(false)
-            setSelectedBristol('4')
-            setSelectedColor('brown')
-            lightHaptic()
-            if (selectedBristol === '4') triggerRewardBurst('💖')
-            pushToast('success', text.poopSuccess)
-            if (isAbnormalPoop(selectedBristol, selectedColor)) {
-                sendAbnormalPoopNotification(cat.id, cat.name, selectedBristol, selectedColor).catch(() => { })
-            }
-        } catch (err) {
-            pushToast('error', getErrorMessage(err, text.poopFail))
-        } finally {
-            setPoopSaving(false)
-        }
+    const handlePoopSuccess = () => {
+        setPoopModalOpen(false)
+        lightHaptic()
+        triggerRewardBurst('💖')
     }
 
     const handleMissCat = async () => {
@@ -381,114 +278,41 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
 
             {/* Poop Modal */}
             <Modal isOpen={poopModalOpen} onClose={() => setPoopModalOpen(false)} title={text.poopModalTitle}>
-                <div className="poop-form">
-                    <div className="form-section">
-                        <label className="form-label">{text.bristolClass}</label>
-                        <select
-                            className="form-input"
-                            aria-label={text.bristolAria}
-                            value={selectedBristol}
-                            onChange={(e) => setSelectedBristol(e.target.value as BristolType)}
-                        >
-                            {(['1', '2', '3', '4', '5', '6', '7'] as BristolType[]).map((type) => (
-                                <option key={type} value={type}>
-                                    {text.typePrefix} {type} · {bristolLabels[type]}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-section">
-                        <label className="form-label">{text.color}</label>
-                        <div className="color-grid compact" role="radiogroup" aria-label={text.poopColorAria}>
-                            {(Object.entries(poopColorLabels) as [PoopColor, string][]).map(([color, label]) => (
-                                <button
-                                    key={color}
-                                    className={`color-btn ${selectedColor === color ? 'color-btn-active' : ''}`}
-                                    onClick={() => setSelectedColor(color)}
-                                    role="radio"
-                                    aria-checked={selectedColor === color}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <Button variant="primary" fullWidth onClick={handlePoopSave} disabled={poopSaving || !online}>
-                        {poopSaving ? text.recording : text.saveRecord}
-                    </Button>
-                </div>
+                <PoopLogForm
+                    catId={cat?.id || ''}
+                    catName={cat?.name}
+                    userId={user?.id || ''}
+                    onSaveSuccess={handlePoopSuccess}
+                    onCancel={() => setPoopModalOpen(false)}
+                />
             </Modal>
 
             {/* Feed Modal */}
-            <Modal isOpen={feedModalOpen} onClose={() => { setFeedModalOpen(false); setSelectedInventoryItem(null); setFeedGrams('') }} title={text.feedModalTitle}>
-                <div className="feed-form">
-                    <label className="form-label">{text.chooseInventory}</label>
-                    {inventory.length > 0 ? (
-                        <div className="feed-inventory-list">
-                            {inventory.map((item) => (
-                                <button
-                                    key={item.id}
-                                    className={`feed-inventory-btn ${selectedInventoryItem?.id === item.id ? 'feed-inventory-btn-active' : ''}`}
-                                    onClick={() => setSelectedInventoryItem(item)}
-                                >
-                                    <span>{item.icon || '📦'} {item.item_name}</span>
-                                    {item.total_quantity != null && (
-                                        <span className="text-xs text-muted">{item.total_quantity}g</span>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-muted">{text.noInventory}</p>
-                    )}
+            <Modal isOpen={feedModalOpen} onClose={() => setFeedModalOpen(false)} title={text.feedModalTitle}>
+                <FeedLogForm
+                    catId={cat?.id || ''}
+                    userId={user?.id || ''}
+                    inventory={inventory}
+                    onSaveSuccess={handleFeedSuccess}
+                    onCancel={() => setFeedModalOpen(false)}
+                />
 
-                    {selectedInventoryItem && (
-                        <div className="form-section">
-                            <label className="form-label" htmlFor="feed-grams">{text.feedAmount}</label>
-                            <input
-                                id="feed-grams"
-                                type="number"
-                                className="form-input"
-                                inputMode="decimal"
-                                min="0.1"
-                                step="0.1"
-                                placeholder={text.feedAmountPlaceholder}
-                                value={feedGrams}
-                                onChange={(e) => setFeedGrams(e.target.value)}
-                            />
-                            {selectedInventoryItem.total_quantity == null && (
-                                <p className="text-xs text-muted" style={{ marginTop: '6px' }}>
-                                    ℹ️ {text.unmanagedStockHint}
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {optimisticFeeds.length > 0 && (
-                        <div className="feed-history">
-                            <label className="form-label">{text.todayRecords}</label>
-                            {optimisticFeeds.map((f) => {
-                                const parts = f.meal_type.split('|')
-                                const displayName = parts[0]
-                                const displayGrams = parts[1] ? `${parts[1]}g` : ''
-                                return (
-                                    <div key={f.id} className="feed-history-item">
-                                        <span>{displayName} {displayGrams}</span>
-                                        <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    )}
-                    <Button
-                        variant="primary"
-                        fullWidth
-                        onClick={handleFeedRecord}
-                        disabled={feedLoading || !online || !selectedInventoryItem || !feedGrams || parseFloat(feedGrams) <= 0}
-                    >
-                        {feedLoading ? text.recording : text.confirmFeed}
-                    </Button>
-                </div>
+                {optimisticFeeds.length > 0 && (
+                    <div className="feed-history" style={{ marginTop: '16px' }}>
+                        <label className="form-label">{text.todayRecords}</label>
+                        {optimisticFeeds.map((f) => {
+                            const parts = f.meal_type.split('|')
+                            const displayName = parts[0]
+                            const displayGrams = parts[1] ? `${parts[1]}g` : ''
+                            return (
+                                <div key={f.id} className="feed-history-item">
+                                    <span>{displayName} {displayGrams}</span>
+                                    <span className="text-muted text-xs">{format(new Date(f.fed_at!), 'HH:mm')}</span>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
             </Modal>
 
             {/* Random Diary Modal ("想咪了") */}

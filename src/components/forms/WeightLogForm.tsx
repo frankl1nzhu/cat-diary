@@ -3,8 +3,8 @@ import { validateWeight } from './formHelpers'
 import { supabase } from '../../lib/supabase'
 import { enqueueOp } from '../../lib/offlineQueue'
 import { useI18n } from '../../lib/i18n'
-import { useToast } from '../ui/Toast'
-import { getErrorMessage } from '../../lib/errors'
+import { useToastStore } from '../../stores/useToastStore'
+import { getErrorMessage } from '../../lib/errorMessage'
 import { Button } from '../ui/Button'
 
 export interface WeightLogFormProps {
@@ -23,7 +23,7 @@ export function WeightLogForm({
     onCancel,
 }: WeightLogFormProps) {
     const { language } = useI18n()
-    const { pushToast } = useToast()
+    const pushToast = useToastStore((s) => s.pushToast)
 
     const [weightValue, setWeightValue] = useState(initialWeight ? String(initialWeight) : '')
     const [errorMsg, setErrorMsg] = useState('')
