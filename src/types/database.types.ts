@@ -204,17 +204,24 @@ export type MissLog = {
 /* ─── Inventory helpers ───────────────────────────── */
 
 /** Compute days remaining — no longer used (threshold-based alerts now). */
-export function computeDaysRemaining(_item: InventoryItem): number | null {
+export function computeDaysRemaining(): number | null {
     return null
 }
 
 /** Derive status from total_quantity vs alert threshold (stored in daily_consumption field).
- *  At or below threshold → urgent, within 1.5x threshold → low, else plenty. */
+ *  <= 0 → urgent, at or below threshold → urgent, within 1.5x threshold → low, else plenty. */
 export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
+    if (item.total_quantity != null && item.total_quantity <= 0) return 'urgent'
     if (item.total_quantity == null || item.daily_consumption == null) return item.status
     if (item.total_quantity <= item.daily_consumption) return 'urgent'
     if (item.total_quantity <= item.daily_consumption * 1.5) return 'low'
     return 'plenty'
+}
+
+/** Cleanly round quantity to specified decimal places (default 1). */
+export function roundQuantity(qty: number, decimals = 1): number {
+    const factor = Math.pow(10, decimals)
+    return Math.round(qty * factor) / factor
 }
 
 /** Compute integer hours to expiry (negative means already expired). */
