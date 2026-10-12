@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Skeleton } from '../components/ui/Skeleton'
+import { DashboardSkeleton } from '../components/ui/DashboardSkeleton'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
 import { useCat } from '../lib/useCat'
@@ -326,21 +326,7 @@ export function DashboardPage() {
 
     // ─── Loading state ────────────────────────────
     if (loading || catLoading) {
-        return (
-            <div className="dashboard fade-in">
-                <div className="cat-profile-card">
-                    <Skeleton height="180px" borderRadius="var(--radius-xl)" />
-                </div>
-                <div className="bento-grid">
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" />
-                    <Skeleton height="120px" borderRadius="var(--radius-lg)" className="span-2" />
-                </div>
-                <div className="px-4">
-                    <Skeleton height="180px" borderRadius="var(--radius-lg)" />
-                </div>
-            </div>
-        )
+        return <DashboardSkeleton />
     }
 
     // ─── Family onboarding ────────────────────────

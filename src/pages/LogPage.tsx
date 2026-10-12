@@ -6,6 +6,7 @@ import { Modal } from '../components/ui/Modal'
 import { SwipeableRow } from '../components/ui/SwipeableRow'
 import { EmptyCatIllustration } from '../components/ui/EmptyCatIllustration'
 import { Skeleton } from '../components/ui/Skeleton'
+import { TimelineSkeleton } from '../components/ui/TimelineSkeleton'
 import { ImageLightbox } from '../components/ui/ImageLightbox'
 import { supabase } from '../lib/supabase'
 import { useSession } from '../lib/auth'
@@ -1059,18 +1060,7 @@ export function LogPage() {
 
             <div className="timeline px-4">
                 {loading || catLoading ? (
-                    <div className="timeline-list">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <Card key={i} variant="default" padding="md" className="timeline-card">
-                                <Skeleton width="36px" height="36px" borderRadius="var(--radius-full)" />
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                                    <Skeleton width="60%" height="14px" />
-                                    <Skeleton width="90%" height="14px" />
-                                    <Skeleton width="40%" height="12px" />
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
+                    <TimelineSkeleton />
                 ) : filteredTimeline.length === 0 ? (
                     <div className="empty-state">
                         <EmptyCatIllustration mood="play" />

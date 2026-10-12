@@ -13,7 +13,7 @@ export function Skeleton({
 }: SkeletonProps) {
     return (
         <div
-            className={`skeleton ${className}`}
+            className={`skeleton skeleton-shimmer ${className}`}
             role="status"
             aria-label="加载中"
             style={{
