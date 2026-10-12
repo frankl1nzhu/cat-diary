@@ -23,7 +23,7 @@ import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
-import { computeInventoryExpiryHoursLeft, computeInventoryStatus } from '../types/database.types'
+import { computeInventoryExpiryHoursLeft, computeInventoryStatus, roundQuantity } from '../types/database.types'
 import './StatsPage.css'
 
 type ChartType = 'weight' | 'poop' | 'miss' | 'feed' | 'inventoryFeed'
@@ -134,6 +134,7 @@ export function StatsPage() {
         if (stored && ['weight', 'poop', 'miss', 'feed', 'inventoryFeed'].includes(stored)) return stored as ChartType
         return 'weight'
     })
+    const [feedStatMode, setFeedStatMode] = useState<'grams' | 'count'>('grams')
     const [pendingStopRecord, setPendingStopRecord] = useState<HealthRecord | null>(null)
 
     // Modals
@@ -377,21 +378,29 @@ export function StatsPage() {
     }, [feeds, chartStartDate, chartEndDate, chartStartTs, chartEndTs])
 
     const inventoryFeedData = useMemo(() => {
-        const countMap = new Map<string, number>()
+        const dataMap = new Map<string, number>()
         feeds.forEach((f) => {
             const at = f.fed_at || f.updated_at
             const t = new Date(at).getTime()
             if (t >= chartStartTs && t <= chartEndTs) {
-                const itemName = f.meal_type.split('|')[0]
+                const parts = f.meal_type.split('|')
+                const itemName = parts[0]
                 if (itemName) {
-                    countMap.set(itemName, (countMap.get(itemName) || 0) + 1)
+                    if (feedStatMode === 'grams') {
+                        const grams = parts[1] ? parseFloat(parts[1]) : 0
+                        if (!isNaN(grams)) {
+                            dataMap.set(itemName, roundQuantity((dataMap.get(itemName) || 0) + grams, 1))
+                        }
+                    } else {
+                        dataMap.set(itemName, (dataMap.get(itemName) || 0) + 1)
+                    }
                 }
             }
         })
-        return Array.from(countMap.entries())
+        return Array.from(dataMap.entries())
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value)
-    }, [feeds, chartStartTs, chartEndTs])
+    }, [feeds, chartStartTs, chartEndTs, feedStatMode])
 
     const chartDaysSpan = useMemo(() => Math.max(1, Math.ceil((chartEndTs - chartStartTs) / (24 * 60 * 60 * 1000))), [chartStartTs, chartEndTs])
 
@@ -1107,9 +1116,25 @@ export function StatsPage() {
                         </div>
                     )}
 
-                    {/* Per-Inventory Feed Count */}
+                    {/* Per-Inventory Feed Count / Grams */}
                     {chartType === 'inventoryFeed' && (
                         <div className="chart-container">
+                            <div className="flex gap-2 mb-3" style={{ justifyContent: 'center' }}>
+                                <Button
+                                    variant={feedStatMode === 'grams' ? 'primary' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => setFeedStatMode('grams')}
+                                >
+                                    {l('按消耗量 (g)', 'By Grams (g)')}
+                                </Button>
+                                <Button
+                                    variant={feedStatMode === 'count' ? 'primary' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => setFeedStatMode('count')}
+                                >
+                                    {l('按喂食次数 (次)', 'By Times')}
+                                </Button>
+                            </div>
                             {inventoryFeedData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height={220}>
                                     <PieChart>
@@ -1118,7 +1143,13 @@ export function StatsPage() {
                                                 <Cell key={`${entry.name}-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
+                                        <Tooltip
+                                            contentStyle={CHART_TOOLTIP_STYLE}
+                                            formatter={(val: unknown) => [
+                                                feedStatMode === 'grams' ? `${val} g` : `${val} ${l('次', 'times')}`,
+                                                feedStatMode === 'grams' ? l('消耗量', 'Consumption') : l('喂食次数', 'Feeding count'),
+                                            ]}
+                                        />
                                         <Legend wrapperStyle={LEGEND_STYLE} />
                                     </PieChart>
                                 </ResponsiveContainer>
