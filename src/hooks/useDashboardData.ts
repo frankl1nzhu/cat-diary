@@ -21,6 +21,7 @@ export interface DashboardData {
     weekFeedCount: number
     weekMoodCounts: Record<string, number>
     weekAbnormalPoopCount: number
+    todayPoopCount: number
     weekWeightDelta: number | null
 }
 
@@ -35,6 +36,7 @@ const EMPTY_DATA: DashboardData = {
     weekFeedCount: 0,
     weekMoodCounts: { '😸': 0, '😾': 0, '😴': 0 },
     weekAbnormalPoopCount: 0,
+    todayPoopCount: 0,
     weekWeightDelta: null,
 }
 
@@ -151,6 +153,9 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
             if (weekPoopsRes.data) {
                 newData.weekAbnormalPoopCount = weekPoopsRes.data.filter(
                     (item) => isAbnormalPoop(item.bristol_type, item.color),
+                ).length
+                newData.todayPoopCount = weekPoopsRes.data.filter(
+                    (item) => item.created_at.startsWith(today),
                 ).length
             }
 

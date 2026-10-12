@@ -7,9 +7,10 @@ import { useI18n } from '../../lib/i18n'
 
 interface CatProfileCardProps {
     cat: Cat | null
+    isTodayCareComplete?: boolean
 }
 
-export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCardProps) {
+export const CatProfileCard = memo(function CatProfileCard({ cat, isTodayCareComplete }: CatProfileCardProps) {
     const { language } = useI18n()
     const [avatarPreviewOpen, setAvatarPreviewOpen] = useState(false)
     const text = language === 'zh'
@@ -72,7 +73,31 @@ export const CatProfileCard = memo(function CatProfileCard({ cat }: CatProfileCa
                             )}
                         </div>
                         <div className="profile-info">
-                            <h1 className="cat-name">{cat?.name || text.addCat}</h1>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                <h1 className="cat-name">{cat?.name || text.addCat}</h1>
+                                {isTodayCareComplete && (
+                                    <span
+                                        className="today-care-badge"
+                                        title={language === 'zh' ? '今日已照料完毕 🐾' : 'Cared for today 🐾'}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 600,
+                                            color: '#ffd166',
+                                            background: 'rgba(255, 209, 102, 0.16)',
+                                            border: '1px solid rgba(255, 209, 102, 0.35)',
+                                            padding: '2px 7px',
+                                            borderRadius: '9999px',
+                                            flexShrink: 0,
+                                        }}
+                                    >
+                                        <span>🐾</span>
+                                        <span>{language === 'zh' ? '今日已达标' : 'Cared for'}</span>
+                                    </span>
+                                )}
+                            </div>
                             <p className="cat-breed text-sm">{cat?.breed || text.editProfileHint}</p>
                         </div>
                     </div>

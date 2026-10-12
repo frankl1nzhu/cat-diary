@@ -12,6 +12,8 @@ import { useI18n } from '../../lib/i18n'
 import { useToastStore } from '../../stores/useToastStore'
 import { getErrorMessage } from '../../lib/errorMessage'
 import { Button } from '../ui/Button'
+import { EmptyStateCat } from '../ui/EmptyStateCat'
+import { playMeowSound } from '../../lib/sound'
 
 export interface FeedLogFormProps {
     catId: string
@@ -179,6 +181,7 @@ export function FeedLogForm({
                 pushToast('success', text.feedSuccess)
             }
 
+            playMeowSound()
             onSaveSuccess(optimisticFeed, calculatedGrams, selectedItem.id)
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.feedFail))
@@ -229,7 +232,7 @@ export function FeedLogForm({
                         })}
                     </div>
                 ) : (
-                    <p className="text-sm text-secondary">{text.noInventory}</p>
+                    <EmptyStateCat posture="hungry_bowl" message={text.noInventory} />
                 )}
             </div>
 

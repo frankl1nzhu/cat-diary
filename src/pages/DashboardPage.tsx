@@ -17,6 +17,7 @@ import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
 import { SnoozeModal } from '../components/ui/SnoozeModal'
+import { EmptyStateCat, computeIsTodayCareComplete } from '../components/ui/EmptyStateCat'
 import { STORAGE_KEYS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
@@ -394,6 +395,11 @@ export function DashboardPage() {
 
     // ─── Main dashboard ───────────────────────────
     const latestDiary = data.latestDiary
+    const isTodayCareComplete = computeIsTodayCareComplete(
+        data.todayFeeds.length,
+        data.todayMood,
+        data.todayPoopCount,
+    )
 
     return (
         <div
@@ -410,7 +416,7 @@ export function DashboardPage() {
                 <span>{pullToRefresh.refreshing ? text.refreshing : pullToRefresh.isReady ? text.releaseToRefresh : text.pullToRefresh}</span>
             </div>
 
-            <CatProfileCard cat={cat} />
+            <CatProfileCard cat={cat} isTodayCareComplete={isTodayCareComplete} />
 
             <QuickActions
                 cat={cat}
@@ -512,10 +518,7 @@ export function DashboardPage() {
                             </div>
                         )
                     })() : (
-                        <div className="empty-state">
-                            <span className="empty-icon">📸</span>
-                            <p className="text-secondary text-sm">{text.diaryEmpty}</p>
-                        </div>
+                        <EmptyStateCat posture="sleeping" message={text.diaryEmpty} />
                     )}
                 </Card>
             </div>
