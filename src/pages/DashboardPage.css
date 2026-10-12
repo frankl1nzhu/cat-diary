@@ -739,10 +739,14 @@
 }
 
 .diary-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     background: none;
     border: none;
     color: var(--color-primary);
-    font-size: var(--font-size-xs);
+    font-size: 0.75rem;
+    font-weight: 500;
     padding: 2px 0;
     cursor: pointer;
     text-align: left;
@@ -751,6 +755,14 @@
 
 .diary-expand-btn:hover {
     text-decoration: underline;
+}
+
+.diary-expand-btn .diary-expand-chevron {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.diary-expand-btn .diary-expand-chevron.is-expanded {
+    transform: rotate(180deg);
 }
 
 .diary-img {
@@ -1161,17 +1173,37 @@
 }
 
 .section-collapse-btn {
-    background: transparent;
-    border: none;
-    font-size: var(--text-xs);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--color-primary-a8);
+    border: 1px solid transparent;
+    font-size: 0.72rem;
+    font-weight: 500;
     color: var(--color-text-secondary);
     cursor: pointer;
     padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    transition: background 0.15s ease, color 0.15s ease;
+    border-radius: var(--radius-full);
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    -webkit-font-smoothing: antialiased;
 }
 
 .section-collapse-btn:hover {
-    background: var(--color-bg-elevated);
+    background: var(--color-primary-a15);
     color: var(--color-primary);
+}
+
+.section-collapse-btn .collapse-chevron {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0.75;
+}
+
+.section-collapse-btn:hover .collapse-chevron {
+    opacity: 1;
+}
+
+.section-collapse-btn .collapse-chevron.is-collapsed {
+    transform: rotate(180deg);
 }

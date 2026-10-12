@@ -59,8 +59,8 @@ export function DashboardPage() {
                     creatingProfile: '创建中...',
                     recentActivity: '最近动态',
                     diaryNoText: '(无文字)',
-                    collapse: '收起 ▲',
-                    expand: '展开全文 ▼',
+                    collapse: '收起',
+                    expand: '展开全文',
                     diaryEmpty: '还没有日记，去记录页添加第一条吧！',
                     inventoryReplenished: '库存已补充 ✅',
                     inventoryReplenishFailed: '补充失败，请稍后重试',
@@ -81,8 +81,8 @@ export function DashboardPage() {
                     quickActionsTitle: '快捷操作',
                     moodSectionTitle: '今日心情与日历',
                     weeklySummaryTitle: '本周汇总',
-                    expandSection: '展开 ▼',
-                    collapseSection: '收起 ▲',
+                    expandSection: '展开',
+                    collapseSection: '收起',
                 }
                 : {
                     refreshing: 'Refreshing…',
@@ -108,8 +108,8 @@ export function DashboardPage() {
                     creatingProfile: 'Creating...',
                     recentActivity: 'Recent activity',
                     diaryNoText: '(No text)',
-                    collapse: 'Collapse ▲',
-                    expand: 'Read more ▼',
+                    collapse: 'Collapse',
+                    expand: 'Read more',
                     diaryEmpty: 'No diary yet. Add your first one in Log.',
                     inventoryReplenished: 'Inventory replenished ✅',
                     inventoryReplenishFailed: 'Replenish failed. Please try again later.',
@@ -130,8 +130,8 @@ export function DashboardPage() {
                     quickActionsTitle: 'Quick Actions',
                     moodSectionTitle: 'Mood & Calendar',
                     weeklySummaryTitle: 'Weekly Summary',
-                    expandSection: 'Expand ▼',
-                    collapseSection: 'Collapse ▲',
+                    expandSection: 'Expand',
+                    collapseSection: 'Collapse',
                 },
         [language],
     )
@@ -432,7 +432,21 @@ export function DashboardPage() {
                             className="section-collapse-btn"
                             aria-label={sectionConfig.collapsed.quickActions ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.quickActions ? text.expandSection : text.collapseSection}
+                            <span>{sectionConfig.collapsed.quickActions ? text.expandSection : text.collapseSection}</span>
+                            <svg
+                                className={`collapse-chevron ${sectionConfig.collapsed.quickActions ? 'is-collapsed' : ''}`}
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <polyline points="18 15 12 9 6 15" />
+                            </svg>
                         </button>
                     </div>
                     {!sectionConfig.collapsed.quickActions && (
@@ -475,7 +489,21 @@ export function DashboardPage() {
                             className="section-collapse-btn"
                             aria-label={sectionConfig.collapsed.mood ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.mood ? text.expandSection : text.collapseSection}
+                            <span>{sectionConfig.collapsed.mood ? text.expandSection : text.collapseSection}</span>
+                            <svg
+                                className={`collapse-chevron ${sectionConfig.collapsed.mood ? 'is-collapsed' : ''}`}
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <polyline points="18 15 12 9 6 15" />
+                            </svg>
                         </button>
                     </div>
                     {!sectionConfig.collapsed.mood && (
@@ -500,7 +528,21 @@ export function DashboardPage() {
                             className="section-collapse-btn"
                             aria-label={sectionConfig.collapsed.weekSummary ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.weekSummary ? text.expandSection : text.collapseSection}
+                            <span>{sectionConfig.collapsed.weekSummary ? text.expandSection : text.collapseSection}</span>
+                            <svg
+                                className={`collapse-chevron ${sectionConfig.collapsed.weekSummary ? 'is-collapsed' : ''}`}
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <polyline points="18 15 12 9 6 15" />
+                            </svg>
                         </button>
                     </div>
                     {!sectionConfig.collapsed.weekSummary && (
@@ -523,7 +565,21 @@ export function DashboardPage() {
                             className="section-collapse-btn"
                             aria-label={sectionConfig.collapsed.latestDiary ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.latestDiary ? text.expandSection : text.collapseSection}
+                            <span>{sectionConfig.collapsed.latestDiary ? text.expandSection : text.collapseSection}</span>
+                            <svg
+                                className={`collapse-chevron ${sectionConfig.collapsed.latestDiary ? 'is-collapsed' : ''}`}
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                            >
+                                <polyline points="18 15 12 9 6 15" />
+                            </svg>
                         </button>
                     </div>
                     {!sectionConfig.collapsed.latestDiary && (
@@ -535,12 +591,26 @@ export function DashboardPage() {
                                 return (
                                     <div className="diary-snippet">
                                         {latestDiary.image_url && (
-                                            <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
+                                             <img src={latestDiary.image_url} alt="" className="diary-img" loading="lazy" />
                                         )}
                                         <p className="text-sm diary-snippet-text">{displayText}</p>
                                         {isLong && (
                                             <button className="diary-expand-btn" onClick={() => setLatestDiaryExpanded(!latestDiaryExpanded)}>
-                                                {latestDiaryExpanded ? text.collapse : text.expand}
+                                                <span>{latestDiaryExpanded ? text.collapse : text.expand}</span>
+                                                <svg
+                                                    className={`diary-expand-chevron ${latestDiaryExpanded ? 'is-expanded' : ''}`}
+                                                    width="10"
+                                                    height="10"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2.5"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    aria-hidden="true"
+                                                >
+                                                    <polyline points="18 15 12 9 6 15" />
+                                                </svg>
                                             </button>
                                         )}
                                         {latestDiary.tags.length > 0 && (

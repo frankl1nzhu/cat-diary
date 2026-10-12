@@ -54,8 +54,8 @@ export function AlertSummaryBar({
             inventoryBadge: (c: number) => `物资 ${c}`,
             expiryBadge: (c: number) => `临期 ${c}`,
             healthBadge: (c: number) => `疫苗健康 ${c}`,
-            expand: '展开 ▼',
-            collapse: '收起 ▲',
+            expand: '展开',
+            collapse: '收起',
             allResolved: '所有预警已处理完毕',
             allResolvedDesc: '咪子很安心，伸个懒腰~',
             snoozeTitle: (name: string) => `延期提醒 · ${name}`,
@@ -66,8 +66,8 @@ export function AlertSummaryBar({
             inventoryBadge: (c: number) => `Supplies ${c}`,
             expiryBadge: (c: number) => `Expiring ${c}`,
             healthBadge: (c: number) => `Health ${c}`,
-            expand: 'Expand ▼',
-            collapse: 'Collapse ▲',
+            expand: 'Expand',
+            collapse: 'Collapse',
             allResolved: 'All alerts resolved',
             allResolvedDesc: 'Your cat is relaxed and stretching happily~',
             snoozeTitle: (name: string) => `Snooze alert · ${name}`,
@@ -167,7 +167,21 @@ export function AlertSummaryBar({
                     </div>
                 </div>
                 <span className="alert-summary-toggle">
-                    {expanded ? text.collapse : text.expand}
+                    <span>{expanded ? text.collapse : text.expand}</span>
+                    <svg
+                        className={`toggle-chevron ${expanded ? 'is-expanded' : ''}`}
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                        <polyline points="6 9 12 15 18 9" />
+                    </svg>
                 </span>
             </div>
 

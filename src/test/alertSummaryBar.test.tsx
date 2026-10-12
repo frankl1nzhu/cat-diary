@@ -50,7 +50,7 @@ describe('AlertSummaryBar', () => {
         // Click to expand
         const bar = screen.getByRole('button', { name: /2 项待处理/ })
         fireEvent.click(bar)
-        expect(screen.getByText('收起 ▲')).toBeDefined()
+        expect(screen.getByText('收起')).toBeDefined()
 
         // Rerender with zero alerts while still expanded
         rerender(
