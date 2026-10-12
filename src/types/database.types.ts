@@ -2,6 +2,7 @@
  *  Database types — mirrors the Supabase schema
  *  Regenerate with: npx supabase gen types typescript
  * ─────────────────────────────────────────────────── */
+import { format, differenceInCalendarDays, parseISO } from 'date-fns'
 
 export type MoodType = '😸' | '😾' | '😴'
 
@@ -114,6 +115,7 @@ export type HealthRecord = {
     next_due: string | null
     image_url: string | null
     notes: string | null
+    snoozed_until?: string | null
     created_by: string
     created_at: string
 }
@@ -139,6 +141,7 @@ export type InventoryItem = {
     daily_consumption: number | null
     unit?: string
     unit_ratio?: number
+    snoozed_until?: string | null
     updated_by: string | null
     updated_at: string
 }
@@ -149,6 +152,7 @@ export type InventoryExpiryReminder = {
     item_name: string
     expires_at: string
     discarded_at: string | null
+    snoozed_until?: string | null
     created_by: string | null
     created_at: string
 }
@@ -262,6 +266,57 @@ export function computeInventoryExpiryHoursLeft(
     const oneHourMs = 1000 * 60 * 60
     if (diffMs >= 0) return Math.ceil(diffMs / oneHourMs)
     return Math.floor(diffMs / oneHourMs)
+}
+
+/* ─── Snooze helpers ─────────────────────────────── */
+
+export interface SnoozeDisplayInfo {
+    isSnoozed: boolean
+    isActivelySnoozed: boolean
+    isOverdue: boolean
+    daysLeft: number
+    displayLabel: string
+}
+
+/** Check if an item is actively snoozed (i.e. snoozed until a date strictly in the future). */
+export function isItemActivelySnoozed(
+    snoozedUntil: string | null | undefined,
+    todayStr?: string,
+): boolean {
+    if (!snoozedUntil) return false
+    const today = todayStr || format(new Date(), 'yyyy-MM-dd')
+    const snoozeDateStr = format(new Date(snoozedUntil), 'yyyy-MM-dd')
+    return snoozeDateStr > today
+}
+
+/** Compute display metadata for a snoozed item. */
+export function computeSnoozeDisplay(
+    snoozedUntil: string | null | undefined,
+    todayStr?: string,
+): SnoozeDisplayInfo | null {
+    if (!snoozedUntil) return null
+    const today = todayStr ? parseISO(todayStr) : new Date()
+    const target = new Date(snoozedUntil)
+    const daysLeft = differenceInCalendarDays(target, today)
+    const isActivelySnoozed = daysLeft > 0
+    const isOverdue = daysLeft < 0
+
+    let displayLabel = ''
+    if (daysLeft > 0) {
+        displayLabel = `延期中（剩余 ${daysLeft} 天）`
+    } else if (daysLeft === 0) {
+        displayLabel = '延期到期（今日到期）'
+    } else {
+        displayLabel = `已延期逾期 ${Math.abs(daysLeft)} 天`
+    }
+
+    return {
+        isSnoozed: true,
+        isActivelySnoozed,
+        isOverdue,
+        daysLeft,
+        displayLabel,
+    }
 }
 
 /* ─── Database type for Supabase client ──────────── */
