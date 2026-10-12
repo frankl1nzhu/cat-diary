@@ -22,8 +22,10 @@ import { sendDiaryNotification, sendCommentNotification } from '../lib/pushServe
 import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiaryTagLabel, MEAL_LABELS } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
-import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord, FeedStatus } from '../types/database.types'
+import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord, FeedStatus, InventoryItem } from '../types/database.types'
 import { computeInventoryStatus, roundQuantity } from '../types/database.types'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { TimelineFilterBar } from '../components/log/TimelineFilterBar'
 import './LogPage.css'
 
 type TimelineItem =
@@ -723,21 +725,29 @@ export function LogPage() {
                 const parts = item.data.meal_type.split('|')
                 const itemName = parts[0]
                 const grams = parts[1] ? parseFloat(parts[1]) : NaN
-                if (itemName && !isNaN(grams) && grams > 0 && catId) {
-                    const { data: invItems } = await supabase.from('inventory')
-                        .select('*')
-                        .eq('cat_id', catId)
-                        .eq('item_name', itemName)
-                        .limit(1)
-                    if (invItems && invItems.length > 0) {
-                        const inv = invItems[0]
-                        if (inv.total_quantity != null) {
-                            const restoredQty = roundQuantity(inv.total_quantity + grams, 1)
-                            const restoredStatus = computeInventoryStatus({ ...inv, total_quantity: restoredQty })
-                            await supabase.from('inventory')
-                                .update({ total_quantity: restoredQty, status: restoredStatus, updated_by: user?.id })
-                                .eq('id', inv.id)
-                        }
+                if (!isNaN(grams) && grams > 0) {
+                    let inv: InventoryItem | null = null
+                    if (item.data.inventory_id) {
+                        const { data: invById } = await supabase.from('inventory')
+                            .select('*')
+                            .eq('id', item.data.inventory_id)
+                            .maybeSingle()
+                        inv = invById
+                    }
+                    if (!inv && itemName && catId) {
+                        const { data: invItems } = await supabase.from('inventory')
+                            .select('*')
+                            .eq('cat_id', catId)
+                            .eq('item_name', itemName)
+                            .limit(1)
+                        if (invItems && invItems.length > 0) inv = invItems[0]
+                    }
+                    if (inv && inv.total_quantity != null) {
+                        const restoredQty = roundQuantity(inv.total_quantity + grams, 1)
+                        const restoredStatus = computeInventoryStatus({ ...inv, total_quantity: restoredQty })
+                        await supabase.from('inventory')
+                            .update({ total_quantity: restoredQty, status: restoredStatus, updated_by: user?.id })
+                            .eq('id', inv.id)
                     }
                 }
                 await supabase.from('feed_status').delete().eq('id', item.data.id)
@@ -783,6 +793,14 @@ export function LogPage() {
             return false
         })
     }, [dateEnd, dateStart, filterType, deferredKeyword, language, timeline, text.poopKeyword, text.weightKeyword, text.feedKeyword])
+
+    const listRef = useRef<HTMLDivElement>(null)
+    const virtualizer = useWindowVirtualizer({
+        count: filteredTimeline.length,
+        estimateSize: () => 140,
+        overscan: 5,
+        scrollMargin: listRef.current?.offsetTop ?? 0,
+    })
 
     const handleDateStartChange = (value: string) => {
         setDateStart(value)
@@ -1026,47 +1044,17 @@ export function LogPage() {
             </div>
 
             <div className="px-4">
-                <Card variant="default" padding="md" className="log-filter-card">
-                    <input
-                        type="search"
-                        className="form-input"
-                        placeholder={text.searchPlaceholder}
-                        value={keyword}
-                        onChange={(event) => setKeyword(event.target.value)}
-                        aria-label={text.searchAria}
-                    />
-                    <select
-                        className="form-input"
-                        value={filterType}
-                        onChange={(event) => setFilterType(event.target.value as TimelineItem['type'] | 'all')}
-                        aria-label={text.filterAria}
-                    >
-                        <option value="all">{text.all}</option>
-                        <option value="diary">{text.diaryType}</option>
-                        <option value="poop">{text.poopType}</option>
-                        <option value="weight">{text.weightType}</option>
-                        <option value="feed">{text.feedType}</option>
-                    </select>
-                    <div className="timeline-date-row">
-                        <input
-                            type="date"
-                            className="form-input"
-                            value={dateStart}
-                            onChange={(event) => handleDateStartChange(event.target.value)}
-                            aria-label={text.startDateAria}
-                        />
-                        <span className="text-secondary text-sm">{text.to}</span>
-                        <input
-                            type="date"
-                            className="form-input"
-                            value={dateEnd}
-                            onChange={(event) => handleDateEndChange(event.target.value)}
-                            min={dateStart || undefined}
-                            aria-label={text.endDateAria}
-                        />
-                        <button type="button" className="timeline-date-reset" onClick={clearDateFilter}>{text.all}</button>
-                    </div>
-                </Card>
+                <TimelineFilterBar
+                    keyword={keyword}
+                    onKeywordChange={setKeyword}
+                    filterType={filterType}
+                    onFilterTypeChange={setFilterType}
+                    dateStart={dateStart}
+                    onDateStartChange={handleDateStartChange}
+                    dateEnd={dateEnd}
+                    onDateEndChange={handleDateEndChange}
+                    onClearDateFilter={clearDateFilter}
+                />
             </div>
 
             <div className="timeline px-4">
@@ -1089,12 +1077,31 @@ export function LogPage() {
                         <p className="text-secondary text-sm">{text.emptyFiltered}</p>
                     </div>
                 ) : (
-                    <div className="timeline-list">
-                        {filteredTimeline.map((item) => (
-                            <div key={`${item.type}-${item.data.id}`}>
-                                {renderItem(item)}
-                            </div>
-                        ))}
+                    <div
+                        ref={listRef}
+                        className="timeline-virtual-container"
+                        style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}
+                    >
+                        {virtualizer.getVirtualItems().map((virtualRow) => {
+                            const item = filteredTimeline[virtualRow.index]
+                            return (
+                                <div
+                                    key={`${item.type}-${item.data.id}`}
+                                    data-index={virtualRow.index}
+                                    ref={virtualizer.measureElement}
+                                    style={{
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: '100%',
+                                        transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                                        paddingBottom: '16px',
+                                    }}
+                                >
+                                    {renderItem(item)}
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
 
