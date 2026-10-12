@@ -158,6 +158,7 @@ export function StatsPage() {
     const [invIcon, setInvIcon] = useState<string | null>(null)
     const [invUnit, setInvUnit] = useState('g')
     const [invUnitRatio, setInvUnitRatio] = useState('1')
+    const [isCustomInvUnit, setIsCustomInvUnit] = useState(false)
     const [invTotalQty, setInvTotalQty] = useState('')
     const [invAlertThreshold, setInvAlertThreshold] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
@@ -604,13 +605,18 @@ export function StatsPage() {
     // ─── Save/update inventory ────────────────────
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
+        const finalUnit = isCustomInvUnit ? invUnit.trim() : invUnit
+        if (isCustomInvUnit && !finalUnit) {
+            pushToast('error', l('请输入自定义单位名称', 'Please enter a custom unit name'))
+            return
+        }
         const ratio = parseFloat(invUnitRatio) > 0 ? parseFloat(invUnitRatio) : 1
         const rawTotal = invTotalQty ? parseFloat(invTotalQty) : null
         const rawThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
 
         // Convert custom unit quantities to base grams for persistent database storage
-        const totalGrams = rawTotal != null ? (invUnit !== 'g' && ratio > 1 ? unitToGrams(rawTotal, ratio) : rawTotal) : null
-        const thresholdGrams = rawThreshold != null ? (invUnit !== 'g' && ratio > 1 ? unitToGrams(rawThreshold, ratio) : rawThreshold) : null
+        const totalGrams = rawTotal != null ? (finalUnit !== 'g' && ratio > 1 ? unitToGrams(rawTotal, ratio) : rawTotal) : null
+        const thresholdGrams = rawThreshold != null ? (finalUnit !== 'g' && ratio > 1 ? unitToGrams(rawThreshold, ratio) : rawThreshold) : null
 
         // Compute status from grams vs threshold grams
         const fakeItem = { total_quantity: totalGrams, daily_consumption: thresholdGrams, status: 'plenty' as InventoryStatus } as InventoryItem
@@ -625,7 +631,7 @@ export function StatsPage() {
                         status,
                         total_quantity: totalGrams,
                         daily_consumption: thresholdGrams,
-                        unit: invUnit,
+                        unit: finalUnit || 'g',
                         unit_ratio: ratio,
                         updated_by: user.id,
                     })
@@ -638,7 +644,7 @@ export function StatsPage() {
                     status,
                     total_quantity: totalGrams,
                     daily_consumption: thresholdGrams,
-                    unit: invUnit,
+                    unit: finalUnit || 'g',
                     unit_ratio: ratio,
                     updated_by: user.id,
                     updated_at: new Date().toISOString(),
@@ -661,6 +667,7 @@ export function StatsPage() {
         setInvIcon(null)
         setInvUnit('g')
         setInvUnitRatio('1')
+        setIsCustomInvUnit(false)
         setInvTotalQty('')
         setInvAlertThreshold('')
         setEditingInvId(null)
@@ -735,6 +742,8 @@ export function StatsPage() {
         setInvIcon(item.icon || null)
         const unit = item.unit || 'g'
         const ratio = item.unit_ratio ?? 1
+        const isPreset = ['g', '罐', '袋', '支', '包'].includes(unit)
+        setIsCustomInvUnit(!isPreset)
         setInvUnit(unit)
         setInvUnitRatio(String(ratio))
         if (unit !== 'g' && ratio > 1) {
@@ -1567,8 +1576,9 @@ export function StatsPage() {
                                 <button
                                     key={preset.unit}
                                     type="button"
-                                    className={`tag-btn ${invUnit === preset.unit ? 'tag-btn-active' : ''}`}
+                                    className={`tag-btn ${!isCustomInvUnit && invUnit === preset.unit ? 'tag-btn-active' : ''}`}
                                     onClick={() => {
+                                        setIsCustomInvUnit(false)
                                         setInvUnit(preset.unit)
                                         setInvUnitRatio(String(preset.ratio))
                                     }}
@@ -1576,13 +1586,43 @@ export function StatsPage() {
                                     {preset.label}
                                 </button>
                             ))}
+                            <button
+                                type="button"
+                                className={`tag-btn ${isCustomInvUnit ? 'tag-btn-active' : ''}`}
+                                onClick={() => {
+                                    setIsCustomInvUnit(true)
+                                    if (['g', '罐', '袋', '支', '包'].includes(invUnit)) {
+                                        setInvUnit('')
+                                        setInvUnitRatio('1')
+                                    }
+                                }}
+                            >
+                                {l('其他 (自定义)', 'Other (Custom)')}
+                            </button>
                         </div>
                     </div>
+
+                    {isCustomInvUnit && (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="inv-custom-unit">
+                                {l('自定义单位名称', 'Custom unit name')}
+                            </label>
+                            <input
+                                id="inv-custom-unit"
+                                type="text"
+                                className="form-input"
+                                placeholder={l('如：盒、条、颗、瓶、箱', 'e.g. box, bottle, bar, can')}
+                                value={invUnit}
+                                onChange={(e) => setInvUnit(e.target.value)}
+                                maxLength={10}
+                            />
+                        </div>
+                    )}
 
                     {invUnit !== 'g' && (
                         <div className="form-group">
                             <label className="form-label" htmlFor="inv-unit-ratio">
-                                {l(`每 1 ${invUnit} 等于多少克 (g)`, `Grams (g) per 1 ${invUnit}`)}
+                                {l(`每 1 ${invUnit.trim() || l('单位', 'unit')} 等于多少克 (g)`, `Grams (g) per 1 ${invUnit.trim() || l('unit', 'unit')}`)}
                             </label>
                             <input
                                 id="inv-unit-ratio"
@@ -1590,7 +1630,7 @@ export function StatsPage() {
                                 min="0.1"
                                 step="0.1"
                                 className="form-input"
-                                placeholder={l('如：2000', 'e.g. 2000')}
+                                placeholder={l('如：2000（若不折算克重填 1）', 'e.g. 2000 (enter 1 if not converting to grams)')}
                                 value={invUnitRatio}
                                 onChange={(e) => setInvUnitRatio(e.target.value)}
                             />
@@ -1600,7 +1640,7 @@ export function StatsPage() {
                     <div className="form-row">
                         <div className="form-group flex-1">
                             <label className="form-label" htmlFor="inv-total-qty">
-                                {l('总量', 'Total quantity')} ({invUnit})
+                                {l('总量', 'Total quantity')} ({invUnit === 'g' ? 'g' : (invUnit.trim() || l('单位', 'unit'))})
                             </label>
                             <input
                                 id="inv-total-qty"
@@ -1608,14 +1648,14 @@ export function StatsPage() {
                                 min="0"
                                 step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={invUnit === 'g' ? l('如：5000（克）', 'e.g. 5000 (g)') : l(`如：2（${invUnit}）`, `e.g. 2 (${invUnit})`)}
+                                placeholder={invUnit === 'g' ? l('如：5000（克）', 'e.g. 5000 (g)') : l(`如：2（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 2 (${invUnit.trim() || l('unit', 'unit')})`)}
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
                         </div>
                         <div className="form-group flex-1">
                             <label className="form-label" htmlFor="inv-alert-threshold">
-                                {l('提醒线', 'Alert threshold')} ({invUnit})
+                                {l('提醒线', 'Alert threshold')} ({invUnit === 'g' ? 'g' : (invUnit.trim() || l('单位', 'unit'))})
                             </label>
                             <input
                                 id="inv-alert-threshold"
@@ -1623,7 +1663,7 @@ export function StatsPage() {
                                 min="0"
                                 step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={invUnit === 'g' ? l('如：500', 'e.g. 500') : l(`如：0.5（${invUnit}）`, `e.g. 0.5 (${invUnit})`)}
+                                placeholder={invUnit === 'g' ? l('如：500', 'e.g. 500') : l(`如：0.5（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 0.5 (${invUnit.trim() || l('unit', 'unit')})`)}
                                 value={invAlertThreshold}
                                 onChange={(e) => setInvAlertThreshold(e.target.value)}
                             />

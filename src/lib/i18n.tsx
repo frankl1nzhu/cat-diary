@@ -201,8 +201,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const t = useCallback(
-        (key: TranslationKey) => {
-            return translations[language][key] || translations.zh[key] || key
+        (key: TranslationKey): string => {
+            return String(translations[language][key] || translations.zh[key] || key)
         },
         [language],
     )

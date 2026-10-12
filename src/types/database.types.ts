@@ -113,7 +113,7 @@ export type HealthRecord = {
     name: string
     date: string
     next_due: string | null
-    image_url: string | null
+    image_url?: string | null
     notes: string | null
     snoozed_until?: string | null
     snoozeInfo?: SnoozeDisplayInfo | null
@@ -136,10 +136,10 @@ export type InventoryItem = {
     id: string
     cat_id: string
     item_name: string
-    icon: string | null
+    icon?: string | null
     status: InventoryStatus
-    total_quantity: number | null
-    daily_consumption: number | null
+    total_quantity?: number | null
+    daily_consumption?: number | null
     unit?: string
     unit_ratio?: number
     snoozed_until?: string | null
@@ -246,15 +246,18 @@ export function gramsToUnit(grams: number, unitRatio: number): number {
     return roundQuantity(grams / ratio, 2)
 }
 
-/** Format inventory quantity display string (e.g. '4000g (2袋)' or '500g'). */
+/** Format inventory quantity display string (e.g. '4000g (2袋)', '3盒', or '500g'). */
 export function formatInventoryDisplay(
     totalGrams: number | null,
     unit = 'g',
     unitRatio = 1,
 ): string {
     if (totalGrams == null) return '--'
-    if (!unit || unit === 'g' || unitRatio <= 1) {
+    if (!unit || unit === 'g') {
         return `${roundQuantity(totalGrams, 1)}g`
+    }
+    if (unitRatio === 1) {
+        return `${roundQuantity(totalGrams, 1)}${unit}`
     }
     const unitCount = gramsToUnit(totalGrams, unitRatio)
     return `${roundQuantity(totalGrams, 1)}g (${unitCount}${unit})`

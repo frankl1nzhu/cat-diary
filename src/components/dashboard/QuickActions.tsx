@@ -11,6 +11,7 @@ import { sendMissNotification } from '../../lib/pushServer'
 import { getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
+import type { Cat, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
 import { FeedLogForm } from '../forms/FeedLogForm'
 import { PoopLogForm } from '../forms/PoopLogForm'
 import { PawStampEffect } from '../ui/PawStampEffect'
@@ -330,7 +331,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
                         )}
                         {randomDiary.tags.length > 0 && (
                             <div className="diary-tags">
-                                {randomDiary.tags.map((tag) => (
+                                {randomDiary.tags.map((tag: string) => (
                                     <span key={tag} className="tag">#{getDiaryTagLabel(tag, language)}</span>
                                 ))}
                             </div>

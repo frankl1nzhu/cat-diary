@@ -15,7 +15,7 @@ import { INVENTORY_ICONS, DIARY_TAGS, getDiaryTagLabel } from '../../lib/constan
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
 import type { InventoryItem, InventoryStatus } from '../../types/database.types'
-import { computeInventoryStatus } from '../../types/database.types'
+import { computeInventoryStatus, unitToGrams } from '../../types/database.types'
 import { FeedLogForm } from '../forms/FeedLogForm'
 import { PoopLogForm } from '../forms/PoopLogForm'
 import { WeightLogForm } from '../forms/WeightLogForm'
@@ -46,6 +46,9 @@ export function QuickActionModals() {
     // ─── Inventory state ─────────────────────────────
     const [invItemName, setInvItemName] = useState('')
     const [invIcon, setInvIcon] = useState<string | null>(null)
+    const [invUnit, setInvUnit] = useState('g')
+    const [invUnitRatio, setInvUnitRatio] = useState('1')
+    const [isCustomInvUnit, setIsCustomInvUnit] = useState(false)
     const [invTotalQty, setInvTotalQty] = useState('')
     const [invAlertThreshold, setInvAlertThreshold] = useState('')
     const [invSaving, setInvSaving] = useState(false)
@@ -101,7 +104,15 @@ export function QuickActionModals() {
         if (diaryImagePreview?.startsWith('blob:')) URL.revokeObjectURL(diaryImagePreview)
         setDiaryImagePreview(null)
     }
-    const resetInv = () => { setInvItemName(''); setInvIcon(null); setInvTotalQty(''); setInvAlertThreshold('') }
+    const resetInv = () => {
+        setInvItemName('')
+        setInvIcon(null)
+        setInvUnit('g')
+        setInvUnitRatio('1')
+        setIsCustomInvUnit(false)
+        setInvTotalQty('')
+        setInvAlertThreshold('')
+    }
     const resetHealth = () => { setHealthName(''); setHealthDate(format(new Date(), 'yyyy-MM-dd')); setHealthNextDue(''); setHealthMedicalPreset('vomit'); setHealthNotes(''); setHealthType('vaccine') }
     const resetExpiry = () => { setExpiryItemName(''); setExpiryInHours('48'); setExpiryInventory([]); setExpiryInventoryLoaded(false) }
 
@@ -167,9 +178,19 @@ export function QuickActionModals() {
     // ─── Inventory handler ───────────────────────────
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
-        const totalQty = invTotalQty ? parseFloat(invTotalQty) : null
-        const alertThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
-        const fakeItem = { total_quantity: totalQty, daily_consumption: alertThreshold, status: 'plenty' as InventoryStatus } as InventoryItem
+        const finalUnit = isCustomInvUnit ? invUnit.trim() : invUnit
+        if (isCustomInvUnit && !finalUnit) {
+            pushToast('error', l('请输入自定义单位名称', 'Please enter a custom unit name'))
+            return
+        }
+        const ratio = parseFloat(invUnitRatio) > 0 ? parseFloat(invUnitRatio) : 1
+        const rawTotal = invTotalQty ? parseFloat(invTotalQty) : null
+        const rawThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
+
+        const totalGrams = rawTotal != null ? (finalUnit !== 'g' && ratio > 1 ? unitToGrams(rawTotal, ratio) : rawTotal) : null
+        const thresholdGrams = rawThreshold != null ? (finalUnit !== 'g' && ratio > 1 ? unitToGrams(rawThreshold, ratio) : rawThreshold) : null
+
+        const fakeItem = { total_quantity: totalGrams, daily_consumption: thresholdGrams, status: 'plenty' as InventoryStatus } as InventoryItem
         const status = computeInventoryStatus(fakeItem)
         setInvSaving(true)
         try {
@@ -178,8 +199,10 @@ export function QuickActionModals() {
                 item_name: invItemName.trim(),
                 icon: invIcon,
                 status,
-                total_quantity: totalQty,
-                daily_consumption: alertThreshold,
+                total_quantity: totalGrams,
+                daily_consumption: thresholdGrams,
+                unit: finalUnit || 'g',
+                unit_ratio: ratio,
                 updated_by: user.id,
                 updated_at: new Date().toISOString(),
             })
@@ -390,34 +413,118 @@ export function QuickActionModals() {
                         </div>
                     </div>
 
+                    <div className="form-group">
+                        <label className="form-label">{l('计量单位', 'Unit')}</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                            {[
+                                { label: l('克 (g)', 'Grams (g)'), unit: 'g', ratio: 1 },
+                                { label: l('罐 (can)', 'Can'), unit: '罐', ratio: 85 },
+                                { label: l('袋 (bag)', 'Bag'), unit: '袋', ratio: 2000 },
+                                { label: l('支 (stick)', 'Stick'), unit: '支', ratio: 15 },
+                                { label: l('包 (pack)', 'Pack'), unit: '包', ratio: 500 },
+                            ].map((preset) => (
+                                <button
+                                    key={preset.unit}
+                                    type="button"
+                                    className={`tag-btn ${!isCustomInvUnit && invUnit === preset.unit ? 'tag-btn-active' : ''}`}
+                                    onClick={() => {
+                                        setIsCustomInvUnit(false)
+                                        setInvUnit(preset.unit)
+                                        setInvUnitRatio(String(preset.ratio))
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                            <button
+                                type="button"
+                                className={`tag-btn ${isCustomInvUnit ? 'tag-btn-active' : ''}`}
+                                onClick={() => {
+                                    setIsCustomInvUnit(true)
+                                    if (['g', '罐', '袋', '支', '包'].includes(invUnit)) {
+                                        setInvUnit('')
+                                        setInvUnitRatio('1')
+                                    }
+                                }}
+                            >
+                                {l('其他 (自定义)', 'Other (Custom)')}
+                            </button>
+                        </div>
+                    </div>
+
+                    {isCustomInvUnit && (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="qa-inv-custom-unit">
+                                {l('自定义单位名称', 'Custom unit name')}
+                            </label>
+                            <input
+                                id="qa-inv-custom-unit"
+                                type="text"
+                                className="form-input"
+                                placeholder={l('如：盒、条、颗、瓶、箱', 'e.g. box, bottle, bar, can')}
+                                value={invUnit}
+                                onChange={(e) => setInvUnit(e.target.value)}
+                                maxLength={10}
+                            />
+                        </div>
+                    )}
+
+                    {invUnit !== 'g' && (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="qa-inv-unit-ratio">
+                                {l(`每 1 ${invUnit.trim() || l('单位', 'unit')} 等于多少克 (g)`, `Grams (g) per 1 ${invUnit.trim() || l('unit', 'unit')}`)}
+                            </label>
+                            <input
+                                id="qa-inv-unit-ratio"
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                className="form-input"
+                                placeholder={l('如：2000（若不折算克重填 1）', 'e.g. 2000 (enter 1 if not converting to grams)')}
+                                value={invUnitRatio}
+                                onChange={(e) => setInvUnitRatio(e.target.value)}
+                            />
+                        </div>
+                    )}
+
                     <div className="form-row">
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="qa-inv-total-qty">{l('总量', 'Total quantity')}</label>
+                            <label className="form-label" htmlFor="qa-inv-total-qty">
+                                {l('总量', 'Total quantity')} ({invUnit === 'g' ? 'g' : (invUnit.trim() || l('单位', 'unit'))})
+                            </label>
                             <input
                                 id="qa-inv-total-qty"
                                 type="number"
                                 min="0"
-                                step="0.1"
+                                step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={l('如：5000（克）', 'e.g. 5000 (grams)')}
+                                placeholder={invUnit === 'g' ? l('如：5000（克）', 'e.g. 5000 (grams)') : l(`如：2（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 2 (${invUnit.trim() || l('unit', 'unit')})`)}
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
                         </div>
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="qa-inv-alert">{l('提醒线', 'Alert threshold')}</label>
+                            <label className="form-label" htmlFor="qa-inv-alert">
+                                {l('提醒线', 'Alert threshold')} ({invUnit === 'g' ? 'g' : (invUnit.trim() || l('单位', 'unit'))})
+                            </label>
                             <input
                                 id="qa-inv-alert"
                                 type="number"
                                 min="0"
-                                step="0.1"
+                                step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={l('如：500', 'e.g. 500')}
+                                placeholder={invUnit === 'g' ? l('如：500', 'e.g. 500') : l(`如：0.5（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 0.5 (${invUnit.trim() || l('unit', 'unit')})`)}
                                 value={invAlertThreshold}
                                 onChange={(e) => setInvAlertThreshold(e.target.value)}
                             />
                         </div>
                     </div>
+
+                    {invTotalQty && parseFloat(invTotalQty) > 0 && invUnit !== 'g' && parseFloat(invUnitRatio) > 0 && (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--color-primary)', marginTop: '-8px', marginBottom: '8px' }}>
+                            ℹ️ {l(`折合实际总库存：${unitToGrams(parseFloat(invTotalQty), parseFloat(invUnitRatio))} 克 (g)`, `Equivalent total stock: ${unitToGrams(parseFloat(invTotalQty), parseFloat(invUnitRatio))} g`)}
+                        </div>
+                    )}
 
                     {invTotalQty && invAlertThreshold && parseFloat(invAlertThreshold) > 0 && (
                         <div className="inv-preview" style={{ marginBottom: '12px', padding: '8px 12px', borderRadius: '8px', background: 'var(--glass-bg)' }}>

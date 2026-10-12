@@ -201,7 +201,7 @@ export function FeedLogForm({
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                         {inventory.map((item) => {
                             const isSelected = selectedItem?.id === item.id
-                            const displayStock = formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)
+                            const displayStock = formatInventoryDisplay(item.total_quantity ?? null, item.unit, item.unit_ratio ?? 1)
                             return (
                                 <button
                                     key={item.id}
@@ -213,9 +213,9 @@ export function FeedLogForm({
                                         gap: '6px',
                                         padding: '8px 12px',
                                         borderRadius: '10px',
-                                        border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--border-color)',
-                                        background: isSelected ? 'rgba(var(--color-primary-rgb, 99, 102, 241), 0.12)' : 'var(--card-bg, #ffffff)',
-                                        color: isSelected ? 'var(--color-primary)' : 'inherit',
+                                        border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
+                                        background: isSelected ? 'var(--color-primary-a12)' : 'var(--color-bg-card)',
+                                        color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
                                         cursor: 'pointer',
                                         fontWeight: isSelected ? 600 : 400,
                                         fontSize: '0.85rem',
@@ -248,9 +248,9 @@ export function FeedLogForm({
                                     flex: 1,
                                     padding: '6px 10px',
                                     borderRadius: '8px',
-                                    border: '1px solid var(--border-color)',
-                                    background: inputMode === 'unit' ? 'var(--color-primary)' : 'transparent',
-                                    color: inputMode === 'unit' ? '#fff' : 'inherit',
+                                    border: '1px solid var(--color-border)',
+                                    background: inputMode === 'unit' ? 'var(--color-primary)' : 'var(--color-bg-card)',
+                                    color: inputMode === 'unit' ? '#fff' : 'var(--color-text)',
                                     fontSize: '0.82rem',
                                     cursor: 'pointer',
                                 }}
@@ -264,9 +264,9 @@ export function FeedLogForm({
                                     flex: 1,
                                     padding: '6px 10px',
                                     borderRadius: '8px',
-                                    border: '1px solid var(--border-color)',
-                                    background: inputMode === 'grams' ? 'var(--color-primary)' : 'transparent',
-                                    color: inputMode === 'grams' ? '#fff' : 'inherit',
+                                    border: '1px solid var(--color-border)',
+                                    background: inputMode === 'grams' ? 'var(--color-primary)' : 'var(--color-bg-card)',
+                                    color: inputMode === 'grams' ? '#fff' : 'var(--color-text)',
                                     fontSize: '0.82rem',
                                     cursor: 'pointer',
                                 }}

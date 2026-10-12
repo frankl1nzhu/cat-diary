@@ -1,8 +1,11 @@
+import type { CSSProperties } from 'react'
+
 interface SkeletonProps {
     width?: string
     height?: string
     borderRadius?: string
     className?: string
+    style?: CSSProperties
 }
 
 export function Skeleton({
@@ -10,6 +13,7 @@ export function Skeleton({
     height = '20px',
     borderRadius,
     className = '',
+    style,
 }: SkeletonProps) {
     return (
         <div
@@ -20,6 +24,7 @@ export function Skeleton({
                 width,
                 height,
                 borderRadius: borderRadius || 'var(--radius-sm)',
+                ...style,
             }}
         />
     )

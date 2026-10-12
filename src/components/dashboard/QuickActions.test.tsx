@@ -31,9 +31,11 @@ vi.mock('../../lib/supabase', () => ({
     },
 }))
 
+import type { Cat } from '../../types/database.types'
+
 describe('QuickActions', () => {
     const baseProps = {
-        cat: { id: 'cat-1', name: '咪咪' },
+        cat: { id: 'cat-1', name: '咪咪' } as unknown as Cat,
         todayFeeds: [],
         inventory: [],
         lowInventory: [],

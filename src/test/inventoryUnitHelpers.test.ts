@@ -40,6 +40,13 @@ describe('inventoryUnitHelpers', () => {
             expect(formatInventoryDisplay(4000, '袋', 2000)).toBe('4000g (2袋)')
             expect(formatInventoryDisplay(85, '罐', 85)).toBe('85g (1罐)')
             expect(formatInventoryDisplay(42.5, '罐', 85)).toBe('42.5g (0.5罐)')
+            expect(formatInventoryDisplay(1000, '盒', 500)).toBe('1000g (2盒)')
+        })
+
+        it('returns unit count directly when unit is not g and unitRatio is 1', () => {
+            expect(formatInventoryDisplay(3, '盒', 1)).toBe('3盒')
+            expect(formatInventoryDisplay(10, '条', 1)).toBe('10条')
+            expect(formatInventoryDisplay(1, '瓶', 1)).toBe('1瓶')
         })
 
         it('handles null gracefully', () => {
