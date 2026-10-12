@@ -125,6 +125,7 @@ export type FeedStatus = {
     fed_by: string | null
     fed_at: string | null
     meal_type: string
+    inventory_id?: string | null
     updated_at: string
 }
 
@@ -136,6 +137,8 @@ export type InventoryItem = {
     status: InventoryStatus
     total_quantity: number | null
     daily_consumption: number | null
+    unit?: string
+    unit_ratio?: number
     updated_by: string | null
     updated_at: string
 }
@@ -222,6 +225,32 @@ export function computeInventoryStatus(item: InventoryItem): InventoryStatus {
 export function roundQuantity(qty: number, decimals = 1): number {
     const factor = Math.pow(10, decimals)
     return Math.round(qty * factor) / factor
+}
+
+/** Convert an amount in item's unit to base grams (e.g. 0.5 can * 85g = 42.5g). */
+export function unitToGrams(amount: number, unitRatio: number): number {
+    const ratio = unitRatio > 0 ? unitRatio : 1
+    return roundQuantity(amount * ratio, 1)
+}
+
+/** Convert grams to item's unit count (e.g. 4000g / 2000 = 2 bags). */
+export function gramsToUnit(grams: number, unitRatio: number): number {
+    const ratio = unitRatio > 0 ? unitRatio : 1
+    return roundQuantity(grams / ratio, 2)
+}
+
+/** Format inventory quantity display string (e.g. '4000g (2袋)' or '500g'). */
+export function formatInventoryDisplay(
+    totalGrams: number | null,
+    unit = 'g',
+    unitRatio = 1,
+): string {
+    if (totalGrams == null) return '--'
+    if (!unit || unit === 'g' || unitRatio <= 1) {
+        return `${roundQuantity(totalGrams, 1)}g`
+    }
+    const unitCount = gramsToUnit(totalGrams, unitRatio)
+    return `${roundQuantity(totalGrams, 1)}g (${unitCount}${unit})`
 }
 
 /** Compute integer hours to expiry (negative means already expired). */
