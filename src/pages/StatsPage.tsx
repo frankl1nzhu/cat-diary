@@ -23,7 +23,7 @@ import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
-import { computeInventoryExpiryHoursLeft, computeInventoryStatus, roundQuantity } from '../types/database.types'
+import { computeInventoryExpiryHoursLeft, computeInventoryStatus, roundQuantity, formatInventoryDisplay, gramsToUnit, unitToGrams } from '../types/database.types'
 import './StatsPage.css'
 
 type ChartType = 'weight' | 'poop' | 'miss' | 'feed' | 'inventoryFeed'
@@ -155,6 +155,8 @@ export function StatsPage() {
     const [inventoryModalOpen, setInventoryModalOpen] = useState(false)
     const [invItemName, setInvItemName] = useState('')
     const [invIcon, setInvIcon] = useState<string | null>(null)
+    const [invUnit, setInvUnit] = useState('g')
+    const [invUnitRatio, setInvUnitRatio] = useState('1')
     const [invTotalQty, setInvTotalQty] = useState('')
     const [invAlertThreshold, setInvAlertThreshold] = useState('')
     const [editingInvId, setEditingInvId] = useState<string | null>(null)
@@ -601,16 +603,31 @@ export function StatsPage() {
     // ─── Save/update inventory ────────────────────
     const handleInventorySave = async () => {
         if (!catId || !user || !invItemName.trim()) return
-        const totalQty = invTotalQty ? parseFloat(invTotalQty) : null
-        const alertThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
-        // Compute status from quantity vs threshold
-        const fakeItem = { total_quantity: totalQty, daily_consumption: alertThreshold, status: 'plenty' as InventoryStatus } as InventoryItem
+        const ratio = parseFloat(invUnitRatio) > 0 ? parseFloat(invUnitRatio) : 1
+        const rawTotal = invTotalQty ? parseFloat(invTotalQty) : null
+        const rawThreshold = invAlertThreshold ? parseFloat(invAlertThreshold) : null
+
+        // Convert custom unit quantities to base grams for persistent database storage
+        const totalGrams = rawTotal != null ? (invUnit !== 'g' && ratio > 1 ? unitToGrams(rawTotal, ratio) : rawTotal) : null
+        const thresholdGrams = rawThreshold != null ? (invUnit !== 'g' && ratio > 1 ? unitToGrams(rawThreshold, ratio) : rawThreshold) : null
+
+        // Compute status from grams vs threshold grams
+        const fakeItem = { total_quantity: totalGrams, daily_consumption: thresholdGrams, status: 'plenty' as InventoryStatus } as InventoryItem
         const status = computeInventoryStatus(fakeItem)
         setInvSaving(true)
         try {
             if (editingInvId) {
                 await supabase.from('inventory')
-                    .update({ item_name: invItemName.trim(), icon: invIcon, status, total_quantity: totalQty, daily_consumption: alertThreshold, updated_by: user.id })
+                    .update({
+                        item_name: invItemName.trim(),
+                        icon: invIcon,
+                        status,
+                        total_quantity: totalGrams,
+                        daily_consumption: thresholdGrams,
+                        unit: invUnit,
+                        unit_ratio: ratio,
+                        updated_by: user.id,
+                    })
                     .eq('id', editingInvId)
             } else {
                 await supabase.from('inventory').insert({
@@ -618,8 +635,10 @@ export function StatsPage() {
                     item_name: invItemName.trim(),
                     icon: invIcon,
                     status,
-                    total_quantity: totalQty,
-                    daily_consumption: alertThreshold,
+                    total_quantity: totalGrams,
+                    daily_consumption: thresholdGrams,
+                    unit: invUnit,
+                    unit_ratio: ratio,
                     updated_by: user.id,
                     updated_at: new Date().toISOString(),
                 })
@@ -639,6 +658,8 @@ export function StatsPage() {
     const resetInvForm = () => {
         setInvItemName('')
         setInvIcon(null)
+        setInvUnit('g')
+        setInvUnitRatio('1')
         setInvTotalQty('')
         setInvAlertThreshold('')
         setEditingInvId(null)
@@ -711,8 +732,17 @@ export function StatsPage() {
         setEditingInvId(item.id)
         setInvItemName(item.item_name)
         setInvIcon(item.icon || null)
-        setInvTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
-        setInvAlertThreshold(item.daily_consumption != null ? String(item.daily_consumption) : '')
+        const unit = item.unit || 'g'
+        const ratio = item.unit_ratio ?? 1
+        setInvUnit(unit)
+        setInvUnitRatio(String(ratio))
+        if (unit !== 'g' && ratio > 1) {
+            setInvTotalQty(item.total_quantity != null ? String(gramsToUnit(item.total_quantity, ratio)) : '')
+            setInvAlertThreshold(item.daily_consumption != null ? String(gramsToUnit(item.daily_consumption, ratio)) : '')
+        } else {
+            setInvTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
+            setInvAlertThreshold(item.daily_consumption != null ? String(item.daily_consumption) : '')
+        }
         setInventoryModalOpen(true)
     }
 
@@ -1274,7 +1304,9 @@ export function StatsPage() {
                                             <div className="inventory-item-info">
                                                 <span className="text-sm">{item.icon ? `${item.icon} ` : ''}{item.item_name}</span>
                                                 {item.total_quantity != null && (
-                                                    <span className="text-xs text-muted">{l(`库存：${item.total_quantity}`, `Stock: ${item.total_quantity}`)}</span>
+                                                    <span className="text-xs text-muted">
+                                                        {l(`库存：${formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)}`, `Stock: ${formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)}`)}
+                                                    </span>
                                                 )}
                                             </div>
                                             <StatusBadge status={derivedStatus} size="sm" />
@@ -1516,34 +1548,87 @@ export function StatsPage() {
                         </div>
                     </div>
 
+                    <div className="form-group">
+                        <label className="form-label">{l('计量单位', 'Unit')}</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                            {[
+                                { label: l('克 (g)', 'Grams (g)'), unit: 'g', ratio: 1 },
+                                { label: l('罐 (can)', 'Can'), unit: '罐', ratio: 85 },
+                                { label: l('袋 (bag)', 'Bag'), unit: '袋', ratio: 2000 },
+                                { label: l('支 (stick)', 'Stick'), unit: '支', ratio: 15 },
+                                { label: l('包 (pack)', 'Pack'), unit: '包', ratio: 500 },
+                            ].map((preset) => (
+                                <button
+                                    key={preset.unit}
+                                    type="button"
+                                    className={`tag-btn ${invUnit === preset.unit ? 'tag-btn-active' : ''}`}
+                                    onClick={() => {
+                                        setInvUnit(preset.unit)
+                                        setInvUnitRatio(String(preset.ratio))
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {invUnit !== 'g' && (
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="inv-unit-ratio">
+                                {l(`每 1 ${invUnit} 等于多少克 (g)`, `Grams (g) per 1 ${invUnit}`)}
+                            </label>
+                            <input
+                                id="inv-unit-ratio"
+                                type="number"
+                                min="0.1"
+                                step="0.1"
+                                className="form-input"
+                                placeholder={l('如：2000', 'e.g. 2000')}
+                                value={invUnitRatio}
+                                onChange={(e) => setInvUnitRatio(e.target.value)}
+                            />
+                        </div>
+                    )}
+
                     <div className="form-row">
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="inv-total-qty">{l('总量', 'Total quantity')}</label>
+                            <label className="form-label" htmlFor="inv-total-qty">
+                                {l('总量', 'Total quantity')} ({invUnit})
+                            </label>
                             <input
                                 id="inv-total-qty"
                                 type="number"
                                 min="0"
-                                step="0.1"
+                                step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={l('如：5000（克）', 'e.g. 5000 (grams)')}
+                                placeholder={invUnit === 'g' ? l('如：5000（克）', 'e.g. 5000 (g)') : l(`如：2（${invUnit}）`, `e.g. 2 (${invUnit})`)}
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
                         </div>
                         <div className="form-group flex-1">
-                            <label className="form-label" htmlFor="inv-alert-threshold">{l('提醒线', 'Alert threshold')}</label>
+                            <label className="form-label" htmlFor="inv-alert-threshold">
+                                {l('提醒线', 'Alert threshold')} ({invUnit})
+                            </label>
                             <input
                                 id="inv-alert-threshold"
                                 type="number"
                                 min="0"
-                                step="0.1"
+                                step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={l('如：500', 'e.g. 500')}
+                                placeholder={invUnit === 'g' ? l('如：500', 'e.g. 500') : l(`如：0.5（${invUnit}）`, `e.g. 0.5 (${invUnit})`)}
                                 value={invAlertThreshold}
                                 onChange={(e) => setInvAlertThreshold(e.target.value)}
                             />
                         </div>
                     </div>
+
+                    {invTotalQty && parseFloat(invTotalQty) > 0 && invUnit !== 'g' && parseFloat(invUnitRatio) > 0 && (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--color-primary)', marginTop: '-8px', marginBottom: '8px' }}>
+                            ℹ️ {l(`折合实际总库存：${unitToGrams(parseFloat(invTotalQty), parseFloat(invUnitRatio))} 克 (g)`, `Equivalent total stock: ${unitToGrams(parseFloat(invTotalQty), parseFloat(invUnitRatio))} g`)}
+                        </div>
+                    )}
 
                     {invTotalQty && invAlertThreshold && parseFloat(invAlertThreshold) > 0 && (
                         <div className="inv-preview" style={{ marginBottom: '12px', padding: '8px 12px', borderRadius: '8px', background: 'var(--glass-bg)' }}>

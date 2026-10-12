@@ -3,7 +3,7 @@ import { Card } from '../ui/Card'
 import { Modal } from '../ui/Modal'
 import { Button } from '../ui/Button'
 import type { InventoryItem } from '../../types/database.types'
-import { computeInventoryStatus } from '../../types/database.types'
+import { computeInventoryStatus, formatInventoryDisplay, gramsToUnit, unitToGrams } from '../../types/database.types'
 import { useI18n } from '../../lib/i18n'
 
 interface InventoryAlertsProps {
@@ -63,21 +63,33 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
 
     const openReplenishModal = (item: InventoryItem) => {
         setSelectedItem(item)
-        setNewTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
-        setNewAlertThreshold(item.daily_consumption != null ? String(item.daily_consumption) : '')
+        const unit = item.unit || 'g'
+        const ratio = item.unit_ratio ?? 1
+        if (unit !== 'g' && ratio > 1) {
+            setNewTotalQty(item.total_quantity != null ? String(gramsToUnit(item.total_quantity, ratio)) : '')
+            setNewAlertThreshold(item.daily_consumption != null ? String(gramsToUnit(item.daily_consumption, ratio)) : '')
+        } else {
+            setNewTotalQty(item.total_quantity != null ? String(item.total_quantity) : '')
+            setNewAlertThreshold(item.daily_consumption != null ? String(item.daily_consumption) : '')
+        }
         setReplenishModalOpen(true)
     }
 
     const handleReplenish = async () => {
         if (!selectedItem || saving) return
-        const totalQty = newTotalQty ? parseFloat(newTotalQty) : null
-        const threshold = newAlertThreshold ? parseFloat(newAlertThreshold) : null
-        if (totalQty == null || totalQty < 0) return
-        if (threshold == null || threshold < 0) return
+        const rawTotal = newTotalQty ? parseFloat(newTotalQty) : null
+        const rawThreshold = newAlertThreshold ? parseFloat(newAlertThreshold) : null
+        if (rawTotal == null || rawTotal < 0) return
+        if (rawThreshold == null || rawThreshold < 0) return
+
+        const unit = selectedItem.unit || 'g'
+        const ratio = selectedItem.unit_ratio ?? 1
+        const totalGrams = unit !== 'g' && ratio > 1 ? unitToGrams(rawTotal, ratio) : rawTotal
+        const thresholdGrams = unit !== 'g' && ratio > 1 ? unitToGrams(rawThreshold, ratio) : rawThreshold
 
         setSaving(true)
         try {
-            await onReplenish(selectedItem.id, totalQty, threshold)
+            await onReplenish(selectedItem.id, totalGrams, thresholdGrams)
             setReplenishModalOpen(false)
             setSelectedItem(null)
         } finally {
@@ -107,7 +119,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                                         <span className="text-sm font-semibold">{item.item_name}</span>
                                         <span className="text-xs text-muted">
                                             {item.total_quantity != null
-                                                ? text.currentQty(item.total_quantity)
+                                                ? formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)
                                                 : status === 'urgent' ? text.urgent : text.low}
                                         </span>
                                     </div>
@@ -139,7 +151,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                 <div className="replenish-form">
                     <div className="form-section">
                         <label className="form-label" htmlFor="replenish-total-qty">
-                            {text.totalQty}
+                            {text.totalQty} ({selectedItem?.unit || 'g'})
                         </label>
                         <input
                             id="replenish-total-qty"
@@ -147,16 +159,23 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             type="number"
                             inputMode="decimal"
                             min="0"
-                            step="0.1"
+                            step={selectedItem?.unit === 'g' || !selectedItem?.unit ? '1' : '0.1'}
                             placeholder={text.totalQtyPlaceholder}
                             value={newTotalQty}
                             onChange={(e) => setNewTotalQty(e.target.value)}
                         />
                         <span className="text-xs text-muted">{text.totalQtyHint}</span>
                     </div>
+
+                    {selectedItem?.unit && selectedItem.unit !== 'g' && (selectedItem.unit_ratio ?? 1) > 1 && newTotalQty && parseFloat(newTotalQty) > 0 && (
+                        <div style={{ fontSize: '0.82rem', color: 'var(--color-primary)', marginTop: '-8px', marginBottom: '8px' }}>
+                            ℹ️ 折合实际库存：{unitToGrams(parseFloat(newTotalQty), selectedItem.unit_ratio!)}g
+                        </div>
+                    )}
+
                     <div className="form-section">
                         <label className="form-label" htmlFor="replenish-alert-threshold">
-                            {text.alertThreshold}
+                            {text.alertThreshold} ({selectedItem?.unit || 'g'})
                         </label>
                         <input
                             id="replenish-alert-threshold"
@@ -164,7 +183,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             type="number"
                             inputMode="decimal"
                             min="0"
-                            step="0.1"
+                            step={selectedItem?.unit === 'g' || !selectedItem?.unit ? '1' : '0.1'}
                             placeholder={text.alertThresholdPlaceholder}
                             value={newAlertThreshold}
                             onChange={(e) => setNewAlertThreshold(e.target.value)}
