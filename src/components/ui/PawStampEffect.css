@@ -1,0 +1,36 @@
+.paw-stamp-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.paw-stamp-badge {
+    color: var(--color-primary);
+    filter: drop-shadow(0 4px 16px var(--color-primary-a40));
+    animation: paw-stamp-bounce 650ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes paw-stamp-bounce {
+    0% {
+        opacity: 0;
+        transform: scale(0.2) rotate(-15deg);
+    }
+    40% {
+        opacity: 0.95;
+        transform: scale(1.25) rotate(0deg);
+    }
+    70% {
+        opacity: 0.9;
+        transform: scale(1) rotate(5deg);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.9) translateY(-16px);
+    }
+}

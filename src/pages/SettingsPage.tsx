@@ -13,6 +13,7 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
 import { getStoredAppearance, applyAppearanceMode, type AppearanceMode } from '../lib/appearance'
+import { isSoundEnabled, setSoundEnabled, playMeowSound } from '../lib/sound'
 import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
@@ -72,6 +73,15 @@ export function SettingsPage() {
         setAppearanceMode(mode)
         applyAppearanceMode(mode)
         pushToast('success', l('外观模式已切换', 'Appearance mode switched'))
+    }
+
+    const [soundEnabled, setSoundEnabledState] = useState(() => isSoundEnabled())
+
+    const onToggleSound = (enabled: boolean) => {
+        setSoundEnabled(enabled)
+        setSoundEnabledState(enabled)
+        if (enabled) playMeowSound()
+        pushToast('success', enabled ? l('已开启打卡猫叫音效 🐾', 'Meow sound enabled 🐾') : l('已关闭打卡音效', 'Sound muted'))
     }
     const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
@@ -1366,6 +1376,25 @@ export function SettingsPage() {
                             </Card>
                         </div>
                     )}
+
+                    <div className="p-4">
+                        <Card variant="default" padding="md">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                <div>
+                                    <h2 className="text-lg font-semibold">{l('🔊 打卡猫叫音效', '🔊 Meow Sound on Log')}</h2>
+                                    <p className="text-secondary text-sm" style={{ marginTop: '4px' }}>
+                                        {l('完成喂食、铲屎等打卡时播放轻柔喵呜短音效', 'Play a gentle meow sound when completing feeding, scoop logs, etc.')}
+                                    </p>
+                                </div>
+                                <Button
+                                    variant={soundEnabled ? 'primary' : 'secondary'}
+                                    onClick={() => onToggleSound(!soundEnabled)}
+                                >
+                                    {soundEnabled ? l('开启', 'On') : l('静音', 'Muted')}
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
 
                     <div className="p-4">
                         <Card variant="default" padding="md">

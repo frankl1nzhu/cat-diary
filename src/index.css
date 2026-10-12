@@ -224,6 +224,16 @@ button {
   border: none;
   background: none;
   color: inherit;
+  transition: transform 80ms ease, opacity var(--transition-fast);
+}
+
+button:active:not(:disabled),
+.btn:active:not(:disabled),
+.timeline-chip:active,
+.quick-scoop-btn:active:not(:disabled),
+.tag-btn:active,
+.theme-option:active {
+  transform: scale(0.97);
 }
 
 input,
