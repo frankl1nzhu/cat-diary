@@ -24,6 +24,7 @@ import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import type { WeightRecord, HealthRecord, InventoryItem, InventoryStatus, PoopLog, MissLog, FeedStatus, DiaryEntry, MoodLog, InventoryExpiryReminder } from '../types/database.types'
 import { computeInventoryExpiryHoursLeft, computeInventoryStatus, roundQuantity, formatInventoryDisplay, gramsToUnit, unitToGrams } from '../types/database.types'
+import { SnoozedAlertsDropdown } from '../components/stats/SnoozedAlertsDropdown'
 import './StatsPage.css'
 
 type ChartType = 'weight' | 'poop' | 'miss' | 'feed' | 'inventoryFeed'
@@ -1033,6 +1034,11 @@ export function StatsPage() {
             <div className="page-header p-4">
                 <h1 className="text-2xl font-bold">{text.title}</h1>
                 <p className="text-secondary text-sm">{text.subtitle}</p>
+            </div>
+
+            {/* ── Snoozed Alerts Dropdown ── */}
+            <div className="px-4">
+                <SnoozedAlertsDropdown catId={catId} online={online} onUnsnoozeSuccess={loadData} />
             </div>
 
             {/* ── Unified Chart ── */}
