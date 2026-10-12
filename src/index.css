@@ -115,14 +115,14 @@
 /* ─── Light mode override ────────────────────────── */
 
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme-mode="dark"]) {
     --color-bg: #faf7ff;
     --color-bg-elevated: #ffffff;
     --color-bg-card: #ffffff;
     --color-bg-input: #f3eff8;
     --color-text: #1a1625;
-    --color-text-secondary: #5a4f6e;
-    --color-text-muted: #9990ab;
+    --color-text-secondary: #4a3e5e;
+    --color-text-muted: #736787;
     --color-border: #e4dff0;
     --color-on-primary: #ffffff;
     --glass-bg: rgba(255, 255, 255, 0.7);
@@ -135,6 +135,48 @@
     --glass-bg-heavy: rgba(255, 255, 255, 0.82);
     --glass-border-light: rgba(0, 0, 0, 0.08);
   }
+}
+
+:root[data-theme-mode="light"] {
+  --color-bg: #faf7ff;
+  --color-bg-elevated: #ffffff;
+  --color-bg-card: #ffffff;
+  --color-bg-input: #f3eff8;
+  --color-text: #1a1625;
+  --color-text-secondary: #4a3e5e;
+  --color-text-muted: #736787;
+  --color-border: #e4dff0;
+  --color-on-primary: #ffffff;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px var(--color-primary-a20);
+  --shadow-glow-lg: 0 0 40px var(--color-primary-a15), 0 0 80px var(--color-primary-a8);
+  --glass-bg-heavy: rgba(255, 255, 255, 0.82);
+  --glass-border-light: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme-mode="dark"] {
+  --color-bg: #1a1625;
+  --color-bg-elevated: #241f33;
+  --color-bg-card: #2d2640;
+  --color-bg-input: #352e4a;
+  --color-text: #f0edf5;
+  --color-text-secondary: #a89bbd;
+  --color-text-muted: #857a9c;
+  --color-border: #3d3556;
+  --color-on-primary: #1a1625;
+  --glass-bg: rgba(45, 38, 64, 0.65);
+  --glass-bg-heavy: rgba(45, 38, 64, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-light: rgba(255, 255, 255, 0.12);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 0 20px var(--color-primary-a30);
+  --shadow-glow-lg: 0 0 40px var(--color-primary-a25), 0 0 80px var(--color-primary-a10);
 }
 
 /* ─── Global Reset ───────────────────────────────── */

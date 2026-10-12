@@ -12,6 +12,7 @@ import { reloadCatData } from '../stores/useCatStore'
 import { getErrorMessage } from '../lib/errorMessage'
 import { compressImage } from '../lib/imageCompress'
 import { applyThemePreset, getStoredTheme, type ThemePreset } from '../lib/theme'
+import { getStoredAppearance, applyAppearanceMode, type AppearanceMode } from '../lib/appearance'
 import { enablePushNotifications, getVapidPublicKey, isStandaloneDisplayMode } from '../lib/pushNotifications'
 import { savePushSubscription, sendTestPush } from '../lib/pushServer'
 import { useFamily } from '../lib/useFamily'
@@ -65,6 +66,13 @@ export function SettingsPage() {
     const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [themePreset, setThemePreset] = useState<ThemePreset>(getStoredTheme())
+    const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>(getStoredAppearance())
+
+    const onAppearanceChange = (mode: AppearanceMode) => {
+        setAppearanceMode(mode)
+        applyAppearanceMode(mode)
+        pushToast('success', l('外观模式已切换', 'Appearance mode switched'))
+    }
     const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false)
     const [deleteCatConfirmOpen, setDeleteCatConfirmOpen] = useState(false)
     const [deleteStep, setDeleteStep] = useState(1)
@@ -1358,6 +1366,28 @@ export function SettingsPage() {
                             </Card>
                         </div>
                     )}
+
+                    <div className="p-4">
+                        <Card variant="default" padding="md">
+                            <h2 className="text-lg font-semibold mb-3">{l('🌓 外观模式', '🌓 Appearance')}</h2>
+                            <div className="theme-grid">
+                                {([
+                                    { value: 'system' as const, label: l('跟随系统', 'System') },
+                                    { value: 'light' as const, label: l('明亮模式', 'Light') },
+                                    { value: 'dark' as const, label: l('暗黑模式', 'Dark') },
+                                ]).map((item) => (
+                                    <button
+                                        key={item.value}
+                                        type="button"
+                                        className={`theme-option ${appearanceMode === item.value ? 'theme-option-active' : ''}`}
+                                        onClick={() => onAppearanceChange(item.value)}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
 
                     <div className="p-4">
                         <Card variant="default" padding="md">
