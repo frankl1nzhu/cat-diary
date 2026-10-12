@@ -10,9 +10,10 @@ interface InventoryAlertsProps {
     items: InventoryItem[]
     online: boolean
     onReplenish: (id: string, totalQuantity: number, alertThreshold: number) => Promise<void>
+    onSnooze?: (item: InventoryItem) => void
 }
 
-export const InventoryAlerts = memo(function InventoryAlerts({ items, online, onReplenish }: InventoryAlertsProps) {
+export const InventoryAlerts = memo(function InventoryAlerts({ items, online, onReplenish, onSnooze }: InventoryAlertsProps) {
     const { language } = useI18n()
     const [replenishModalOpen, setReplenishModalOpen] = useState(false)
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null)
@@ -28,6 +29,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
             urgentBadge: '🔴 紧急',
             lowBadge: '🟡 偏低',
             replenish: '补充',
+            snooze: '延期',
             replenishTitle: (name: string) => `🛒 补充 ${name}`,
             defaultItem: '物资',
             totalQty: '总量',
@@ -47,6 +49,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
             urgentBadge: '🔴 Urgent',
             lowBadge: '🟡 Low',
             replenish: 'Refill',
+            snooze: 'Snooze',
             replenishTitle: (name: string) => `🛒 Refill ${name}`,
             defaultItem: 'item',
             totalQty: 'Total quantity',
@@ -122,20 +125,38 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                                                 ? formatInventoryDisplay(item.total_quantity, item.unit, item.unit_ratio ?? 1)
                                                 : status === 'urgent' ? text.urgent : text.low}
                                         </span>
+                                        {(item as any).snoozeInfo && (
+                                            <span className="text-xs text-danger font-medium">
+                                                {(item as any).snoozeInfo.displayLabel}
+                                            </span>
+                                        )}
                                     </div>
                                     <span
                                         className={`inventory-alert-status ${isUrgent ? 'text-danger' : 'text-warning'}`}
                                     >
                                         {isUrgent ? text.urgentBadge : text.lowBadge}
                                     </span>
-                                    <button
-                                        type="button"
-                                        className="inventory-replenish-btn"
-                                        onClick={() => openReplenishModal(item)}
-                                        disabled={!online}
-                                    >
-                                        {text.replenish}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                        {onSnooze && (
+                                            <button
+                                                type="button"
+                                                className="inventory-replenish-btn"
+                                                style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                                                onClick={() => onSnooze(item)}
+                                                disabled={!online}
+                                            >
+                                                ⏰ {text.snooze}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="inventory-replenish-btn"
+                                            onClick={() => openReplenishModal(item)}
+                                            disabled={!online}
+                                        >
+                                            {text.replenish}
+                                        </button>
+                                    </div>
                                 </div>
                             )
                         })}

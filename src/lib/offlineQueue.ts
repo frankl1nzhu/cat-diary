@@ -12,7 +12,7 @@ const DB_VERSION = 1
 /** Allowed tables for offline queue replay to prevent IndexedDB tampering. */
 const ALLOWED_TABLES = new Set([
     'diary_entries', 'mood_logs', 'poop_logs', 'weight_records',
-    'health_records', 'feed_status', 'inventory',
+    'health_records', 'feed_status', 'inventory', 'inventory_expiry_reminders',
 ])
 
 export interface OfflineOp {

@@ -16,6 +16,7 @@ import { format } from 'date-fns'
 import { useDashboardData } from '../hooks/useDashboardData'
 import { usePullToRefresh } from '../hooks/usePullToRefresh'
 import { CatProfileCard, WeeklySummaryCard, MoodCalendarSection, ExpiryReminders, HealthNotifications, QuickActions, InventoryAlerts } from '../components/dashboard'
+import { SnoozeModal } from '../components/ui/SnoozeModal'
 import { STORAGE_KEYS, getDiaryTagLabel } from '../lib/constants'
 import { useI18n } from '../lib/i18n'
 import './DashboardPage.css'
@@ -70,6 +71,10 @@ export function DashboardPage() {
                     enterNameFirst: '请先填写猫咪名字',
                     welcomeJoined: '欢迎加入喵记！🐱',
                     createProfileFailed: '创建猫咪档案失败，请稍后重试',
+                    snoozeTitle: (name: string) => `延期「${name}」提醒`,
+                    snoozeSuccess: '已设置延期 ⏰',
+                    snoozeCleared: '已清除延期，恢复提醒 ✅',
+                    snoozeFailed: '延期操作失败，请稍后重试',
                 }
                 : {
                     refreshing: 'Refreshing…',
@@ -110,6 +115,10 @@ export function DashboardPage() {
                     enterNameFirst: 'Please enter cat name first',
                     welcomeJoined: 'Welcome to Cat Diary! 🐱',
                     createProfileFailed: 'Failed to create cat profile. Please try again later.',
+                    snoozeTitle: (name: string) => `Snooze "${name}" Alert`,
+                    snoozeSuccess: 'Alert snoozed ⏰',
+                    snoozeCleared: 'Snooze cleared, alert restored ✅',
+                    snoozeFailed: 'Failed to update snooze, please try again',
                 },
         [language],
     )
@@ -143,6 +152,43 @@ export function DashboardPage() {
             await reload()
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.inventoryReplenishFailed))
+        }
+    }
+
+    // ─── Snooze alert handler ─────────────────────
+    const [snoozeModal, setSnoozeModal] = useState<{
+        isOpen: boolean
+        type: 'inventory' | 'expiry' | 'health'
+        id: string
+        title: string
+        currentSnoozedUntil?: string | null
+    } | null>(null)
+
+    const handleConfirmSnooze = async (targetIso: string) => {
+        if (!snoozeModal) return
+        const { type, id } = snoozeModal
+        try {
+            const table = type === 'inventory' ? 'inventory' : type === 'expiry' ? 'inventory_expiry_reminders' : 'health_records'
+            const { error } = await supabase.from(table).update({ snoozed_until: targetIso } as any).eq('id', id)
+            if (error) throw error
+            pushToast('success', text.snoozeSuccess)
+            await reload()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, text.snoozeFailed))
+        }
+    }
+
+    const handleClearSnooze = async () => {
+        if (!snoozeModal) return
+        const { type, id } = snoozeModal
+        try {
+            const table = type === 'inventory' ? 'inventory' : type === 'expiry' ? 'inventory_expiry_reminders' : 'health_records'
+            const { error } = await supabase.from(table).update({ snoozed_until: null } as any).eq('id', id)
+            if (error) throw error
+            pushToast('success', text.snoozeCleared)
+            await reload()
+        } catch (err) {
+            pushToast('error', getErrorMessage(err, text.snoozeFailed))
         }
     }
 
@@ -372,18 +418,39 @@ export function DashboardPage() {
                 discardingId={discardingExpiryId}
                 onDiscard={handleDiscardExpiredReminder}
                 onUsedUp={handleUsedUpReminder}
+                onSnooze={(item) => setSnoozeModal({
+                    isOpen: true,
+                    type: 'expiry',
+                    id: item.id,
+                    title: text.snoozeTitle(item.item_name),
+                    currentSnoozedUntil: item.snoozed_until,
+                })}
             />
 
             <HealthNotifications
                 items={urgentHealthReminders}
                 renew={renewForm}
                 online={online}
+                onSnooze={(item) => setSnoozeModal({
+                    isOpen: true,
+                    type: 'health',
+                    id: item.id,
+                    title: text.snoozeTitle(item.name),
+                    currentSnoozedUntil: item.snoozed_until,
+                })}
             />
 
             <InventoryAlerts
                 items={lowInventory}
                 online={online}
                 onReplenish={handleReplenishInventory}
+                onSnooze={(item) => setSnoozeModal({
+                    isOpen: true,
+                    type: 'inventory',
+                    id: item.id,
+                    title: text.snoozeTitle(item.item_name),
+                    currentSnoozedUntil: item.snoozed_until,
+                })}
             />
 
             <MoodCalendarSection
@@ -444,6 +511,17 @@ export function DashboardPage() {
                     )}
                 </Card>
             </div>
+
+            {snoozeModal && (
+                <SnoozeModal
+                    isOpen={snoozeModal.isOpen}
+                    title={snoozeModal.title}
+                    currentSnoozedUntil={snoozeModal.currentSnoozedUntil}
+                    onClose={() => setSnoozeModal(null)}
+                    onConfirm={handleConfirmSnooze}
+                    onClear={snoozeModal.currentSnoozedUntil ? handleClearSnooze : undefined}
+                />
+            )}
         </div>
     )
 }

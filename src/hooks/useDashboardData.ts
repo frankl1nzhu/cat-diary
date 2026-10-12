@@ -6,8 +6,8 @@ import { getErrorMessage } from '../lib/errorMessage'
 import { withTimeout } from '../lib/promiseTimeout'
 import { isAbnormalPoop } from '../lib/constants'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, differenceInDays } from 'date-fns'
-import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord, InventoryExpiryReminder } from '../types/database.types'
-import { computeInventoryStatus, computeInventoryExpiryHoursLeft } from '../types/database.types'
+import type { MoodType, DiaryEntry, InventoryItem, FeedStatus, HealthRecord, InventoryExpiryReminder, SnoozeDisplayInfo } from '../types/database.types'
+import { computeInventoryStatus, computeInventoryExpiryHoursLeft, isItemActivelySnoozed, computeSnoozeDisplay } from '../types/database.types'
 
 export interface DashboardData {
     todayFeeds: FeedStatus[]
@@ -248,30 +248,38 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
 
     // Derived computations
     const lowInventory = useMemo(
-        () => data.inventory.filter((i) => computeInventoryStatus(i) !== 'plenty'),
-        [data.inventory],
+        () => data.inventory
+            .filter((i) => computeInventoryStatus(i) !== 'plenty' && !isItemActivelySnoozed(i.snoozed_until, today))
+            .map((i) => ({
+                ...i,
+                snoozeInfo: computeSnoozeDisplay(i.snoozed_until, today),
+            })),
+        [data.inventory, today],
     )
 
     const allInventoryExpiryReminders = useMemo(() => {
         return data.inventoryExpiryReminders
+            .filter((item) => !isItemActivelySnoozed(item.snoozed_until, today))
             .map((item) => {
                 const hoursLeft = computeInventoryExpiryHoursLeft(item)
-                return { ...item, hoursLeft }
+                const snoozeInfo = computeSnoozeDisplay(item.snoozed_until, today)
+                return { ...item, hoursLeft, snoozeInfo }
             })
             .sort((a, b) => a.hoursLeft - b.hoursLeft)
-    }, [data.inventoryExpiryReminders])
+    }, [data.inventoryExpiryReminders, today])
 
     const healthReminderItems = useMemo(() => {
         const now = new Date()
         return data.healthReminders.map((r) => {
             const daysLeft = differenceInDays(new Date(r.next_due!), now)
-            return { ...r, daysLeft }
+            const snoozeInfo = computeSnoozeDisplay(r.snoozed_until, today)
+            return { ...r, daysLeft, snoozeInfo }
         })
-    }, [data.healthReminders])
+    }, [data.healthReminders, today])
 
     const urgentHealthReminders = useMemo(
-        () => healthReminderItems.filter((r) => r.daysLeft <= 3),
-        [healthReminderItems],
+        () => healthReminderItems.filter((r) => r.daysLeft <= 3 && !isItemActivelySnoozed(r.snoozed_until, today)),
+        [healthReminderItems, today],
     )
 
     const catCountdowns = useMemo(() => {

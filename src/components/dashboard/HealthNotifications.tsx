@@ -27,9 +27,10 @@ interface HealthNotificationsProps {
         handleStop: (record: HealthRecord) => Promise<void>
     }
     online: boolean
+    onSnooze?: (item: HealthNotifyItem) => void
 }
 
-export const HealthNotifications = memo(function HealthNotifications({ items, renew, online }: HealthNotificationsProps) {
+export const HealthNotifications = memo(function HealthNotifications({ items, renew, online, onSnooze }: HealthNotificationsProps) {
     const { language } = useI18n()
     const text = language === 'zh'
         ? {
@@ -42,6 +43,7 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: '更新',
             stopping: '停止中...',
             stop: '停止',
+            snooze: '延期',
             confirmTitle: '停止提醒',
             confirmBody: (name: string) => `确定停止「${name}」的到期提醒吗？此操作不可撤销。`,
             confirmOk: '确认停止',
@@ -57,6 +59,7 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
             update: 'Update',
             stopping: 'Stopping...',
             stop: 'Stop',
+            snooze: 'Snooze',
             confirmTitle: 'Stop Reminder',
             confirmBody: (name: string) => `Stop the reminder for "${name}"? This cannot be undone.`,
             confirmOk: 'Confirm',
@@ -96,7 +99,23 @@ export const HealthNotifications = memo(function HealthNotifications({ items, re
                                         <span className="text-xs text-muted">
                                             {typeLabel} · {text.dueAt}: {format(new Date(r.next_due!), 'yyyy/MM/dd')}
                                         </span>
+                                        {(r as any).snoozeInfo && (
+                                            <span className="text-xs text-danger font-medium" style={{ display: 'block', marginTop: '2px' }}>
+                                                {(r as any).snoozeInfo.displayLabel}
+                                            </span>
+                                        )}
                                         <div className="health-notify-actions">
+                                            {onSnooze && (
+                                                <button
+                                                    type="button"
+                                                    className="health-notify-stop-btn"
+                                                    style={{ background: 'var(--color-bg-input)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }}
+                                                    disabled={!online}
+                                                    onClick={() => onSnooze(r)}
+                                                >
+                                                    ⏰ {text.snooze}
+                                                </button>
+                                            )}
                                             <button
                                                 type="button"
                                                 className="health-notify-update-btn"
