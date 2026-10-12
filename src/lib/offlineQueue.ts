@@ -3,6 +3,8 @@
  *  replays them when connectivity is restored.
  * ─────────────────────────────────────────────────── */
 
+import { supabase } from './supabase'
+
 const DB_NAME = 'cat-diary-offline'
 const STORE_NAME = 'pending-ops'
 const DB_VERSION = 1
@@ -91,7 +93,6 @@ export async function removeOp(id: string): Promise<void> {
 
 /** Flush (replay) all pending operations against Supabase. */
 export async function flushQueue(): Promise<{ synced: number; failed: number }> {
-    const { supabase } = await import('./supabase')
     const ops = await getPendingOps()
     let synced = 0
     let failed = 0
