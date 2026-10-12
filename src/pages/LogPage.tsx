@@ -23,6 +23,7 @@ import { BRISTOL_LABELS, POOP_COLOR_EMOJIS, isAbnormalPoop, DIARY_TAGS, getDiary
 import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord, FeedStatus } from '../types/database.types'
+import { computeInventoryStatus, roundQuantity } from '../types/database.types'
 import './LogPage.css'
 
 type TimelineItem =
@@ -719,6 +720,26 @@ export function LogPage() {
                 await supabase.from('weight_records').delete().eq('id', item.data.id)
             }
             if (item.type === 'feed') {
+                const parts = item.data.meal_type.split('|')
+                const itemName = parts[0]
+                const grams = parts[1] ? parseFloat(parts[1]) : NaN
+                if (itemName && !isNaN(grams) && grams > 0 && catId) {
+                    const { data: invItems } = await supabase.from('inventory')
+                        .select('*')
+                        .eq('cat_id', catId)
+                        .eq('item_name', itemName)
+                        .limit(1)
+                    if (invItems && invItems.length > 0) {
+                        const inv = invItems[0]
+                        if (inv.total_quantity != null) {
+                            const restoredQty = roundQuantity(inv.total_quantity + grams, 1)
+                            const restoredStatus = computeInventoryStatus({ ...inv, total_quantity: restoredQty })
+                            await supabase.from('inventory')
+                                .update({ total_quantity: restoredQty, status: restoredStatus, updated_by: user?.id })
+                                .eq('id', inv.id)
+                        }
+                    }
+                }
                 await supabase.from('feed_status').delete().eq('id', item.data.id)
             }
             lightHaptic()
@@ -959,14 +980,18 @@ export function LogPage() {
                         </Card>
                     </SwipeableRow>
                 )
-            case 'feed':
+            case 'feed': {
+                const parts = item.data.meal_type.split('|')
+                const displayLabel = parts.length > 1
+                    ? `${parts[0]} ${parts[1]}g`
+                    : (MEAL_LABELS[item.data.meal_type as keyof typeof MEAL_LABELS] ?? item.data.meal_type)
                 return (
                     <SwipeableRow key={`f-${item.data.id}`} onDelete={() => setPendingDeleteItem(item)}>
                         <Card variant="default" padding="md" className="timeline-card">
                             <div className="timeline-badge" style={{ background: 'rgba(255, 193, 7, 0.2)' }}>🍽️</div>
                             <div className="timeline-content">
                                 <p className="text-sm font-semibold">
-                                    {MEAL_LABELS[item.data.meal_type as keyof typeof MEAL_LABELS] ?? item.data.meal_type}
+                                    {displayLabel}
                                 </p>
                                 {item.data.fed_by && (
                                     <span className="text-sm text-secondary">{getUserName(item.data.fed_by)}</span>
@@ -976,6 +1001,7 @@ export function LogPage() {
                         </Card>
                     </SwipeableRow>
                 )
+            }
         }
     }
 
