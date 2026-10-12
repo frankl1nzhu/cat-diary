@@ -234,8 +234,17 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
         })
     }, [catId, monthStart, monthEnd])
 
+    const reloadInventory = useCallback(async () => {
+        if (!catId) return
+        const { data: invData } = await supabase.from('inventory').select('*').eq('cat_id', catId)
+        if (invData) {
+            setData((prev) => ({ ...prev, inventory: invData }))
+        }
+    }, [catId])
+
     useRealtimeSubscription('feed_status', () => { reloadFeeds() }, catId ? `cat_id=eq.${catId}` : undefined)
     useRealtimeSubscription('mood_logs', () => { reloadMoods() }, catId ? `cat_id=eq.${catId}` : undefined)
+    useRealtimeSubscription('inventory', () => { reloadInventory() }, catId ? `cat_id=eq.${catId}` : undefined)
 
     // Derived computations
     const lowInventory = useMemo(
