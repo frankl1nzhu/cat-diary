@@ -80,6 +80,8 @@ export function DashboardPage() {
                     quickActionsTitle: '快捷操作',
                     moodSectionTitle: '今日心情与日历',
                     weeklySummaryTitle: '本周汇总',
+                    expandSection: '展开 ▼',
+                    collapseSection: '收起 ▲',
                 }
                 : {
                     refreshing: 'Refreshing…',
@@ -127,6 +129,8 @@ export function DashboardPage() {
                     quickActionsTitle: 'Quick Actions',
                     moodSectionTitle: 'Mood & Calendar',
                     weeklySummaryTitle: 'Weekly Summary',
+                    expandSection: 'Expand ▼',
+                    collapseSection: 'Collapse ▲',
                 },
         [language],
     )
@@ -425,9 +429,9 @@ export function DashboardPage() {
                         <button
                             type="button"
                             className="section-collapse-btn"
-                            aria-label={sectionConfig.collapsed.quickActions ? text.expand : text.collapse}
+                            aria-label={sectionConfig.collapsed.quickActions ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.quickActions ? '展开 ▼' : '收起 ▲'}
+                            {sectionConfig.collapsed.quickActions ? text.expandSection : text.collapseSection}
                         </button>
                     </div>
                     {!sectionConfig.collapsed.quickActions && (
@@ -468,9 +472,9 @@ export function DashboardPage() {
                         <button
                             type="button"
                             className="section-collapse-btn"
-                            aria-label={sectionConfig.collapsed.mood ? text.expand : text.collapse}
+                            aria-label={sectionConfig.collapsed.mood ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.mood ? '展开 ▼' : '收起 ▲'}
+                            {sectionConfig.collapsed.mood ? text.expandSection : text.collapseSection}
                         </button>
                     </div>
                     {!sectionConfig.collapsed.mood && (
@@ -493,9 +497,9 @@ export function DashboardPage() {
                         <button
                             type="button"
                             className="section-collapse-btn"
-                            aria-label={sectionConfig.collapsed.weekSummary ? text.expand : text.collapse}
+                            aria-label={sectionConfig.collapsed.weekSummary ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.weekSummary ? '展开 ▼' : '收起 ▲'}
+                            {sectionConfig.collapsed.weekSummary ? text.expandSection : text.collapseSection}
                         </button>
                     </div>
                     {!sectionConfig.collapsed.weekSummary && (
@@ -516,9 +520,9 @@ export function DashboardPage() {
                         <button
                             type="button"
                             className="section-collapse-btn"
-                            aria-label={sectionConfig.collapsed.latestDiary ? text.expand : text.collapse}
+                            aria-label={sectionConfig.collapsed.latestDiary ? text.expandSection : text.collapseSection}
                         >
-                            {sectionConfig.collapsed.latestDiary ? '展开 ▼' : '收起 ▲'}
+                            {sectionConfig.collapsed.latestDiary ? text.expandSection : text.collapseSection}
                         </button>
                     </div>
                     {!sectionConfig.collapsed.latestDiary && (

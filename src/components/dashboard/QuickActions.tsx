@@ -11,9 +11,9 @@ import { sendMissNotification } from '../../lib/pushServer'
 import { getDiaryTagLabel } from '../../lib/constants'
 import { useI18n } from '../../lib/i18n'
 import { format } from 'date-fns'
-import type { Cat, FeedStatus, InventoryItem, DiaryEntry } from '../../types/database.types'
 import { FeedLogForm } from '../forms/FeedLogForm'
 import { PoopLogForm } from '../forms/PoopLogForm'
+import { PawStampEffect } from '../ui/PawStampEffect'
 
 type RewardParticle = {
     id: number
@@ -51,6 +51,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
     // Reward animation
     const [rewardEmoji, setRewardEmoji] = useState<'💖' | '🐾' | null>(null)
     const [rewardParticles, setRewardParticles] = useState<RewardParticle[]>([])
+    const [showPawStamp, setShowPawStamp] = useState(false)
     const particleIdRef = useRef(1)
 
     // Random diary entry state for "想咪了"
@@ -191,12 +192,14 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
         await onDataChange()
         lightHaptic()
         triggerRewardBurst('🐾')
+        setShowPawStamp(true)
     }
 
     const handlePoopSuccess = () => {
         setPoopModalOpen(false)
         lightHaptic()
         triggerRewardBurst('💖')
+        setShowPawStamp(true)
     }
 
     const handleMissCat = async () => {
@@ -227,6 +230,7 @@ export function QuickActions({ cat, todayFeeds, inventory, lowInventory, onDataC
 
     return (
         <>
+            <PawStampEffect visible={showPawStamp} onComplete={() => setShowPawStamp(false)} />
             {rewardEmoji && <div className="reward-burst">{rewardEmoji}</div>}
             {rewardParticles.length > 0 && (
                 <div className="reward-particles" aria-hidden="true">

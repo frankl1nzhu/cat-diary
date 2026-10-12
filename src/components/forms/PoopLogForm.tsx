@@ -7,6 +7,7 @@ import { enqueueOp } from '../../lib/offlineQueue'
 import { useI18n } from '../../lib/i18n'
 import { useToastStore } from '../../stores/useToastStore'
 import { getErrorMessage } from '../../lib/errorMessage'
+import { playMeowSound } from '../../lib/sound'
 import { Button } from '../ui/Button'
 
 export interface PoopLogFormProps {
@@ -118,6 +119,7 @@ export function PoopLogForm({
                 sendAbnormalPoopNotification(catId, catName, selectedBristol, selectedColor).catch(() => {})
             }
 
+            playMeowSound()
             onSaveSuccess()
         } catch (err) {
             pushToast('error', getErrorMessage(err, text.poopFail))

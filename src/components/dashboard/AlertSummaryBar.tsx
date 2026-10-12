@@ -74,16 +74,16 @@ export function AlertSummaryBar({
         },
     [language])
 
-    // If zero alerts across all categories, render nothing (height 0)
-    if (totalCount === 0) {
+    // If zero alerts across all categories and bar is not expanded, render nothing (height 0)
+    if (totalCount === 0 && !expanded) {
         return null
     }
 
     // How many non-empty alert categories exist
     const activeCategories = (inventoryCount > 0 ? 1 : 0) + (expiryCount > 0 ? 1 : 0) + (healthCount > 0 ? 1 : 0)
 
-    // When only 1 alert category exists, render that component directly without summary bar
-    if (activeCategories === 1) {
+    // When only 1 alert category exists and drawer is not expanded, render that component directly
+    if (activeCategories === 1 && !expanded) {
         if (expiryCount > 0) {
             return (
                 <ExpiryReminders
@@ -150,8 +150,10 @@ export function AlertSummaryBar({
                 }}
             >
                 <div className="alert-summary-left">
-                    <span className="alert-summary-icon" aria-hidden="true">⚠️</span>
-                    <span className="alert-summary-title">{text.title} · {text.itemsPending(totalCount)}</span>
+                    <span className="alert-summary-icon" aria-hidden="true">{totalCount > 0 ? '⚠️' : '🐾'}</span>
+                    <span className="alert-summary-title">
+                        {text.title} · {totalCount > 0 ? text.itemsPending(totalCount) : text.allResolved}
+                    </span>
                     <div className="alert-summary-chips">
                         {expiryCount > 0 && (
                             <span className="alert-summary-chip chip-expiry">{text.expiryBadge(expiryCount)}</span>
@@ -216,11 +218,13 @@ export function AlertSummaryBar({
                     )}
 
                     {totalCount === 0 && (
-                        <EmptyStateCat
-                            posture="lazy_stretch"
-                            message={text.allResolved}
-                            description={text.allResolvedDesc}
-                        />
+                        <div className="px-4">
+                            <EmptyStateCat
+                                posture="lazy_stretch"
+                                message={text.allResolved}
+                                description={text.allResolvedDesc}
+                            />
+                        </div>
                     )}
                 </div>
             )}

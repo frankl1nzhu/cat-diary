@@ -155,7 +155,7 @@ export function useDashboardData(catId: string | null, catLoading: boolean) {
                     (item) => isAbnormalPoop(item.bristol_type, item.color),
                 ).length
                 newData.todayPoopCount = weekPoopsRes.data.filter(
-                    (item) => item.created_at.startsWith(today),
+                    (item) => format(new Date(item.created_at), 'yyyy-MM-dd') === today,
                 ).length
             }
 
