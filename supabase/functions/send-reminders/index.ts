@@ -394,6 +394,7 @@ Deno.serve(async (req) => {
           .select('id,status')
           .eq('cat_id', catId)
           .in('status', ['urgent', 'low'])
+          .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
           .limit(1),
         admin
           .from('health_records')
@@ -402,6 +403,7 @@ Deno.serve(async (req) => {
           .in('type', ['deworming', 'vaccine'])
           .not('next_due', 'is', null)
           .lte('next_due', tomorrowDate)
+          .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
           .order('date', { ascending: false })
           .limit(5),
         admin
@@ -410,6 +412,7 @@ Deno.serve(async (req) => {
           .eq('cat_id', catId)
           .is('discarded_at', null)
           .lt('expires_at', nowIso)
+          .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
           .limit(1),
       ])
 

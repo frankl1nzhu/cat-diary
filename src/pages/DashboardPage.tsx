@@ -134,6 +134,7 @@ export function DashboardPage() {
                     total_quantity: totalQuantity,
                     daily_consumption: alertThreshold,
                     status,
+                    snoozed_until: null,
                     updated_by: user?.id ?? null,
                 })
                 .eq('id', itemId)

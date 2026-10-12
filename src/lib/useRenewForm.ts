@@ -54,7 +54,7 @@ export function useRenewForm(opts: {
             })
             await supabase
                 .from('health_records')
-                .update({ next_due: null })
+                .update({ next_due: null, snoozed_until: null })
                 .eq('id', renewRecord.id)
 
             closeRenewModal()
@@ -74,7 +74,7 @@ export function useRenewForm(opts: {
         try {
             await supabase
                 .from('health_records')
-                .update({ next_due: null })
+                .update({ next_due: null, snoozed_until: null })
                 .eq('id', record.id)
 
             await opts.onSuccess()
