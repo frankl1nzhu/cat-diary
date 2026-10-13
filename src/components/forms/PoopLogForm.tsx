@@ -129,10 +129,10 @@ export function PoopLogForm({
     }
 
     return (
-        <div className="poop-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="poop-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {/* Bristol scale */}
-            <div>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '8px', display: 'block' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
                     {text.bristolLabel}
                 </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
@@ -143,20 +143,17 @@ export function PoopLogForm({
                                 key={type}
                                 type="button"
                                 onClick={() => setSelectedBristol(type)}
+                                className={`modal-option-btn ${isSelected ? 'active' : ''}`}
                                 style={{
+                                    flexDirection: 'column',
+                                    alignItems: 'flex-start',
                                     padding: '8px 10px',
-                                    borderRadius: '8px',
-                                    border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                                    background: isSelected ? 'var(--color-primary-a12)' : 'var(--color-bg-card)',
-                                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
-                                    cursor: 'pointer',
                                     fontSize: '0.78rem',
-                                    textAlign: 'left',
-                                    fontWeight: isSelected ? 600 : 400,
+                                    width: '100%',
                                 }}
                             >
                                 <span style={{ fontWeight: 700 }}>{text.typePrefix} {type}</span>
-                                <div style={{ opacity: 0.8, marginTop: '2px' }}>{bristolLabels[type]}</div>
+                                <div style={{ opacity: 0.85, marginTop: '2px', fontSize: '0.75rem' }}>{bristolLabels[type]}</div>
                             </button>
                         )
                     })}
@@ -164,11 +161,11 @@ export function PoopLogForm({
             </div>
 
             {/* Poop color */}
-            <div>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '8px', display: 'block' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
                     {text.colorLabel}
                 </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                <div className="tag-picker">
                     {(['brown', 'dark_brown', 'yellow', 'green', 'red', 'black', 'white'] as PoopColor[]).map((color) => {
                         const isSelected = selectedColor === color
                         return (
@@ -176,16 +173,7 @@ export function PoopLogForm({
                                 key={color}
                                 type="button"
                                 onClick={() => setSelectedColor(color)}
-                                style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '20px',
-                                    border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                                    background: isSelected ? 'var(--color-primary-a12)' : 'var(--color-bg-card)',
-                                    color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
-                                    cursor: 'pointer',
-                                    fontSize: '0.82rem',
-                                    fontWeight: isSelected ? 600 : 400,
-                                }}
+                                className={`tag-btn ${isSelected ? 'tag-btn-active' : ''}`}
                             >
                                 {poopColorLabels[color]}
                             </button>
@@ -195,8 +183,8 @@ export function PoopLogForm({
             </div>
 
             {/* Optional Notes */}
-            <div>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '6px', display: 'block' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
                     {text.notesLabel}
                 </label>
                 <input
@@ -205,12 +193,11 @@ export function PoopLogForm({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder={text.notesPlaceholder}
-                    style={{ width: '100%', padding: '8px 12px' }}
                 />
             </div>
 
             {/* Actions */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
                 {onCancel && (
                     <Button variant="ghost" fullWidth onClick={onCancel} disabled={saving}>
                         {text.cancel}

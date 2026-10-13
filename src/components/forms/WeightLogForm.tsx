@@ -94,9 +94,9 @@ export function WeightLogForm({
     }
 
     return (
-        <div className="weight-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '6px', display: 'block' }}>
+        <div className="weight-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
                     {text.label}
                 </label>
                 <input
@@ -111,16 +111,15 @@ export function WeightLogForm({
                         setErrorMsg('')
                     }}
                     placeholder={text.placeholder}
-                    style={{ width: '100%', fontSize: '1rem', padding: '10px 12px' }}
                 />
                 {errorMsg && (
-                    <p style={{ color: 'var(--color-danger)', fontSize: '0.82rem', marginTop: '4px', margin: 0 }}>
+                    <p style={{ color: 'var(--color-danger)', fontSize: '0.82rem', marginTop: 'var(--space-1)', margin: 0 }}>
                         {errorMsg}
                     </p>
                 )}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
                 {onCancel && (
                     <Button variant="ghost" fullWidth onClick={onCancel} disabled={saving}>
                         {text.cancel}

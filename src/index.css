@@ -239,6 +239,8 @@ button:active:not(:disabled),
 .timeline-chip:active,
 .quick-scoop-btn:active:not(:disabled),
 .tag-btn:active,
+.modal-option-btn:active,
+.segment-toggle-btn:active,
 .theme-option:active {
   transform: scale(0.97);
 }
@@ -296,6 +298,114 @@ input[type='date'].form-input {
   font-weight: 500;
   color: var(--color-text-secondary);
   margin-bottom: var(--space-1);
+}
+
+.form-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.form-row .flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Tag & Pill Pickers ─────────────────────────── */
+
+.tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tag-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-input);
+  border: 2px solid transparent;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tag-btn:hover {
+  background: var(--color-primary-a10);
+}
+
+.tag-btn-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-a15);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ─── Modal Option Card / Grid Buttons ──────────── */
+
+.modal-option-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-input);
+  border: 2px solid transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.modal-option-btn:hover {
+  background: var(--color-primary-a10);
+}
+
+.modal-option-btn.active,
+.modal-option-btn-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-a15);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ─── Segmented Toggle ───────────────────────────── */
+
+.segment-toggle {
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px;
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.segment-toggle-btn {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  border: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.segment-toggle-btn:hover:not(.active) {
+  color: var(--color-text);
+}
+
+.segment-toggle-btn.active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-a15);
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .text-danger {

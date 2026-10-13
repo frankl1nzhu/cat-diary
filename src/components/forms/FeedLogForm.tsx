@@ -191,14 +191,14 @@ export function FeedLogForm({
     }
 
     return (
-        <div className="feed-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div className="feed-form-flow" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
             {/* Inventory Selector */}
-            <div className="form-group">
-                <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '8px', display: 'block' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">
                     {text.chooseInventory}
                 </label>
                 {inventory.length > 0 ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
                         {inventory.map((item) => {
                             const isSelected = selectedItem?.id === item.id
                             const displayStock = formatInventoryDisplay(item.total_quantity ?? null, item.unit, item.unit_ratio ?? 1)
@@ -207,20 +207,7 @@ export function FeedLogForm({
                                     key={item.id}
                                     type="button"
                                     onClick={() => handleSelectInventoryItem(item)}
-                                    style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '8px 12px',
-                                        borderRadius: '10px',
-                                        border: isSelected ? '2px solid var(--color-primary)' : '1px solid var(--color-border)',
-                                        background: isSelected ? 'var(--color-primary-a12)' : 'var(--color-bg-card)',
-                                        color: isSelected ? 'var(--color-primary)' : 'var(--color-text)',
-                                        cursor: 'pointer',
-                                        fontWeight: isSelected ? 600 : 400,
-                                        fontSize: '0.85rem',
-                                        transition: 'all 0.15s ease',
-                                    }}
+                                    className={`modal-option-btn ${isSelected ? 'active' : ''}`}
                                 >
                                     <span>{item.icon || '📦'}</span>
                                     <span>{item.item_name}</span>
@@ -238,46 +225,28 @@ export function FeedLogForm({
 
             {/* Amount and unit controls */}
             {selectedItem && (
-                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 0 }}>
                     {hasCustomUnit && (
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div className="segment-toggle">
                             <button
                                 type="button"
                                 onClick={() => setInputMode('unit')}
-                                style={{
-                                    flex: 1,
-                                    padding: '6px 10px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--color-border)',
-                                    background: inputMode === 'unit' ? 'var(--color-primary)' : 'var(--color-bg-card)',
-                                    color: inputMode === 'unit' ? '#fff' : 'var(--color-text)',
-                                    fontSize: '0.82rem',
-                                    cursor: 'pointer',
-                                }}
+                                className={`segment-toggle-btn ${inputMode === 'unit' ? 'active' : ''}`}
                             >
                                 {text.unitModeLabel(selectedItem.unit || '份')}
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setInputMode('grams')}
-                                style={{
-                                    flex: 1,
-                                    padding: '6px 10px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--color-border)',
-                                    background: inputMode === 'grams' ? 'var(--color-primary)' : 'var(--color-bg-card)',
-                                    color: inputMode === 'grams' ? '#fff' : 'var(--color-text)',
-                                    fontSize: '0.82rem',
-                                    cursor: 'pointer',
-                                }}
+                                className={`segment-toggle-btn ${inputMode === 'grams' ? 'active' : ''}`}
                             >
                                 {text.gramsModeLabel}
                             </button>
                         </div>
                     )}
 
-                    <div>
-                        <label className="form-label" style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '6px', display: 'block' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label className="form-label">
                             {text.amount} ({inputMode === 'unit' ? selectedItem.unit : text.grams})
                         </label>
                         <input
@@ -288,7 +257,6 @@ export function FeedLogForm({
                             value={amountValue}
                             onChange={(e) => setAmountValue(e.target.value)}
                             placeholder={inputMode === 'unit' ? '1' : '50'}
-                            style={{ width: '100%', fontSize: '1rem', padding: '10px 12px' }}
                         />
                     </div>
 
@@ -313,7 +281,7 @@ export function FeedLogForm({
             )}
 
             {/* Submit buttons */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
                 {onCancel && (
                     <Button variant="ghost" fullWidth onClick={onCancel} disabled={loading}>
                         {text.cancel}
