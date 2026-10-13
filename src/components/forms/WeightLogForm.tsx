@@ -110,7 +110,7 @@ export function WeightLogForm({
                         setWeightValue(e.target.value)
                         setErrorMsg('')
                     }}
-                    placeholder={text.placeholder}
+                    placeholder="0"
                 />
                 {errorMsg && (
                     <p style={{ color: 'var(--color-danger)', fontSize: '0.82rem', marginTop: 'var(--space-1)', margin: 0 }}>

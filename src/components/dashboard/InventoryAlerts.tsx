@@ -181,7 +181,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             inputMode="decimal"
                             min="0"
                             step={selectedItem?.unit === 'g' || !selectedItem?.unit ? '1' : '0.1'}
-                            placeholder={text.totalQtyPlaceholder}
+                            placeholder="0"
                             value={newTotalQty}
                             onChange={(e) => setNewTotalQty(e.target.value)}
                         />
@@ -205,7 +205,7 @@ export const InventoryAlerts = memo(function InventoryAlerts({ items, online, on
                             inputMode="decimal"
                             min="0"
                             step={selectedItem?.unit === 'g' || !selectedItem?.unit ? '1' : '0.1'}
-                            placeholder={text.alertThresholdPlaceholder}
+                            placeholder="0"
                             value={newAlertThreshold}
                             onChange={(e) => setNewAlertThreshold(e.target.value)}
                         />

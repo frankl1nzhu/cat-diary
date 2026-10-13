@@ -166,7 +166,7 @@ export function StatsPage() {
 
     const [expiryModalOpen, setExpiryModalOpen] = useState(false)
     const [expiryItemName, setExpiryItemName] = useState('')
-    const [expiryInHours, setExpiryInHours] = useState('48')
+    const [expiryInHours, setExpiryInHours] = useState('')
     const [expirySaving, setExpirySaving] = useState(false)
     const [discardingExpiryId, setDiscardingExpiryId] = useState<string | null>(null)
 
@@ -675,7 +675,7 @@ export function StatsPage() {
 
     const resetExpiryForm = () => {
         setExpiryItemName('')
-        setExpiryInHours('48')
+        setExpiryInHours('')
     }
 
     const handleExpiryReminderSave = async () => {
@@ -1630,7 +1630,7 @@ export function StatsPage() {
                                 min="0.1"
                                 step="0.1"
                                 className="form-input"
-                                placeholder={l('如：2000（若不折算克重填 1）', 'e.g. 2000 (enter 1 if not converting to grams)')}
+                                placeholder="0"
                                 value={invUnitRatio}
                                 onChange={(e) => setInvUnitRatio(e.target.value)}
                             />
@@ -1648,7 +1648,7 @@ export function StatsPage() {
                                 min="0"
                                 step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={invUnit === 'g' ? l('如：5000（克）', 'e.g. 5000 (g)') : l(`如：2（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 2 (${invUnit.trim() || l('unit', 'unit')})`)}
+                                placeholder="0"
                                 value={invTotalQty}
                                 onChange={(e) => setInvTotalQty(e.target.value)}
                             />
@@ -1663,7 +1663,7 @@ export function StatsPage() {
                                 min="0"
                                 step={invUnit === 'g' ? '1' : '0.1'}
                                 className="form-input"
-                                placeholder={invUnit === 'g' ? l('如：500', 'e.g. 500') : l(`如：0.5（${invUnit.trim() || l('单位', 'unit')}）`, `e.g. 0.5 (${invUnit.trim() || l('unit', 'unit')})`)}
+                                placeholder="0"
                                 value={invAlertThreshold}
                                 onChange={(e) => setInvAlertThreshold(e.target.value)}
                             />
@@ -1717,6 +1717,7 @@ export function StatsPage() {
                             min="1"
                             step="1"
                             className="form-input"
+                            placeholder="0"
                             value={expiryInHours}
                             onChange={(e) => setExpiryInHours(e.target.value)}
                         />
@@ -1729,7 +1730,7 @@ export function StatsPage() {
                         variant="primary"
                         fullWidth
                         onClick={handleExpiryReminderSave}
-                        disabled={expirySaving || !online || !expiryItemName.trim()}
+                        disabled={expirySaving || !online || !expiryItemName.trim() || !expiryInHours || Number(expiryInHours) <= 0}
                     >
                         {expirySaving ? l('保存中...', 'Saving...') : l('保存提醒', 'Save reminder')}
                     </Button>
@@ -1748,6 +1749,7 @@ export function StatsPage() {
                                 max="30"
                                 step="0.01"
                                 className="form-input"
+                                placeholder="0"
                                 value={weightValue}
                                 onChange={(e) => {
                                     setWeightValue(e.target.value)

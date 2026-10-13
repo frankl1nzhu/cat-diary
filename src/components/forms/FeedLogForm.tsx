@@ -84,10 +84,10 @@ export function FeedLogForm({
         setSelectedItem(item)
         if (item.unit && item.unit !== 'g' && (item.unit_ratio ?? 1) > 1) {
             setInputMode('unit')
-            setAmountValue('1')
+            setAmountValue('')
         } else {
             setInputMode('grams')
-            setAmountValue('50')
+            setAmountValue('')
         }
     }
 
@@ -256,7 +256,7 @@ export function FeedLogForm({
                             className="form-input"
                             value={amountValue}
                             onChange={(e) => setAmountValue(e.target.value)}
-                            placeholder={inputMode === 'unit' ? '1' : '50'}
+                            placeholder="0"
                         />
                     </div>
 
