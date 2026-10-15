@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -35,6 +35,59 @@ type TimelineItem =
     | { type: 'feed'; data: FeedStatus; time: string }
 
 const TAGS = DIARY_TAGS
+
+interface TimelineVirtualRowProps {
+    virtualRow: {
+        index: number
+        key: React.Key
+        start: number
+    }
+    scrollMargin: number
+    measureElement: (node: HTMLElement | null) => void
+    children: React.ReactNode
+}
+
+function TimelineVirtualRow({
+    virtualRow,
+    scrollMargin,
+    measureElement,
+    children,
+}: TimelineVirtualRowProps) {
+    const rowRef = useRef<HTMLDivElement>(null)
+
+    useLayoutEffect(() => {
+        if (rowRef.current) {
+            measureElement(rowRef.current)
+        }
+    })
+
+    useEffect(() => {
+        const el = rowRef.current
+        if (!el || typeof ResizeObserver === 'undefined') return
+        const ro = new ResizeObserver(() => {
+            measureElement(el)
+        })
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [measureElement])
+
+    return (
+        <div
+            ref={rowRef}
+            data-index={virtualRow.index}
+            style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+                paddingBottom: '16px',
+            }}
+        >
+            {children}
+        </div>
+    )
+}
 
 export function LogPage() {
     const { user } = useSession()
@@ -795,11 +848,38 @@ export function LogPage() {
     }, [dateEnd, dateStart, filterType, deferredKeyword, language, timeline, text.poopKeyword, text.weightKeyword, text.feedKeyword])
 
     const listRef = useRef<HTMLDivElement>(null)
+    const [scrollMargin, setScrollMargin] = useState(0)
+
+    useLayoutEffect(() => {
+        if (listRef.current) {
+            const top = listRef.current.offsetTop
+            if (top !== scrollMargin) {
+                setScrollMargin(top)
+            }
+        }
+    }, [filteredTimeline.length, loading, scrollMargin])
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (listRef.current) {
+                setScrollMargin(listRef.current.offsetTop)
+            }
+        }
+        window.addEventListener('resize', handleResize)
+        return () => window.removeEventListener('resize', handleResize)
+    }, [])
+
+    const getItemKey = useCallback((index: number) => {
+        const item = filteredTimeline[index]
+        return item ? `${item.type}-${item.data.id}` : index
+    }, [filteredTimeline])
+
     const virtualizer = useWindowVirtualizer({
         count: filteredTimeline.length,
         estimateSize: () => 140,
         overscan: 5,
-        scrollMargin: listRef.current?.offsetTop ?? 0,
+        scrollMargin,
+        getItemKey,
     })
 
     const handleDateStartChange = (value: string) => {
@@ -1074,21 +1154,14 @@ export function LogPage() {
                         {virtualizer.getVirtualItems().map((virtualRow) => {
                             const item = filteredTimeline[virtualRow.index]
                             return (
-                                <div
-                                    key={`${item.type}-${item.data.id}`}
-                                    data-index={virtualRow.index}
-                                    ref={virtualizer.measureElement}
-                                    style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        left: 0,
-                                        width: '100%',
-                                        transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
-                                        paddingBottom: '16px',
-                                    }}
+                                <TimelineVirtualRow
+                                    key={virtualRow.key}
+                                    virtualRow={virtualRow}
+                                    scrollMargin={scrollMargin}
+                                    measureElement={virtualizer.measureElement}
                                 >
                                     {renderItem(item)}
-                                </div>
+                                </TimelineVirtualRow>
                             )
                         })}
                     </div>
