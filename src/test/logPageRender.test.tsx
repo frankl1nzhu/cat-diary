@@ -73,6 +73,8 @@ const mockComments = [
     },
 ]
 
+let customDiariesProvider: ((limit: number) => Promise<{ data: typeof mockDiaries; error: null }>) | null = null
+
 vi.mock('../lib/supabase', () => ({
     supabase: {
         from: vi.fn((table: string) => {
@@ -81,7 +83,12 @@ vi.mock('../lib/supabase', () => ({
                     select: () => ({
                         eq: () => ({
                             order: () => ({
-                                limit: () => Promise.resolve({ data: mockDiaries, error: null }),
+                                limit: (lim: number = 50) => {
+                                    if (customDiariesProvider) {
+                                        return customDiariesProvider(lim)
+                                    }
+                                    return Promise.resolve({ data: mockDiaries, error: null })
+                                },
                             }),
                         }),
                     }),
@@ -230,4 +237,71 @@ describe('LogPage Virtualization and Comments', () => {
             expect((virtualElementsCollapsed[1] as HTMLElement).style.transform).toBe('translateY(160px)')
         })
     })
+
+    it('keeps date filters empty by default and shows older records when clicking load more', async () => {
+        const fiftyDiaries = Array.from({ length: 50 }, (_, i) => ({
+            id: `diary-${i + 1}`,
+            cat_id: 'cat-1',
+            created_by: 'user-1',
+            created_at: `2026-10-15T10:${String(i).padStart(2, '0')}:00Z`,
+            text: `日记记录 #${i + 1}`,
+            tags: ['cute'],
+            image_url: null,
+        }))
+
+        const olderDiary = {
+            id: 'diary-older',
+            cat_id: 'cat-1',
+            created_by: 'user-1',
+            created_at: '2026-09-01T10:00:00Z',
+            text: '九月的猫咪旧记录',
+            tags: [],
+            image_url: null,
+        }
+
+        customDiariesProvider = async (limit: number) => {
+            if (limit > 50) {
+                return { data: [...fiftyDiaries, olderDiary], error: null }
+            }
+            return { data: fiftyDiaries, error: null }
+        }
+
+        render(
+            <LanguageProvider>
+                <MemoryRouter>
+                    <main id="main-content" className="app-main">
+                        <LogPage />
+                    </main>
+                </MemoryRouter>
+            </LanguageProvider>
+        )
+
+        await waitFor(() => {
+            expect(screen.getByText('日记记录 #50')).toBeInTheDocument()
+        })
+
+        const startDateInput = screen.getByLabelText('开始日期') as HTMLInputElement
+        const endDateInput = screen.getByLabelText('结束日期') as HTMLInputElement
+
+        // Date inputs must NOT be auto-filled, which would block older records
+        expect(startDateInput.value).toBe('')
+        expect(endDateInput.value).toBe('')
+
+        // Click load more button
+        const loadMoreBtn = await screen.findByRole('button', { name: '加载更多' })
+        expect(loadMoreBtn).toBeInTheDocument()
+        fireEvent.click(loadMoreBtn)
+
+        const mainEl = screen.getByRole('main')
+        mainEl.scrollTop = 7500
+        fireEvent.scroll(mainEl)
+
+        await waitFor(() => {
+            expect(screen.getByText('九月的猫咪旧记录')).toBeInTheDocument()
+            expect(screen.queryByText('日记记录 #50')).not.toBeInTheDocument()
+        })
+
+        customDiariesProvider = null
+    })
 })
+

@@ -24,7 +24,7 @@ import { useI18n } from '../lib/i18n'
 import { format } from 'date-fns'
 import type { DiaryEntry, DiaryComment, DiaryReaction, PoopLog, WeightRecord, FeedStatus, InventoryItem } from '../types/database.types'
 import { computeInventoryStatus, roundQuantity } from '../types/database.types'
-import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { TimelineFilterBar } from '../components/log/TimelineFilterBar'
 import './LogPage.css'
 
@@ -330,7 +330,8 @@ export function LogPage() {
     const [dateEnd, setDateEnd] = useState('')
 
     const fileInputRef = useRef<HTMLInputElement>(null)
-    const dateRangeInitializedRef = useRef(false)
+    const loadLimitRef = useRef(loadLimit)
+    loadLimitRef.current = loadLimit
 
     // ─── Load timeline ────────────────────────────
     const loadTimeline = useCallback(async (nextLimit?: number) => {
@@ -339,7 +340,7 @@ export function LogPage() {
             return
         }
 
-        const effectiveLimit = nextLimit ?? loadLimit
+        const effectiveLimit = nextLimit ?? loadLimitRef.current
 
         try {
             const [diaries, poops, weights, feeds] = await withTimeout(Promise.all([
@@ -369,7 +370,7 @@ export function LogPage() {
         } finally {
             setLoading(false)
         }
-    }, [catId, catLoading, loadLimit, pushToast, text.timelineLoadFailed])
+    }, [catId, catLoading, pushToast, text.timelineLoadFailed])
 
     useEffect(() => { loadTimeline() }, [loadTimeline])
 
@@ -530,7 +531,6 @@ export function LogPage() {
         setFilterType('all')
         setDateStart('')
         setDateEnd('')
-        dateRangeInitializedRef.current = false
     }, [catId])
 
     useEffect(() => {
@@ -571,16 +571,6 @@ export function LogPage() {
         catId ? `cat_id=eq.${catId}` : undefined)
     useRealtimeSubscription('feed_status', triggerRealtimeReload,
         catId ? `cat_id=eq.${catId}` : undefined)
-
-    useEffect(() => {
-        if (dateRangeInitializedRef.current || timeline.length === 0) return
-        const sorted = [...timeline].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())
-        const start = format(new Date(sorted[0].time), 'yyyy-MM-dd')
-        const end = format(new Date(sorted[sorted.length - 1].time), 'yyyy-MM-dd')
-        setDateStart(start)
-        setDateEnd(end)
-        dateRangeInitializedRef.current = true
-    }, [timeline])
 
     // ─── Add diary ────────────────────────────────
     const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -850,32 +840,41 @@ export function LogPage() {
     const listRef = useRef<HTMLDivElement>(null)
     const [scrollMargin, setScrollMargin] = useState(0)
 
+    const getScrollElement = useCallback(() => {
+        return listRef.current?.closest('main') || (typeof document !== 'undefined' ? (document.getElementById('main-content') ?? document.documentElement) : null)
+    }, [])
+
+    const calculateScrollMargin = useCallback(() => {
+        if (!listRef.current) return 0
+        return listRef.current.offsetTop
+    }, [])
+
     useLayoutEffect(() => {
-        if (listRef.current) {
-            const top = listRef.current.offsetTop
+        const top = calculateScrollMargin()
+        if (top !== scrollMargin) {
+            setScrollMargin(top)
+        }
+    }, [calculateScrollMargin, filteredTimeline.length, loading, scrollMargin])
+
+    useEffect(() => {
+        const handleResize = () => {
+            const top = calculateScrollMargin()
             if (top !== scrollMargin) {
                 setScrollMargin(top)
             }
         }
-    }, [filteredTimeline.length, loading, scrollMargin])
-
-    useEffect(() => {
-        const handleResize = () => {
-            if (listRef.current) {
-                setScrollMargin(listRef.current.offsetTop)
-            }
-        }
         window.addEventListener('resize', handleResize)
         return () => window.removeEventListener('resize', handleResize)
-    }, [])
+    }, [calculateScrollMargin, scrollMargin])
 
     const getItemKey = useCallback((index: number) => {
         const item = filteredTimeline[index]
         return item ? `${item.type}-${item.data.id}` : index
     }, [filteredTimeline])
 
-    const virtualizer = useWindowVirtualizer({
+    const virtualizer = useVirtualizer({
         count: filteredTimeline.length,
+        getScrollElement,
         estimateSize: () => 140,
         overscan: 5,
         scrollMargin,

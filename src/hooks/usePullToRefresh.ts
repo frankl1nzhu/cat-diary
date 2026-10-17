@@ -24,7 +24,10 @@ export function usePullToRefresh({
         if (!enabled || refreshing) return
         const el = containerRef.current
         // Only enable pull if scrolled to top
-        if (el && el.scrollTop > 0) return
+        if (el) {
+            const scrollEl = el.closest('.app-main') || el
+            if (scrollEl.scrollTop > 0) return
+        }
         startYRef.current = e.touches[0].clientY
     }, [enabled, refreshing])
 
